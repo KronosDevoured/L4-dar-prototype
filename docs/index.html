@@ -2,13 +2,26 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>L4-dar Prototype</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>L4 DAR Prototype</title>
   <style>
-    body { margin: 0; overflow: hidden; background: #202020; }
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: #202020;
+    }
+    canvas {
+      display: block;
+    }
     #loading {
-      position: absolute; top: 10px; left: 10px;
-      color: #fff; font-family: sans-serif; font-size: 14px;
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      padding: 6px 12px;
+      background: rgba(0, 0, 0, 0.7);
+      color: #fff;
+      font-family: sans-serif;
+      border-radius: 4px;
     }
   </style>
 </head>
@@ -30,10 +43,15 @@
       scene = new THREE.Scene();
       scene.background = new THREE.Color(0x202020);
 
-      camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
+      camera = new THREE.PerspectiveCamera(
+        60,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        2000
+      );
       camera.position.set(0, 2, 6);
 
-      renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('bg'), antialias: true });
+      renderer = new THREE.WebGLRenderer({ antialias: true, canvas: document.getElementById("bg") });
       renderer.setSize(window.innerWidth, window.innerHeight);
 
       controls = new OrbitControls(camera, renderer.domElement);
@@ -54,19 +72,17 @@
 
     function loadCar() {
       const loader = new GLTFLoader();
-
-      // Hardcode full GitHub Pages URL
-      const url = "https://kronosdevoured.github.io/L4-dar-prototype/models/octane.glb?v=1";
+      const url = "models/octane.glb"; // file must be at docs/models/octane.glb
 
       loader.load(
         url,
         (gltf) => {
-          car = gltf.scene || gltf.scenes?.[0];
+          car = gltf.scene;
           car.scale.set(1, 1, 1);
           car.rotation.y = Math.PI; // face toward camera
           scene.add(car);
-          setLoading("Model loaded");
-          setTimeout(removeLoading, 900);
+          setLoading("Model loaded!");
+          setTimeout(removeLoading, 1000);
         },
         undefined,
         (err) => {
@@ -97,7 +113,7 @@
 
     function animate() {
       requestAnimationFrame(animate);
-      if (car) car.rotation.y += 0.004; // gentle idle spin
+      if (car) car.rotation.y += 0.004; // idle spin
       controls.update();
       renderer.render(scene, camera);
     }
