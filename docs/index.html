@@ -2,33 +2,18 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no"
-  />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>L4 DAR Prototype</title>
-  <!-- Tiny inline SVG favicon to avoid 404s -->
   <link rel="icon" type="image/svg+xml"
         href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="%23111"/><text x="50%" y="54%" font-size="36" text-anchor="middle" fill="%23fff" font-family="Arial,Helvetica,sans-serif">L4</text></svg>' />
-  <style>
-    html, body { margin:0; height:100%; background:#111; }
-    body { overflow:hidden; font-family:system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
-    canvas { display:block; }
-    #loading {
-      position: absolute; top: 10px; left: 10px; z-index: 10;
-      color: white; background: rgba(0,0,0,0.6);
-      padding: 6px 10px; border-radius: 6px; font-size: 14px;
-    }
-  </style>
+  <style>/* … your styles … */</style>
 </head>
 <body>
-  <div id="loading">Loading model…</div>
-
+  <!-- … -->
   <script type="module">
-    /* --- Use CDN modules (no bundler required) --- */
-    import * as THREE from "https://unpkg.com/three@0.164.0/build/three.module.js";
-    import { OrbitControls } from "https://unpkg.com/three@0.164.0/examples/jsm/controls/OrbitControls.js";
-    import { GLTFLoader } from "https://unpkg.com/three@0.164.0/examples/jsm/loaders/GLTFLoader.js";
+    import * as THREE from "https://unpkg.com/three@0.164.0/build/three.module.js?v=1";
+    import { OrbitControls } from "https://unpkg.com/three@0.164.0/examples/jsm/controls/OrbitControls.js?v=1";
+    import { GLTFLoader } from "https://unpkg.com/three@0.164.0/examples/jsm/loaders/GLTFLoader.js?v=1";
 
     let scene, camera, renderer, controls, car;
 
