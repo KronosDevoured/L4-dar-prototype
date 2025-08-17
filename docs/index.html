@@ -3,51 +3,107 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>L4-dar Prototype</title>
+  <title>L4-dar Prototype — GLB Test</title>
+  <style>
+    html, body { margin:0; height:100%; background:#111; }
+    #loading {
+      position: absolute; top: 10px; left: 10px; z-index: 10;
+      color: #fff; background: rgba(0,0,0,.6);
+      padding: 6px 10px; border-radius: 6px; font-family: system-ui, sans-serif;
+    }
+  </style>
 </head>
 <body>
   <canvas id="bg"></canvas>
+  <div id="loading">Loading model…</div>
 
   <script type="module">
-    // Import Three.js directly from a CDN
+    // Import Three.js & GLTFLoader from the same version
     import * as THREE from "https://unpkg.com/three@0.155.0/build/three.module.js";
+    import { GLTFLoader } from "https://unpkg.com/three@0.155.0/examples/jsm/loaders/GLTFLoader.js";
 
-    // ---- Example Scene Setup ----
+    // ---- Scene Setup ----
     const scene = new THREE.Scene();
 
     const camera = new THREE.PerspectiveCamera(
       75,
       window.innerWidth / window.innerHeight,
       0.1,
-      1000
+      2000
     );
+    camera.position.set(0, 2, 6);
 
-    const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('bg') });
+    const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('bg'), antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
 
-    // Create a simple cube
-    const geometry = new THREE.BoxGeometry();
-    const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-    const cube = new THREE.Mesh(geometry, material);
+    // Simple lights for GLB/PBR materials
+    const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 1.0);
+    hemi.position.set(0, 20, 0);
+    scene.add(hemi);
+
+    const dir = new THREE.DirectionalLight(0xffffff, 0.9);
+    dir.position.set(5, 10, 7.5);
+    scene.add(dir);
+
+    // Placeholder cube (fallback if GLB fails)
+    const cube = new THREE.Mesh(
+      new THREE.BoxGeometry(),
+      new THREE.MeshStandardMaterial({ color: 0x00ff88 })
+    );
+    cube.visible = false; // hidden once model loads; shown if load fails
     scene.add(cube);
 
-    camera.position.z = 5;
+    // ---- Load your GLB ----
+    const loader = new GLTFLoader();
+    const MODEL_URL = "models/octane.glb"; // relative to docs/index.html
 
+    loader.load(
+      MODEL_URL,
+      (gltf) => {
+        const car = gltf.scene || gltf.scenes?.[0];
+        car.scale.set(1, 1, 1);
+        car.rotation.y = Math.PI; // face toward camera
+        // center model
+        const box = new THREE.Box3().setFromObject(car);
+        const center = box.getCenter(new THREE.Vector3());
+        car.position.sub(center); // put model around origin
+        scene.add(car);
+
+        setLoading("Model loaded");
+        setTimeout(removeLoading, 800);
+      },
+      undefined,
+      (err) => {
+        console.error("GLB load failed, using placeholder cube:", err);
+        cube.visible = true;
+        setLoading("Using placeholder (GLB not found)");
+      }
+    );
+
+    // ---- Render Loop ----
     function animate() {
       requestAnimationFrame(animate);
-      cube.rotation.x += 0.01;
+      // idle spin so you can see it's alive
       cube.rotation.y += 0.01;
       renderer.render(scene, camera);
     }
-
     animate();
 
-    // Handle window resize
+    // Resize handler
     window.addEventListener("resize", () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
     });
+
+    function setLoading(text) {
+      const el = document.getElementById("loading");
+      if (el) el.textContent = text;
+    }
+    function removeLoading() {
+      const el = document.getElementById("loading");
+      if (el && el.parentNode) el.parentNode.removeChild(el);
+    }
   </script>
 </body>
 </html>
