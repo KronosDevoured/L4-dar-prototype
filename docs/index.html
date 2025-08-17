@@ -2,102 +2,52 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>L4 DAR Prototype</title>
-  <link rel="icon" type="image/svg+xml"
-        href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="%23111"/><text x="50%" y="54%" font-size="36" text-anchor="middle" fill="%23fff" font-family="Arial,Helvetica,sans-serif">L4</text></svg>' />
-  <style>/* … your styles … */</style>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>L4-dar Prototype</title>
 </head>
 <body>
-  <!-- … -->
+  <canvas id="bg"></canvas>
+
   <script type="module">
-    import * as THREE from "https://unpkg.com/three@0.164.0/build/three.module.js?v=1";
-    import { OrbitControls } from "https://unpkg.com/three@0.164.0/examples/jsm/controls/OrbitControls.js?v=1";
-    import { GLTFLoader } from "https://unpkg.com/three@0.164.0/examples/jsm/loaders/GLTFLoader.js?v=1";
+    // Import Three.js directly from a CDN
+    import * as THREE from "https://unpkg.com/three@0.155.0/build/three.module.js";
 
-    let scene, camera, renderer, controls, car;
+    // ---- Example Scene Setup ----
+    const scene = new THREE.Scene();
 
-    init();
-    loadCar();
+    const camera = new THREE.PerspectiveCamera(
+      75,
+      window.innerWidth / window.innerHeight,
+      0.1,
+      1000
+    );
 
-    function init() {
-      scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x202020);
+    const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('bg') });
+    renderer.setSize(window.innerWidth, window.innerHeight);
 
-      camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
-      camera.position.set(0, 2, 6);
+    // Create a simple cube
+    const geometry = new THREE.BoxGeometry();
+    const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+    const cube = new THREE.Mesh(geometry, material);
+    scene.add(cube);
 
-      renderer = new THREE.WebGLRenderer({ antialias: true });
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      document.body.appendChild(renderer.domElement);
-
-      controls = new OrbitControls(camera, renderer.domElement);
-      controls.enableDamping = true;
-
-      // Lights
-      const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 1.0);
-      hemi.position.set(0, 20, 0);
-      scene.add(hemi);
-
-      const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
-      dirLight.position.set(5, 10, 7.5);
-      scene.add(dirLight);
-
-      window.addEventListener("resize", onWindowResize);
-      animate();
-    }
-
-    function loadCar() {
-      const loader = new GLTFLoader();
-
-      // Prefer relative path from docs/ so it works on Pages:
-      // docs/index.html -> docs/models/octane.glb  ==> "models/octane.glb"
-      const url = "models/octane.glb";
-
-      loader.load(
-        url,
-        (gltf) => {
-          car = gltf.scene || gltf.scenes?.[0];
-          // Reasonable defaults; tweak later if needed
-          car.scale.set(1, 1, 1);
-          car.rotation.y = Math.PI; // face toward camera
-          scene.add(car);
-          setLoading("Model loaded");
-          setTimeout(removeLoading, 900);
-        },
-        undefined,
-        (err) => {
-          console.error("GLB load failed, using placeholder:", err);
-          const geom = new THREE.BoxGeometry(1, 0.5, 2);
-          const mat = new THREE.MeshStandardMaterial({ color: 0x00ffcc });
-          car = new THREE.Mesh(geom, mat);
-          scene.add(car);
-          setLoading("Using placeholder (GLB not found)");
-        }
-      );
-    }
-
-    function setLoading(text) {
-      const el = document.getElementById("loading");
-      if (el) el.textContent = text;
-    }
-    function removeLoading() {
-      const el = document.getElementById("loading");
-      if (el && el.parentNode) el.parentNode.removeChild(el);
-    }
-
-    function onWindowResize() {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    }
+    camera.position.z = 5;
 
     function animate() {
       requestAnimationFrame(animate);
-      if (car) car.rotation.y += 0.004; // gentle idle spin
-      controls.update();
+      cube.rotation.x += 0.01;
+      cube.rotation.y += 0.01;
       renderer.render(scene, camera);
     }
+
+    animate();
+
+    // Handle window resize
+    window.addEventListener("resize", () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
   </script>
 </body>
 </html>
