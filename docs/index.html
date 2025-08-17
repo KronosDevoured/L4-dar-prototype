@@ -10,9 +10,6 @@
       overflow: hidden;
       background: #202020;
     }
-    canvas {
-      display: block;
-    }
     #loading {
       position: absolute;
       top: 10px;
@@ -29,11 +26,12 @@
   <div id="loading">Loading model…</div>
   <canvas id="bg"></canvas>
 
-  <script type="module">
-    import * as THREE from "https://unpkg.com/three@0.155.0/build/three.module.js";
-    import { OrbitControls } from "https://unpkg.com/three@0.155.0/examples/jsm/controls/OrbitControls.js";
-    import { GLTFLoader } from "https://unpkg.com/three@0.155.0/examples/jsm/loaders/GLTFLoader.js";
+  <!-- ✅ Three.js and helpers from CDN (not ES modules) -->
+  <script src="https://unpkg.com/three@0.155.0/build/three.min.js"></script>
+  <script src="https://unpkg.com/three@0.155.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://unpkg.com/three@0.155.0/examples/js/loaders/GLTFLoader.js"></script>
 
+  <script>
     let scene, camera, renderer, controls, car;
 
     init();
@@ -43,21 +41,15 @@
       scene = new THREE.Scene();
       scene.background = new THREE.Color(0x202020);
 
-      camera = new THREE.PerspectiveCamera(
-        60,
-        window.innerWidth / window.innerHeight,
-        0.1,
-        2000
-      );
+      camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
       camera.position.set(0, 2, 6);
 
       renderer = new THREE.WebGLRenderer({ antialias: true, canvas: document.getElementById("bg") });
       renderer.setSize(window.innerWidth, window.innerHeight);
 
-      controls = new OrbitControls(camera, renderer.domElement);
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
 
-      // Lights
       const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 1.0);
       hemi.position.set(0, 20, 0);
       scene.add(hemi);
@@ -71,15 +63,15 @@
     }
 
     function loadCar() {
-      const loader = new GLTFLoader();
-      const url = "models/octane.glb"; // file must be at docs/models/octane.glb
+      const loader = new THREE.GLTFLoader();
+      const url = "models/octane.glb"; // must be at docs/models/octane.glb
 
       loader.load(
         url,
         (gltf) => {
           car = gltf.scene;
           car.scale.set(1, 1, 1);
-          car.rotation.y = Math.PI; // face toward camera
+          car.rotation.y = Math.PI;
           scene.add(car);
           setLoading("Model loaded!");
           setTimeout(removeLoading, 1000);
@@ -113,7 +105,7 @@
 
     function animate() {
       requestAnimationFrame(animate);
-      if (car) car.rotation.y += 0.004; // idle spin
+      if (car) car.rotation.y += 0.004;
       controls.update();
       renderer.render(scene, camera);
     }
