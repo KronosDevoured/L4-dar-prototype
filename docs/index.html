@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>L4-dar Prototype — GLB Test</title>
+  <title>L4-dar Prototype — GLB Test (esm.sh)</title>
   <style>
     html, body { margin:0; height:100%; background:#111; }
     #loading {
@@ -18,79 +18,68 @@
   <div id="loading">Loading model…</div>
 
   <script type="module">
-    // ✅ Import Three + Loader via CDN (not bare specifier "three")
-    import * as THREE from "https://unpkg.com/three@0.155.0/build/three.module.js";
-    import { GLTFLoader } from "https://unpkg.com/three@0.155.0/examples/jsm/loaders/GLTFLoader.js";
+    // ✅ Use esm.sh so internal imports are rewritten (no import map needed)
+    import * as THREE from "https://esm.sh/three@0.155.0";
+    import { GLTFLoader } from "https://esm.sh/three@0.155.0/examples/jsm/loaders/GLTFLoader.js";
 
-    let scene, camera, renderer, car;
+    console.log("THREE revision:", THREE.REVISION); // sanity log
 
-    init();
-    loadCar();
+    const canvas = document.getElementById('bg');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x202020);
 
-    function init() {
-      scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x202020);
+    const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 2000);
+    camera.position.set(0, 2, 6);
+    renderer.setSize(innerWidth, innerHeight);
 
-      camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
-      camera.position.set(0, 2, 6);
-
-      renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('bg'), antialias: true });
-      renderer.setSize(window.innerWidth, window.innerHeight);
-
-      const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 1.0);
-      hemi.position.set(0, 20, 0);
-      scene.add(hemi);
-
-      const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
-      dirLight.position.set(5, 10, 7.5);
-      scene.add(dirLight);
-
-      window.addEventListener("resize", onWindowResize);
-      animate();
-    }
-
-    function loadCar() {
-      const loader = new GLTFLoader();
-      const url = "models/octane.glb";  // must exist at /docs/models/octane.glb
-
-      loader.load(
-        url,
-        (gltf) => {
-          car = gltf.scene;
-          car.scale.set(1, 1, 1);
-          car.rotation.y = Math.PI;
-          scene.add(car);
-          setLoading("Model loaded");
-          setTimeout(removeLoading, 900);
-        },
-        undefined,
-        (err) => {
-          console.error("GLB load failed:", err);
-          setLoading("GLB not found");
-        }
-      );
-    }
-
-    function setLoading(text) {
-      const el = document.getElementById("loading");
-      if (el) el.textContent = text;
-    }
-    function removeLoading() {
-      const el = document.getElementById("loading");
-      if (el && el.parentNode) el.parentNode.removeChild(el);
-    }
-
-    function onWindowResize() {
-      camera.aspect = window.innerWidth / window.innerHeight;
+    addEventListener("resize", () => {
+      camera.aspect = innerWidth / innerHeight;
       camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    }
+      renderer.setSize(innerWidth, innerHeight);
+    });
 
-    function animate() {
+    // Lights for PBR
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1.0));
+    const dir = new THREE.DirectionalLight(0xffffff, 0.9);
+    dir.position.set(5, 10, 7.5);
+    scene.add(dir);
+
+    // Load GLB
+    const loader = new GLTFLoader();
+    const MODEL_URL = "models/octane.glb"; // docs/index.html -> docs/models/octane.glb
+
+    let car;
+    loader.load(
+      MODEL_URL,
+      (gltf) => {
+        car = gltf.scene || gltf.scenes?.[0];
+        car.rotation.y = Math.PI; // face camera
+        // center at origin
+        const box = new THREE.Box3().setFromObject(car);
+        const center = box.getCenter(new THREE.Vector3());
+        car.position.sub(center);
+        scene.add(car);
+        setLoading("Model loaded");
+        setTimeout(removeLoading, 800);
+      },
+      undefined,
+      (err) => {
+        console.error("GLB load failed:", err);
+        setLoading("GLB not found (check /docs/models/octane.glb & case)");
+      }
+    );
+
+    function setLoading(t){ const el = document.getElementById("loading"); if (el) el.textContent = t; }
+    function removeLoading(){ const el=document.getElementById("loading"); if (el) el.remove(); }
+
+    // Loop
+    function animate(){
       requestAnimationFrame(animate);
       if (car) car.rotation.y += 0.004;
       renderer.render(scene, camera);
     }
+    animate();
   </script>
 </body>
 </html>
