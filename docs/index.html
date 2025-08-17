@@ -2,14 +2,15 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>L4-dar Prototype — GLB Test (esm.sh)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>L4-dar Prototype — GLB Test (esm)</title>
   <style>
     html, body { margin:0; height:100%; background:#111; }
+    canvas { display:block; }
     #loading {
-      position: absolute; top: 10px; left: 10px; z-index: 10;
-      color: #fff; background: rgba(0,0,0,.6);
-      padding: 6px 10px; border-radius: 6px; font-family: system-ui, sans-serif;
+      position:absolute; top:10px; left:10px; z-index:10;
+      color:#fff; background:rgba(0,0,0,.6);
+      padding:6px 10px; border-radius:6px; font-family:system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
     }
   </style>
 </head>
@@ -18,47 +19,51 @@
   <div id="loading">Loading model…</div>
 
   <script type="module">
-    // ✅ Use esm.sh so internal imports are rewritten (no import map needed)
     import * as THREE from "https://esm.sh/three@0.155.0";
     import { GLTFLoader } from "https://esm.sh/three@0.155.0/examples/jsm/loaders/GLTFLoader.js";
 
-    console.log("THREE revision:", THREE.REVISION); // sanity log
-
-    const canvas = document.getElementById('bg');
+    const canvas = document.getElementById("bg");
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x202020);
 
-    const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 2000);
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
     camera.position.set(0, 2, 6);
-    renderer.setSize(innerWidth, innerHeight);
 
-    addEventListener("resize", () => {
-      camera.aspect = innerWidth / innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(innerWidth, innerHeight);
-    });
-
-    // Lights for PBR
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1.0));
+    // Lights for PBR materials
+    const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 1.0);
+    hemi.position.set(0, 20, 0);
+    scene.add(hemi);
     const dir = new THREE.DirectionalLight(0xffffff, 0.9);
     dir.position.set(5, 10, 7.5);
     scene.add(dir);
 
+    // Fallback cube (shown only if GLB fails)
+    const fallback = new THREE.Mesh(
+      new THREE.BoxGeometry(1, 0.5, 2),
+      new THREE.MeshStandardMaterial({ color: 0x00ff88 })
+    );
+    fallback.visible = false;
+    scene.add(fallback);
+
     // Load GLB
     const loader = new GLTFLoader();
     const MODEL_URL = "models/octane.glb"; // docs/index.html -> docs/models/octane.glb
+    let car = null;
 
-    let car;
     loader.load(
       MODEL_URL,
       (gltf) => {
         car = gltf.scene || gltf.scenes?.[0];
         car.rotation.y = Math.PI; // face camera
-        // center at origin
+
+        // center model at origin for nicer view
         const box = new THREE.Box3().setFromObject(car);
         const center = box.getCenter(new THREE.Vector3());
         car.position.sub(center);
+
         scene.add(car);
         setLoading("Model loaded");
         setTimeout(removeLoading, 800);
@@ -66,17 +71,38 @@
       undefined,
       (err) => {
         console.error("GLB load failed:", err);
-        setLoading("GLB not found (check /docs/models/octane.glb & case)");
+        fallback.visible = true;
+        setLoading("Using placeholder (GLB not found)");
       }
     );
 
+    // Minimal mouse drag to rotate the scene (optional UX)
+    let dragging = false, lastX = 0;
+    canvas.addEventListener("pointerdown", (e) => { dragging = true; lastX = e.clientX; });
+    addEventListener("pointerup", () => { dragging = false; });
+    addEventListener("pointermove", (e) => {
+      if (!dragging) return;
+      const dx = e.clientX - lastX;
+      lastX = e.clientX;
+      if (car) car.rotation.y += dx * 0.005;
+      else fallback.rotation.y += dx * 0.005;
+    });
+
+    // Resize
+    addEventListener("resize", () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // HUD helpers
     function setLoading(t){ const el = document.getElementById("loading"); if (el) el.textContent = t; }
-    function removeLoading(){ const el=document.getElementById("loading"); if (el) el.remove(); }
+    function removeLoading(){ const el = document.getElementById("loading"); if (el && el.parentNode) el.parentNode.removeChild(el); }
 
     // Loop
     function animate(){
       requestAnimationFrame(animate);
-      if (car) car.rotation.y += 0.004;
+      if (car) car.rotation.y += 0.002;
       renderer.render(scene, camera);
     }
     animate();
