@@ -3,33 +3,28 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>L4 DAR Prototype</title>
+  <title>L4 DAR Prototype (UMD r149)</title>
+  <!-- inline favicon to avoid 404 -->
+  <link rel="icon" type="image/svg+xml"
+        href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="%23202020"/><text x="50%" y="55%" font-size="28" text-anchor="middle" fill="white" font-family="Arial,Helvetica,sans-serif">L4</text></svg>'/>
   <style>
-    body {
-      margin: 0;
-      overflow: hidden;
-      background: #202020;
+    html,body{margin:0;height:100%;background:#202020;overflow:hidden}
+    #loading{
+      position:absolute;top:10px;left:10px;z-index:10;
+      padding:6px 10px;border-radius:6px;
+      background:rgba(0,0,0,.65);color:#fff;font-family:system-ui,Arial,sans-serif;font-size:14px
     }
-    #loading {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      padding: 6px 12px;
-      background: rgba(0, 0, 0, 0.7);
-      color: #fff;
-      font-family: sans-serif;
-      border-radius: 4px;
-    }
+    canvas{display:block}
   </style>
 </head>
 <body>
   <div id="loading">Loading model…</div>
   <canvas id="bg"></canvas>
 
-  <!-- ✅ Three.js and helpers from CDN (not ES modules) -->
-  <script src="https://unpkg.com/three@0.155.0/build/three.min.js"></script>
-  <script src="https://unpkg.com/three@0.155.0/examples/js/controls/OrbitControls.js"></script>
-  <script src="https://unpkg.com/three@0.155.0/examples/js/loaders/GLTFLoader.js"></script>
+  <!-- ✅ UMD (global) builds from r149 so THREE.OrbitControls / THREE.GLTFLoader exist -->
+  <script src="https://unpkg.com/three@0.149.0/build/three.min.js"></script>
+  <script src="https://unpkg.com/three@0.149.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://unpkg.com/three@0.149.0/examples/js/loaders/GLTFLoader.js"></script>
 
   <script>
     let scene, camera, renderer, controls, car;
@@ -37,50 +32,65 @@
     init();
     loadCar();
 
-    function init() {
+    function init(){
+      const canvas = document.getElementById('bg');
+
       scene = new THREE.Scene();
       scene.background = new THREE.Color(0x202020);
 
-      camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
+      camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 2000);
       camera.position.set(0, 2, 6);
 
-      renderer = new THREE.WebGLRenderer({ antialias: true, canvas: document.getElementById("bg") });
-      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+      renderer.setSize(innerWidth, innerHeight);
 
+      // OrbitControls exists on THREE in r149 UMD builds
       controls = new THREE.OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
 
+      // Lights (for PBR materials)
       const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 1.0);
-      hemi.position.set(0, 20, 0);
+      hemi.position.set(0,20,0);
       scene.add(hemi);
 
-      const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
-      dirLight.position.set(5, 10, 7.5);
-      scene.add(dirLight);
+      const dir = new THREE.DirectionalLight(0xffffff, 0.9);
+      dir.position.set(5,10,7.5);
+      scene.add(dir);
 
-      window.addEventListener("resize", onWindowResize);
+      addEventListener('resize', onResize);
       animate();
     }
 
-    function loadCar() {
+    function loadCar(){
+      // GLTFLoader is on THREE in r149 UMD builds
       const loader = new THREE.GLTFLoader();
-      const url = "models/octane.glb"; // must be at docs/models/octane.glb
+
+      // Use absolute URL you confirmed works (cache-busted)
+      const MODEL_URL = "https://kronosdevoured.github.io/L4-dar-prototype/models/octane.glb?v=1";
 
       loader.load(
-        url,
-        (gltf) => {
-          car = gltf.scene;
-          car.scale.set(1, 1, 1);
+        MODEL_URL,
+        (gltf)=>{
+          car = gltf.scene || (gltf.scenes && gltf.scenes[0]);
+          if(!car){ throw new Error("No scene in GLB"); }
+
+          // Face toward camera and center at origin
           car.rotation.y = Math.PI;
+
+          const box = new THREE.Box3().setFromObject(car);
+          const center = box.getCenter(new THREE.Vector3());
+          car.position.sub(center);
+
           scene.add(car);
-          setLoading("Model loaded!");
-          setTimeout(removeLoading, 1000);
+          setLoading("Model loaded");
+          setTimeout(removeLoading, 900);
         },
         undefined,
-        (err) => {
+        (err)=>{
           console.error("GLB load failed, using placeholder:", err);
-          const geom = new THREE.BoxGeometry(1, 0.5, 2);
-          const mat = new THREE.MeshStandardMaterial({ color: 0x00ffcc });
+          // Fallback placeholder so the page still works
+          const geom = new THREE.BoxGeometry(1,0.5,2);
+          const mat  = new THREE.MeshStandardMaterial({ color: 0x00ffcc });
           car = new THREE.Mesh(geom, mat);
           scene.add(car);
           setLoading("Using placeholder (GLB not found)");
@@ -88,25 +98,25 @@
       );
     }
 
-    function setLoading(text) {
-      const el = document.getElementById("loading");
-      if (el) el.textContent = text;
+    function setLoading(t){
+      const el = document.getElementById('loading');
+      if(el) el.textContent = t;
     }
-    function removeLoading() {
-      const el = document.getElementById("loading");
-      if (el && el.parentNode) el.parentNode.removeChild(el);
+    function removeLoading(){
+      const el = document.getElementById('loading');
+      if(el && el.parentNode) el.parentNode.removeChild(el);
     }
 
-    function onWindowResize() {
-      camera.aspect = window.innerWidth / window.innerHeight;
+    function onResize(){
+      camera.aspect = innerWidth/innerHeight;
       camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setSize(innerWidth, innerHeight);
     }
 
-    function animate() {
+    function animate(){
       requestAnimationFrame(animate);
-      if (car) car.rotation.y += 0.004;
-      controls.update();
+      if (car) car.rotation.y += 0.004; // gentle idle spin
+      if (controls) controls.update();
       renderer.render(scene, camera);
     }
   </script>
