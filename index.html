@@ -27,14 +27,14 @@
   #menuOverlay{
     position:fixed; inset:0; z-index:4; display:none;
     background:rgba(10,12,16,0.45); backdrop-filter: blur(3px);
-    overflow-x:hidden; /* prevent sideways scroll */
+    overflow-x:hidden;
   }
   #menuPanel{
     position:absolute; left:50%; top:12vh; transform:translateX(-50%);
     width:min(960px, calc(100vw - 2rem)); max-height:76vh; overflow:auto;
     background:rgba(24,26,32,.96); color:#e8e8ea; border:1px solid #3a3d45; border-radius:14px;
     box-shadow:0 20px 60px rgba(0,0,0,.35);
-    overflow-x:hidden; /* extra guard */
+    overflow-x:hidden;
   }
   .mp-header{
     position:sticky; top:0; background:rgba(24,26,32,.98); z-index:1;
@@ -57,7 +57,6 @@
   .btn.active{background:#0066ff;border-color:#4c8dff}
   .tag{background:#181a20;border:1px solid #3a3d45;padding:.25rem .5rem;border-radius:999px;font-size:.82rem;white-space:nowrap}
 
-  /* Slider rows: keep content within side edges & responsive */
   .sl{
     display:flex; align-items:center; gap:.6rem; flex-wrap:nowrap;
     width:100%; min-width:0;
@@ -71,7 +70,6 @@
   }
   .sl .tag{flex:0 0 auto}
 
-  /* On very narrow screens, stack label on its own line to avoid overflow */
   @media (max-width:520px){
     .sl{flex-wrap:wrap}
     .sl label{flex:1 0 100%}
@@ -103,7 +101,7 @@
   <!-- HAMBURGER -->
   <button id="menuBtn" type="button" title="Open Menu"><span class="bar"></span><span class="bar"></span><span class="bar"></span></button>
 
-  <!-- OVERLAY MENU (ALL UI LIVES HERE) -->
+  <!-- OVERLAY MENU -->
   <div id="menuOverlay">
     <div id="menuPanel">
       <div class="mp-header">
@@ -116,8 +114,8 @@
         <div class="card">
           <h3>Rotation</h3>
           <div class="row">
-            <button id="rollL" class="btn active" type="button">Air Roll Right</button>
-            <button id="rollR" class="btn" type="button">Air Roll Left</button>
+            <button id="rollL" class="btn" type="button">Air Roll Right</button>
+            <button id="rollR" class="btn active" type="button">Air Roll Left</button>
             <button id="restart" class="btn" type="button">Restart</button>
             <button id="orbit" class="btn" type="button">Orbit</button>
           </div>
@@ -139,8 +137,8 @@
 
           <div class="row sl">
             <label for="accelRange">Max Accel (°/s²)</label>
-            <input id="accelRange" type="range" min="120" max="1200" step="5" value="120"/>
-            <span class="tag" id="accelTag">120</span>
+            <input id="accelRange" type="range" min="120" max="1200" step="5" value="255"/>
+            <span class="tag" id="accelTag">255</span>
           </div>
 
           <div class="row sl">
@@ -169,14 +167,14 @@
 
           <div class="row sl">
             <label for="wmaxPitch">Max Pitch ω</label>
-            <input id="wmaxPitch" type="range" min="4.0" max="24.0" step="0.5" value="4.0"/>
-            <span class="tag" id="wmaxPitchTag">4.0</span>
+            <input id="wmaxPitch" type="range" min="4.0" max="24.0" step="0.5" value="8.5"/>
+            <span class="tag" id="wmaxPitchTag">8.5</span>
           </div>
 
           <div class="row sl">
             <label for="wmaxYaw">Max Yaw ω</label>
-            <input id="wmaxYaw" type="range" min="4.0" max="24.0" step="0.5" value="4.0"/>
-            <span class="tag" id="wmaxYawTag">4.0</span>
+            <input id="wmaxYaw" type="range" min="4.0" max="24.0" step="0.5" value="9.0"/>
+            <span class="tag" id="wmaxYawTag">9.0</span>
           </div>
         </div>
 
@@ -186,8 +184,8 @@
           <div class="row sl">
             <label for="presetSel">Body</label>
             <select id="presetSel">
-              <option value="placeholder" selected>Placeholder (140×56×240)</option>
-              <option value="octane">Octane proportions</option>
+              <option value="placeholder">Placeholder (140×56×240)</option>
+              <option value="octane" selected>Octane proportions</option>
               <option value="dominus">Dominus proportions</option>
             </select>
           </div>
@@ -211,8 +209,38 @@
 
           <div class="row sl">
             <label for="arrowSlider">Arrow Size</label>
-            <input id="arrowSlider" type="range" min="0.60" max="4.00" step="0.01" value="1.80" />
-            <span class="tag" id="arrowVal">1.80×</span>
+            <input id="arrowSlider" type="range" min="0.60" max="4.00" step="0.01" value="4.00" />
+            <span class="tag" id="arrowVal">4.00×</span>
+          </div>
+        </div>
+
+        <!-- Gamepad -->
+        <div class="card">
+          <h3>Gamepad</h3>
+          <div class="row">
+            <button id="gpEnable" class="btn active" type="button">Enable</button>
+            <span class="tag" id="gpStatus">Enabled (waiting for gamepad)</span>
+          </div>
+          <div class="row sl">
+            <label for="gpPreset">Preset</label>
+            <select id="gpPreset">
+              <option value="ps5" selected>PS5 / DualSense</option>
+              <option value="xinput">Generic XInput</option>
+            </select>
+          </div>
+          <div class="row">
+            <button id="gpRemap" class="btn" type="button">Remap Action…</button>
+            <select id="gpAction">
+              <option value="toggleDAR">Toggle DAR</option>
+              <option value="rollLeft">Air Roll Left</option>
+              <option value="rollRight">Air Roll Right</option>
+              <option value="restart">Restart</option>
+              <option value="orbitToggle">Toggle Orbit</option>
+            </select>
+            <span class="tag" id="gpBindLabel">—</span>
+          </div>
+          <div class="row" style="font-size:.86rem;opacity:.85;line-height:1.35;">
+            Tip: Left stick moves the on-screen stick. Remap any action, then press a button or push an axis to bind.
           </div>
         </div>
 
@@ -260,10 +288,10 @@ grid.position.y = -160;
 scene.add(grid);
 
 /* Colors */
-const COL_UP   = 0xff5c5c; // red
-const COL_RIGHT= 0x4c8dff; // blue
-const COL_DOWN = 0x53d769; // green
-const COL_LEFT = 0xffd166; // yellow
+const COL_UP   = 0xff5c5c;
+const COL_RIGHT= 0x4c8dff;
+const COL_DOWN = 0x53d769;
+const COL_LEFT = 0xffd166;
 
 /* Materials */
 const MAT_BODY  = new THREE.MeshPhongMaterial({color: 0xdfe5ef, shininess: 50, specular: 0x666666});
@@ -454,7 +482,7 @@ function drawJoystick(){
   Hline(cx,cy-r+12,cx,cy+r-12,'#cfd6e2',1.5);
   const kx=cx+joyVec.x, ky=cy+joyVec.y;
   Hcircle(kx,ky,JOY_KNOB_R,'#4c8dff',4); HfillCircle(kx,ky,JOY_KNOB_R,'#0f1116');
-  hctx.fillStyle='#222'; hctx.beginPath(); hctx.arc(cx,cy,3,0,Math.PI*2); hctx.fill();
+  hctx.fillStyle='#222'; hctx.beginPath(); hctx.arc(cx,cy,3,0,Math.PI*2);hctx.fill();
 }
 function inJoyLoose(x,y){
   const dx=x-JOY_CENTER.x, dy=y-JOY_CENTER.y;
@@ -483,7 +511,7 @@ function drawDAR(){
   const cx=DAR_CENTER.x, cy=DAR_CENTER.y, r=DAR_R;
   HfillCircle(cx,cy,r, darOn ? 'rgba(0,102,255,0.18)' : 'rgba(24,26,32,0.75)');
   Hcircle(cx,cy,r, darOn ? '#4c8dff' : '#3a3d45', darOn ? 5 : 3);
-  const a = (airRoll>0) ? Math.PI/2 : -Math.PI/2; // icon shows roll direction
+  const a = (airRoll>0) ? Math.PI/2 : -Math.PI/2;
   Htri(cx,cy,a, r*0.55, darOn ? '#0e0f12' : '#e8e8ea');
   Hcircle(cx,cy,r-12, '#bdbdbd', 1.5);
 }
@@ -512,7 +540,7 @@ function positionHints(){
 const menuBtn=document.getElementById('menuBtn');
 const menuOverlay=document.getElementById('menuOverlay');
 const menuCloseBtn=document.getElementById('menuCloseBtn');
-let chromeShown=false; // false means menu closed (clean screen)
+let chromeShown=false;
 
 function openMenu(){
   chromeShown=true;
@@ -529,7 +557,7 @@ menuCloseBtn.addEventListener('click', closeMenu);
 menuOverlay.addEventListener('click',(e)=>{ if(e.target===menuOverlay) closeMenu(); });
 
 /* Buttons / presets */
-let airRoll = +1;
+let airRoll = -1; // default to Air Roll Left
 function setRoll(dir){
   airRoll=dir;
   document.getElementById('rollL').classList.toggle('active',dir>0);
@@ -595,17 +623,17 @@ function syncTags(){
 }
 syncTags();
 
-accelRange.addEventListener('input',()=>{maxAccelDeg=parseFloat(accelRange.value)||120; syncTags();});
+accelRange.addEventListener('input',()=>{maxAccelDeg=parseFloat(accelRange.value)||255; syncTags();});
 curveRange.addEventListener('input',()=>{inputPow=parseFloat(curveRange.value)||1.0; syncTags();});
 dampRange .addEventListener('input',()=>{damp=parseFloat(dampRange.value)||1.20; syncTags();});
 brakeRange.addEventListener('input',()=>{brakeOnRelease=parseFloat(brakeRange.value)||6.0; syncTags();});
 wmaxRange .addEventListener('input',()=>{wMax=parseFloat(wmaxRange.value)||6.0; syncTags();});
-wmaxPitchRange.addEventListener('input',()=>{wMaxPitch=parseFloat(wmaxPitchRange.value)||4.0; syncTags();});
-wmaxYawRange.addEventListener('input',()=>{wMaxYaw=parseFloat(wmaxYawRange.value)||4.0; syncTags();});
+wmaxPitchRange.addEventListener('input',()=>{wMaxPitch=parseFloat(wmaxPitchRange.value)||8.5; syncTags();});
+wmaxYawRange.addEventListener('input',()=>{wMaxYaw=parseFloat(wmaxYawRange.value)||9.0; syncTags();});
 spinSlider.addEventListener('input',()=>{freeRollPeriod=parseFloat(spinSlider.value)||0; syncTags();});
 sizeSlider.addEventListener('input',()=>{JOY_BASE_R=parseInt(stickSizeSlider.value,10)||100; JOY_KNOB_R=Math.round(JOY_BASE_R*0.32); clampJoyCenter(); positionHints(); syncTags();});
 zoomSlider.addEventListener('input',()=>{zoom=parseFloat(zoomSlider.value)||1.0; applyZoom(); syncTags();});
-arrowSlider.addEventListener('input',()=>{arrowScale=parseFloat(arrowSlider.value)||1.0; syncTags();});
+arrowSlider.addEventListener('input',()=>{arrowScale=parseFloat(arrowSlider.value)||4.0; syncTags();});
 presetSel .addEventListener('change',()=>{
   const name = presetSel.value;
   buildCar(presets[name], name);
@@ -617,7 +645,6 @@ hud.addEventListener('pointerdown',(e)=>{
   try{hud.setPointerCapture(e.pointerId);}catch(_){}
   activeId=e.pointerId;
 
-  // DAR: tap toggle, hold relocate
   if(inDAR(e.clientX,e.clientY)){
     darPressT = performance.now();
     clearTimeout(darHoldTimer);
@@ -629,7 +656,6 @@ hud.addEventListener('pointerdown',(e)=>{
     e.preventDefault(); return;
   }
 
-  // Joystick (relocate only when menu closed)
   if(inJoyLoose(e.clientX,e.clientY)){
     joyActive=true; joyVec = vecFromJoyPx(e.clientX,e.clientY);
   }else if(!chromeShown){
@@ -654,7 +680,6 @@ function endPtr(e){
   try{hud.releasePointerCapture(e.pointerId);}catch(_){}
   clearTimeout(holdTimer); relocating=false;
 
-  // DAR toggle if quick tap
   if(!darRelocating && inDAR(e.clientX,e.clientY)){
     const heldMs = performance.now() - darPressT;
     if(heldMs < RELOCATE_HOLD_MS){ darOn = !darOn; }
@@ -667,28 +692,211 @@ function endPtr(e){
 hud.addEventListener('pointerup',endPtr,{passive:false});
 hud.addEventListener('pointercancel',endPtr,{passive:false});
 
+/* ====== GAMEPAD SUPPORT (PS5 / Generic, remappable) ====== */
+const gpEnableBtn = document.getElementById('gpEnable');
+const gpStatusTag = document.getElementById('gpStatus');
+const gpPresetSel = document.getElementById('gpPreset');
+const gpActionSel = document.getElementById('gpAction');
+const gpRemapBtn  = document.getElementById('gpRemap');
+const gpBindLabel = document.getElementById('gpBindLabel');
+
+let gpEnabled = true;      // enabled by default
+let gpIndex   = -1;
+let gpRemapping = false;
+let gpPrevActionPressed = {};
+const GP_DEADZONE = 0.15;
+
+let gpBindings = {
+  toggleDAR:  { kind:'button', index: 1 },
+  rollLeft:   { kind:'button', index: 4 },
+  rollRight:  { kind:'button', index: 5 },
+  restart:    { kind:'button', index: 9 },
+  orbitToggle:{ kind:'button', index: 2 }
+};
+
+const GP_PRESETS = {
+  ps5: {
+    toggleDAR:  { kind:'button', index: 1 },
+    rollLeft:   { kind:'button', index: 4 },
+    rollRight:  { kind:'button', index: 5 },
+    restart:    { kind:'button', index: 9 },
+    orbitToggle:{ kind:'button', index: 2 }
+  },
+  xinput: {
+    toggleDAR:  { kind:'button', index: 1 },
+    rollLeft:   { kind:'button', index: 4 },
+    rollRight:  { kind:'button', index: 5 },
+    restart:    { kind:'button', index: 9 },
+    orbitToggle:{ kind:'button', index: 2 }
+  }
+};
+
+function bindingToLabel(b){
+  if(!b) return '—';
+  if(b.kind==='button') return `Button ${b.index}`;
+  const d = b.dir>0 ? '+' : '−';
+  return `Axis ${b.axis}${d}`;
+}
+function setBindingPreset(name){
+  const p = GP_PRESETS[name] || GP_PRESETS.ps5;
+  gpBindings = JSON.parse(JSON.stringify(p));
+  updateBindLabel();
+}
+function updateBindLabel(){
+  const act = gpActionSel.value;
+  gpBindLabel.textContent = bindingToLabel(gpBindings[act]);
+}
+
+gpEnableBtn.addEventListener('click',()=>{
+  gpEnabled = !gpEnabled;
+  gpEnableBtn.classList.toggle('active', gpEnabled);
+  gpStatusTag.textContent = gpEnabled ? 'Enabled' : 'Disabled';
+});
+gpPresetSel.addEventListener('change', ()=> setBindingPreset(gpPresetSel.value));
+gpActionSel.addEventListener('change', updateBindLabel);
+gpRemapBtn.addEventListener('click',()=>{
+  gpRemapping = true;
+  gpBindLabel.textContent = 'Press button / move axis…';
+});
+
+setBindingPreset('ps5');
+updateBindLabel();
+
+addEventListener('gamepadconnected', (e)=>{
+  if(gpIndex<0){ gpIndex = e.gamepad.index; }
+  gpStatusTag.textContent = `Connected: ${e.gamepad.id}`;
+});
+addEventListener('gamepaddisconnected', (e)=>{
+  if(e.gamepad.index===gpIndex){ gpIndex=-1; }
+  gpStatusTag.textContent = gpEnabled ? 'Enabled (waiting for gamepad)' : 'No gamepad';
+});
+
+function readPads(){
+  const arr = (navigator.getGamepads?.() || []);
+  if(gpIndex<0){
+    for(let i=0;i<arr.length;i++){
+      const p = arr[i];
+      if(p && p.mapping==='standard'){ gpIndex=i; break; }
+    }
+  }
+  return { pad: (gpIndex>=0 ? arr[gpIndex] : null), all: arr };
+}
+
+function isPressedForBinding(pad, binding){
+  if(!binding || !pad) return false;
+  if(binding.kind==='button'){
+    const b = pad.buttons[binding.index];
+    return !!(b && (b.value||0) > 0.5);
+  }
+  if(binding.kind==='axis'){
+    const v = pad.axes[b.axis] || 0;
+    return binding.dir>0 ? (v>0.6) : (v<-0.6);
+  }
+  return false;
+}
+
+function execBinding(action){
+  switch(action){
+    case 'toggleDAR':
+      darOn = !darOn;
+      break;
+    case 'rollLeft':
+      setRoll(-1);
+      break;
+    case 'rollRight':
+      setRoll(+1);
+      break;
+    case 'restart': {
+      if (car) car.quaternion.identity();
+      w.set(0,0,0);
+      orbitOn = false;
+      const orbitBtn = document.getElementById('orbit');
+      if (orbitBtn) orbitBtn.classList.remove('active');
+      orbitPhase = 0;
+      camera.position.set(0, 220, 650);
+      camera.lookAt(0,0,0);
+      if (faceArrow) faceArrow.visible = false;
+      if (faceTip)   faceTip.visible   = false;
+      break;
+    }
+    case 'orbitToggle':
+      orbitOn = !orbitOn;
+      document.getElementById('orbit').classList.toggle('active', orbitOn);
+      break;
+    default: break;
+  }
+}
+
+function handleRemap(pad){
+  if(!gpRemapping || !pad) return;
+  for(let i=0;i<pad.buttons.length;i++){
+    if(pad.buttons[i] && (pad.buttons[i].value||0) > 0.5){
+      gpBindings[gpActionSel.value] = { kind:'button', index:i };
+      gpRemapping = false;
+      updateBindLabel();
+      return;
+    }
+  }
+  for(let a=0;a<pad.axes.length;a++){
+    const v = pad.axes[a] || 0;
+    if(Math.abs(v) > 0.6){
+      gpBindings[gpActionSel.value] = { kind:'axis', axis:a, dir: (v>0? +1 : -1) };
+      gpRemapping = false;
+      updateBindLabel();
+      return;
+    }
+  }
+}
+
+function updateGamepadInput(){
+  if(!gpEnabled) return;
+  const { pad } = readPads();
+  if(!pad){ gpStatusTag.textContent = 'Enabled (waiting for gamepad)'; return; }
+  gpStatusTag.textContent = `Connected: ${pad.id}`;
+
+  if(gpRemapping){ handleRemap(pad); }
+
+  // Left stick → on-screen stick (natural Y: up=up)
+  if(!joyActive && !relocating && !darRelocating){
+    const lx = pad.axes[0] || 0;
+    const ly = pad.axes[1] || 0;
+    const mag = Math.hypot(lx, ly);
+    let nx = 0, ny = 0;
+    if(mag > GP_DEADZONE){
+      const k = (mag - GP_DEADZONE) / (1 - GP_DEADZONE);
+      nx = (lx / (mag||1)) * k;
+      ny = (ly / (mag||1)) * k;
+    }
+    joyVec.set(nx * JOY_BASE_R, ny * JOY_BASE_R);
+  }
+
+  // Fire actions on rising edge
+  for(const action of Object.keys(gpBindings)){
+    const nowPressed = isPressedForBinding(pad, gpBindings[action]);
+    const wasPressed = !!gpPrevActionPressed[action];
+    if(nowPressed && !wasPressed){ execBinding(action); }
+    gpPrevActionPressed[action] = nowPressed;
+  }
+}
+
 /* Physics (independent caps for Pitch/Yaw) */
 let w = new THREE.Vector3(0,0,0);
 const STICK_DEADZONE = STICK_MIN;
 const KP_ROLL = 3.2, KD_ROLL = 0.25;
 
 function integrate(dt){
-  // stick smoothing
   const a = 1 - Math.exp(-(dt*1000)/Math.max(1,STICK_TAU_MS));
   smJoy.lerp(joyVec, a);
 
-  // screen → body; flip X so left on stick = left on face; flip Y sign for screen coords
   const jx =  smJoy.x/JOY_BASE_R;
   const jy = -smJoy.y/JOY_BASE_R;
   const mag = Math.hypot(jx,jy);
 
-  // deadzone & curve
   let eff = Math.max(0, mag - STICK_DEADZONE) / (1 - STICK_DEADZONE);
   eff = Math.pow(eff, inputPow);
-  const ux = (mag>0) ? (-jx/mag) : 0; // yaw unit (flipped X)
-  const uy = (mag>0) ? ( jy/mag) : 0; // pitch unit
+  const ux = (mag>0) ? (-jx/mag) : 0;
+  const uy = (mag>0) ? ( jy/mag) : 0;
 
-  // Face arrow (working mapping)
   if (faceArrow && faceTip){
     const show = eff > 0.02;
     faceArrow.visible = show; faceTip.visible = show;
@@ -698,14 +906,13 @@ function integrate(dt){
       const zFace = BOX.hz + 0.6;
 
       const x2 =  ux * len;
-      const y2 = -uy * len;   // draw flip
+      const y2 = -uy * len;
 
       const pos = faceArrow.geometry.attributes.position.array;
       pos[0]=0; pos[1]=0; pos[2]=zFace;
       pos[3]=x2; pos[4]=y2; pos[5]=zFace;
       faceArrow.geometry.attributes.position.needsUpdate = true;
 
-      // color mapping: right=yellow, left=blue, up=red, down=green
       const col = (Math.abs(x2) > Math.abs(y2))
         ? (x2 >= 0 ? COL_LEFT : COL_RIGHT)
         : (uy >= 0 ? COL_DOWN : COL_UP);
@@ -713,48 +920,40 @@ function integrate(dt){
       faceTip.material.color.setHex(col);
 
       faceTip.position.set(x2, y2, zFace);
-      const ang = Math.atan2(x2, -y2) + Math.PI; // point outward
+      const ang = Math.atan2(x2, -y2) + Math.PI;
       faceTip.rotation.set(0, 0, ang);
       const s = 0.95 * (arrowScale||1);
       faceTip.scale.set(s, s, 1);
     }
   }
 
-  // max accel (deg/s² → rad/s²)
   const maxAccelRad = (maxAccelDeg * Math.PI) / 180;
 
-  // commanded angular accel in body axes
   const alpha = new THREE.Vector3(
-    maxAccelRad * eff * uy,   // pitch (X)
-    maxAccelRad * eff * ux,   // yaw (Y)
+    maxAccelRad * eff * uy,
+    maxAccelRad * eff * ux,
     0
   );
 
-  // DAR roll controller (period 0 = off)
   let targetWz = 0;
   if (darOn && freeRollPeriod > 0){
     targetWz = airRoll * (2*Math.PI)/freeRollPeriod;
   }
   alpha.z = KP_ROLL*(targetWz - w.z) - KD_ROLL*w.z;
 
-  // integrate ω
   w.addScaledVector(alpha, dt);
 
-  // damping + extra brake when no stick & DAR off
   const noStick = eff < 0.02;
   const dampEff = (damp||0) + ((noStick && !darOn) ? (brakeOnRelease||0) : 0);
   const scale = Math.exp(-dampEff * dt);
   w.multiplyScalar(scale);
 
-  // independent caps for pitch & yaw
   if (Math.abs(w.x) > wMaxPitch) w.x = Math.sign(w.x) * wMaxPitch;
   if (Math.abs(w.y) > wMaxYaw)   w.y = Math.sign(w.y)   * wMaxYaw;
 
-  // global cap
   const wm = w.length();
   if (wm > wMax) w.multiplyScalar(wMax/(wm||1));
 
-  // integrate quaternion
   const wx=w.x, wy=w.y, wz=w.z, halfdt=0.5*dt;
   const q=car.quaternion;
   const rw = - q.x*wx - q.y*wy - q.z*wz;
@@ -809,6 +1008,7 @@ function tick(){
 
   if(orbitOn){ orbitPhase += dt; orbitStep(orbitPhase); }
 
+  updateGamepadInput();
   integrate(dt);
 
   renderer.setScissorTest(false);
@@ -841,12 +1041,11 @@ function resize(){
 }
 addEventListener('resize', resize);
 
-buildCar(presets.placeholder, "placeholder");
-setRoll(+1);
+buildCar(presets.octane, "octane");
+setRoll(-1);           // default Air Roll Left
 positionHints();
 applyZoom();
 requestAnimationFrame(tick);
-// start with menu closed for clean screen
 </script>
 </body>
 </html>
