@@ -412,8 +412,9 @@ const presets = {
 let car=null, BOX=null;
 let faceArrow=null, faceTip=null;
 
-// How far in front of the front face the HUD arrow sits (world units)
-const FACE_OFFSET = 0.20; // smaller = closer to the nose (default was ~0.6)
+/* === Arrow plane exactly on the nose === */
+const FACE_OFFSET = 0.0;  // <<< was 0.20 — keep arrow base on the front face
+const FACE_EPS    = 0.05; // <<< tiny nudge to avoid z-fighting
 
 function clearCar(){
   if(!car) return;
@@ -459,16 +460,16 @@ function buildCar(boxDims, presetName="placeholder"){
   addWheel(+xOff, +zOff); addWheel(-xOff, +zOff);
 
   // Face input arrow (front plane, moves with car)
-  const zFace = BOX.hz + FACE_OFFSET;
+  const zFace = BOX.hz + FACE_OFFSET; // <<<
   const faceGeom = new THREE.BufferGeometry().setFromPoints([
-    new THREE.Vector3(0,0,zFace),
-    new THREE.Vector3(0,0,zFace)
+    new THREE.Vector3(0,0,zFace + FACE_EPS), // <<<
+    new THREE.Vector3(0,0,zFace + FACE_EPS)  // <<<
   ]);
   faceArrow = new THREE.Line(faceGeom, new THREE.LineBasicMaterial({color: 0x333333}));
   car.add(faceArrow);
 
   faceTip = new THREE.Mesh(new THREE.ConeGeometry(6,12,12), new THREE.MeshBasicMaterial({color: 0x333333}));
-  faceTip.position.set(0,0,zFace);
+  faceTip.position.set(0,0,zFace + FACE_EPS); // <<<
   car.add(faceTip);
   faceArrow.visible = false; faceTip.visible = false;
 }
@@ -1005,14 +1006,14 @@ function integrate(dt){
     if (show){
       const lenMax = Math.min(BOX.hx, BOX.hy) * 0.95;
       const len = Math.max(10, lenMax * eff * (arrowScale||1));
-      const zFace = BOX.hz + FACE_OFFSET;
+      const zFace = BOX.hz + FACE_OFFSET; // <<<
 
       const x2 =  ux * len;
       const y2 = -uy * len;   // draw flip
 
       const pos = faceArrow.geometry.attributes.position.array;
-      pos[0]=0; pos[1]=0; pos[2]=zFace;
-      pos[3]=x2; pos[4]=y2; pos[5]=zFace;
+      pos[0]=0; pos[1]=0; pos[2]=zFace + FACE_EPS; // <<<
+      pos[3]=x2; pos[4]=y2; pos[5]=zFace + FACE_EPS; // <<<
       faceArrow.geometry.attributes.position.needsUpdate = true;
 
       const col = (Math.abs(x2) > Math.abs(y2))
@@ -1021,7 +1022,7 @@ function integrate(dt){
       faceArrow.material.color.setHex(col);
       faceTip.material.color.setHex(col);
 
-      faceTip.position.set(x2, y2, zFace);
+      faceTip.position.set(x2, y2, zFace + FACE_EPS); // <<<
       const ang = Math.atan2(x2, -y2) + Math.PI; // point outward
       faceTip.rotation.set(0, 0, ang);
       const s = 0.95 * (arrowScale||1);
@@ -1199,12 +1200,12 @@ function swapInGLB(){
 
       // Update arrow plane to new front face (still moves with car)
       if(faceArrow && faceTip){
-        const zFace = BOX.hz + FACE_OFFSET;
+        const zFace = BOX.hz + FACE_OFFSET; // <<<
         const pos = faceArrow.geometry.attributes.position.array;
-        pos[0]=0; pos[1]=0; pos[2]=zFace;
-        pos[3]=0; pos[4]=0; pos[5]=zFace;
+        pos[0]=0; pos[1]=0; pos[2]=zFace + FACE_EPS; // <<<
+        pos[3]=0; pos[4]=0; pos[5]=zFace + FACE_EPS; // <<<
         faceArrow.geometry.attributes.position.needsUpdate = true;
-        faceTip.position.set(0,0,zFace);
+        faceTip.position.set(0,0,zFace + FACE_EPS); // <<<
       }
 
       // Apply the global spawn orientation to the car group (not the GLB itself)
