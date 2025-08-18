@@ -3,122 +3,112 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>L4 DAR Prototype (UMD r149)</title>
-  <!-- inline favicon to avoid 404 -->
+  <title>L4 DAR Prototype — GLB (ESM via esm.sh)</title>
+  <!-- Inline favicon to avoid /favicon.ico 404 -->
   <link rel="icon" type="image/svg+xml"
         href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="%23202020"/><text x="50%" y="55%" font-size="28" text-anchor="middle" fill="white" font-family="Arial,Helvetica,sans-serif">L4</text></svg>'/>
   <style>
-    html,body{margin:0;height:100%;background:#202020;overflow:hidden}
-    #loading{
-      position:absolute;top:10px;left:10px;z-index:10;
-      padding:6px 10px;border-radius:6px;
-      background:rgba(0,0,0,.65);color:#fff;font-family:system-ui,Arial,sans-serif;font-size:14px
+    html, body { margin: 0; height: 100%; background: #202020; overflow: hidden; }
+    canvas { display: block; }
+    #loading {
+      position: absolute; top: 10px; left: 10px; z-index: 10;
+      padding: 6px 10px; border-radius: 6px;
+      background: rgba(0,0,0,.65); color: #fff; font-family: system-ui, Arial, sans-serif; font-size: 14px;
     }
-    canvas{display:block}
   </style>
 </head>
 <body>
   <div id="loading">Loading model…</div>
   <canvas id="bg"></canvas>
 
-  <!-- ✅ UMD (global) builds from r149 so THREE.OrbitControls / THREE.GLTFLoader exist -->
-  <script src="https://unpkg.com/three@0.149.0/build/three.min.js"></script>
-  <script src="https://unpkg.com/three@0.149.0/examples/js/controls/OrbitControls.js"></script>
-  <script src="https://unpkg.com/three@0.149.0/examples/js/loaders/GLTFLoader.js"></script>
+  <script type="module">
+    import * as THREE from "https://esm.sh/three@0.155.0";
+    import { OrbitControls } from "https://esm.sh/three@0.155.0/examples/jsm/controls/OrbitControls.js";
+    import { GLTFLoader } from "https://esm.sh/three@0.155.0/examples/jsm/loaders/GLTFLoader.js";
 
-  <script>
-    let scene, camera, renderer, controls, car;
+    const canvas = document.getElementById("bg");
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
 
-    init();
-    loadCar();
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x202020);
 
-    function init(){
-      const canvas = document.getElementById('bg');
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
+    camera.position.set(0, 2, 6);
 
-      scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x202020);
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
 
-      camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 2000);
-      camera.position.set(0, 2, 6);
+    // Lights for PBR materials
+    const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 1.0);
+    hemi.position.set(0, 20, 0);
+    scene.add(hemi);
 
-      renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-      renderer.setSize(innerWidth, innerHeight);
+    const dir = new THREE.DirectionalLight(0xffffff, 0.9);
+    dir.position.set(5, 10, 7.5);
+    scene.add(dir);
 
-      // OrbitControls exists on THREE in r149 UMD builds
-      controls = new THREE.OrbitControls(camera, renderer.domElement);
-      controls.enableDamping = true;
+    // Load GLB from absolute Pages URL (cache-busted)
+    const MODEL_URL = "https://kronosdevoured.github.io/L4-dar-prototype/models/octane.glb?v=1";
+    const loader = new GLTFLoader();
 
-      // Lights (for PBR materials)
-      const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 1.0);
-      hemi.position.set(0,20,0);
-      scene.add(hemi);
+    let car = null;
 
-      const dir = new THREE.DirectionalLight(0xffffff, 0.9);
-      dir.position.set(5,10,7.5);
-      scene.add(dir);
-
-      addEventListener('resize', onResize);
-      animate();
-    }
-
-    function loadCar(){
-      // GLTFLoader is on THREE in r149 UMD builds
-      const loader = new THREE.GLTFLoader();
-
-      // Use absolute URL you confirmed works (cache-busted)
-      const MODEL_URL = "https://kronosdevoured.github.io/L4-dar-prototype/models/octane.glb?v=1";
-
-      loader.load(
-        MODEL_URL,
-        (gltf)=>{
-          car = gltf.scene || (gltf.scenes && gltf.scenes[0]);
-          if(!car){ throw new Error("No scene in GLB"); }
-
-          // Face toward camera and center at origin
-          car.rotation.y = Math.PI;
-
-          const box = new THREE.Box3().setFromObject(car);
-          const center = box.getCenter(new THREE.Vector3());
-          car.position.sub(center);
-
-          scene.add(car);
-          setLoading("Model loaded");
-          setTimeout(removeLoading, 900);
-        },
-        undefined,
-        (err)=>{
-          console.error("GLB load failed, using placeholder:", err);
-          // Fallback placeholder so the page still works
-          const geom = new THREE.BoxGeometry(1,0.5,2);
-          const mat  = new THREE.MeshStandardMaterial({ color: 0x00ffcc });
-          car = new THREE.Mesh(geom, mat);
-          scene.add(car);
-          setLoading("Using placeholder (GLB not found)");
+    loader.load(
+      MODEL_URL,
+      (gltf) => {
+        car = gltf.scene || gltf.scenes?.[0];
+        if (!car) {
+          console.error("No scene in GLB");
+          setLoading("GLB missing scene");
+          return;
         }
-      );
+        // Face toward camera and center on origin
+        car.rotation.y = Math.PI;
+        const box = new THREE.Box3().setFromObject(car);
+        const center = box.getCenter(new THREE.Vector3());
+        car.position.sub(center);
+        scene.add(car);
+
+        setLoading("Model loaded");
+        setTimeout(removeLoading, 900);
+      },
+      undefined,
+      (err) => {
+        console.error("GLB load failed:", err);
+        // Fallback so page still renders
+        const fallback = new THREE.Mesh(
+          new THREE.BoxGeometry(1, 0.5, 2),
+          new THREE.MeshStandardMaterial({ color: 0x00ffcc })
+        );
+        scene.add(fallback);
+        setLoading("Using placeholder (GLB not found)");
+      }
+    );
+
+    function setLoading(text) {
+      const el = document.getElementById("loading");
+      if (el) el.textContent = text;
     }
 
-    function setLoading(t){
-      const el = document.getElementById('loading');
-      if(el) el.textContent = t;
-    }
-    function removeLoading(){
-      const el = document.getElementById('loading');
-      if(el && el.parentNode) el.parentNode.removeChild(el);
+    function removeLoading() {
+      const el = document.getElementById("loading");
+      if (el && el.parentNode) el.parentNode.removeChild(el);
     }
 
-    function onResize(){
-      camera.aspect = innerWidth/innerHeight;
+    window.addEventListener("resize", () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
-      renderer.setSize(innerWidth, innerHeight);
-    }
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
 
-    function animate(){
+    function animate() {
       requestAnimationFrame(animate);
       if (car) car.rotation.y += 0.004; // gentle idle spin
-      if (controls) controls.update();
+      controls.update();
       renderer.render(scene, camera);
     }
+    animate();
   </script>
 </body>
 </html>
