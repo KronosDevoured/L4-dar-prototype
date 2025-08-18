@@ -5,14 +5,30 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <title>L4 — Blender-Style + XYZ Gizmo + DAR Toggle/Relocate</title>
 <style>
-  /* === CSS BASE START === */
-  html,body{margin:0;padding:0;height:100%;background:#ffffff;color:#0e0f12;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;overscroll-behavior:none}
-  body{background:linear-gradient(180deg,#f6f7fb 0%,#eef1f6 45%,#e9edf3 100%);}
-  *, *::before, *::after{box-sizing:border-box}
-  *{user-select:none;-webkit-user-select:none;-ms-user-select:none;-webkit-touch-callout:none}
-  #gl{position:fixed;inset:0;z-index:0;display:block}
-  #hud{position:fixed;inset:0;z-index:1;display:block;touch-action:none}
-  /* === CSS BASE END === */
+/* === CSS BASE START === */
+html,body{
+  margin:0;padding:0;height:100%;
+  background:#ffffff; /* fallback; real bg comes from body var below */
+  color:#0e0f12;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+  overscroll-behavior:none;
+}
+
+/* Theme vars */
+:root{
+  --bg-grad: linear-gradient(180deg,#f6f7fb 0%,#eef1f6 45%,#e9edf3 100%); /* light */
+}
+.theme-dark{
+  --bg-grad: linear-gradient(180deg,#111318 0%, #0f1217 40%, #0d0f14 100%); /* dark */
+}
+
+/* Use the variable (remove the old hard-coded background line) */
+body{ background: var(--bg-grad); }
+
+*, *::before, *::after{ box-sizing:border-box }
+*{ user-select:none; -webkit-user-select:none; -ms-user-select:none; -webkit-touch-callout:none }
+#gl{ position:fixed; inset:0; z-index:0; display:block }
+#hud{ position:fixed; inset:0; z-index:1; display:block; touch-action:none }
+/* === CSS BASE END === */
 
   /* === HAMBURGER === */
   #menuBtn{
@@ -23,6 +39,13 @@
   #menuBtn .bar{display:block;width:20px;height:2px;background:#e8e8ea;margin:3px 0}
   #menuBtn.active{background:#0066ff;border-color:#4c8dff}
 
+  <button id="themeToggle" type="button" title="Toggle light/dark"
+        style="position:fixed;top:.6rem;right:3.9rem;z-index:3;width:44px;height:44px;
+               border-radius:12px;border:1px solid #3a3d45;background:#181a20;
+               color:#e8e8ea;font-weight:700;box-shadow:0 2px 10px rgba(0,0,0,.25);">
+  🌙
+</button>
+  
   /* === OVERLAY MENU PANEL === */
   #menuOverlay{
     position:fixed; inset:0; z-index:4; display:none;
@@ -279,6 +302,75 @@ dir.position.set(-350, 700, 900);
 dir.castShadow = false;
 scene.add(dir);
 
+  /* === Light/Dark theming for background, fog, and grid === */
+const THEMES = {
+  light: {
+    fog: 0xeef1f6,
+    gridLine: 0xE5E9F1,
+    gridCenter: 0xd7dde6,
+    bodyClass: ''     // no class → light
+  },
+  dark: {
+    fog: 0x101318,
+    gridLine: 0x1f232b,
+    gridCenter: 0x2a2e36,
+    bodyClass: 'theme-dark'
+  }
+};
+
+function setGridColors(lineHex, centerHex){
+  // three.js GridHelper uses two materials in recent versions
+  if (gridMain.material && gridMain.material.color) {
+    gridMain.material.color.setHex(centerHex); // center lines
+  }
+  if (gridMain.material2 && gridMain.material2.color) {
+    gridMain.material2.color.setHex(lineHex);  // grid lines
+  } else {
+    // fallback: if only one material is present, at least update it
+    gridMain.material.color.setHex(lineHex);
+  }
+}
+
+function applyTheme(name){
+  const t = THEMES[name] || THEMES.light;
+
+  // Body gradient via CSS class
+  document.body.classList.toggle('theme-dark', t.bodyClass === 'theme-dark');
+
+  // Scene fog (creates the “atmosphere” shift)
+  if (scene.fog) {
+    scene.fog.color.setHex(t.fog);
+  } else {
+    scene.fog = new THREE.Fog(t.fog, 900, 2200);
+  }
+
+  // Grid colors
+  setGridColors(t.gridLine, t.gridCenter);
+
+  // Button icon
+  const btn = document.getElementById('themeToggle');
+  if (btn) btn.textContent = (name === 'dark') ? '☀️' : '🌙';
+
+  // Persist
+  try { localStorage.setItem('l4_theme', name); } catch {}
+}
+
+function initTheme(){
+  let saved = 'light';
+  try {
+    saved = localStorage.getItem('l4_theme') || 'light';
+  } catch {}
+  applyTheme(saved);
+}
+
+document.getElementById('themeToggle')?.addEventListener('click', ()=>{
+  const next = (localStorage.getItem('l4_theme') === 'dark') ? 'light' : 'dark';
+  applyTheme(next);
+});
+
+// Initialize once things exist
+initTheme();
+  
 /* Grid */
 const grid = new THREE.Group();
 const gridMain = new THREE.GridHelper(2600, 26, 0xd7dde6, 0xE5E9F1);
