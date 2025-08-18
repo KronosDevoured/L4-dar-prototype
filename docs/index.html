@@ -8,7 +8,7 @@
 /* === CSS BASE START === */
 html,body{
   margin:0;padding:0;height:100%;
-  background:#ffffff; /* fallback; real bg comes from body var below */
+  background:#ffffff; /* fallback; real bg from variable below */
   color:#0e0f12;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
   overscroll-behavior:none;
 }
@@ -21,7 +21,7 @@ html,body{
   --bg-grad: linear-gradient(180deg,#111318 0%, #0f1217 40%, #0d0f14 100%); /* dark */
 }
 
-/* Use the variable (remove the old hard-coded background line) */
+/* Use the variable */
 body{ background: var(--bg-grad); }
 
 *, *::before, *::after{ box-sizing:border-box }
@@ -30,89 +30,89 @@ body{ background: var(--bg-grad); }
 #hud{ position:fixed; inset:0; z-index:1; display:block; touch-action:none }
 /* === CSS BASE END === */
 
-  /* === HAMBURGER === */
-  #menuBtn{
-    position:fixed;top:.6rem;right:.6rem;z-index:3;width:44px;height:44px;
-    border-radius:12px;border:1px solid #3a3d45;background:#181a20;display:grid;place-items:center;
-    box-shadow:0 2px 10px rgba(0,0,0,.25)
-  }
-  #menuBtn .bar{display:block;width:20px;height:2px;background:#e8e8ea;margin:3px 0}
-  #menuBtn.active{background:#0066ff;border-color:#4c8dff}
+/* === HAMBURGER === */
+#menuBtn{
+  position:fixed;top:.6rem;right:.6rem;z-index:3;width:44px;height:44px;
+  border-radius:12px;border:1px solid #3a3d45;background:#181a20;display:grid;place-items:center;
+  box-shadow:0 2px 10px rgba(0,0,0,.25)
+}
+#menuBtn .bar{display:block;width:20px;height:2px;background:#e8e8ea;margin:3px 0}
+#menuBtn.active{background:#0066ff;border-color:#4c8dff}
 
-  <button id="themeToggle" type="button" title="Toggle light/dark"
-        style="position:fixed;top:.6rem;right:3.9rem;z-index:3;width:44px;height:44px;
-               border-radius:12px;border:1px solid #3a3d45;background:#181a20;
-               color:#e8e8ea;font-weight:700;box-shadow:0 2px 10px rgba(0,0,0,.25);">
-  🌙
-</button>
-  
-  /* === OVERLAY MENU PANEL === */
-  #menuOverlay{
-    position:fixed; inset:0; z-index:4; display:none;
-    background:rgba(10,12,16,0.45); backdrop-filter: blur(3px);
-    overflow-x:hidden;
-  }
-  #menuPanel{
-    position:absolute; left:50%; top:12vh; transform:translateX(-50%);
-    width:min(960px, calc(100vw - 2rem)); max-height:76vh; overflow:auto;
-    background:rgba(24,26,32,.96); color:#e8e8ea; border:1px solid #3a3d45; border-radius:14px;
-    box-shadow:0 20px 60px rgba(0,0,0,.35);
-    overflow-x:hidden;
-  }
-  .mp-header{
-    position:sticky; top:0; background:rgba(24,26,32,.98); z-index:1;
-    padding:.9rem clamp(.8rem, 2vw, 1rem); border-bottom:1px solid #33373f; display:flex; align-items:center; justify-content:space-between;
-  }
-  .mp-title{font-weight:700;letter-spacing:.2px}
-  .mp-close{border:1px solid #3a3d45;background:#181a20;color:#e8e8ea;border-radius:10px;padding:.35rem .6rem;font-weight:600}
-  .mp-body{
-    padding:clamp(.6rem,2vw,1rem);
-    display:grid; grid-template-columns: 1fr 1fr; gap:14px;
-  }
-  @media (max-width: 860px){ .mp-body{grid-template-columns: 1fr;} }
+/* === OVERLAY MENU PANEL === */
+#menuOverlay{
+  position:fixed; inset:0; z-index:4; display:none;
+  background:rgba(10,12,16,0.45); backdrop-filter: blur(3px);
+  overflow-x:hidden;
+}
+#menuPanel{
+  position:absolute; left:50%; top:12vh; transform:translateX(-50%);
+  width:min(960px, calc(100vw - 2rem)); max-height:76vh; overflow:auto;
+  background:rgba(24,26,32,.96); color:#e8e8ea; border:1px solid #3a3d45; border-radius:14px;
+  box-shadow:0 20px 60px rgba(0,0,0,.35);
+  overflow-x:hidden;
+}
+.mp-header{
+  position:sticky; top:0; background:rgba(24,26,32,.98); z-index:1;
+  padding:.9rem clamp(.8rem, 2vw, 1rem); border-bottom:1px solid #33373f; display:flex; align-items:center; justify-content:space-between;
+}
+.mp-title{font-weight:700;letter-spacing:.2px}
+.mp-close{border:1px solid #3a3d45;background:#181a20;color:#e8e8ea;border-radius:10px;padding:.35rem .6rem;font-weight:600}
+.mp-body{
+  padding:clamp(.6rem,2vw,1rem);
+  display:grid; grid-template-columns: 1fr 1fr; gap:14px;
+}
+@media (max-width: 860px){ .mp-body{grid-template-columns: 1fr;} }
 
-  .card{
-    background:#15171d; border:1px solid #33373f; border-radius:12px; padding:.9rem;
-  }
-  .card h3{margin:.1rem 0 .7rem; font-size:1rem; opacity:.95}
-  .row{display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; margin:.45rem 0; width:100%;}
-  .btn{border:1px solid #3a3d45;padding:.45rem .7rem;border-radius:999px;background:#181a20;color:#e8e8ea;font-weight:600;letter-spacing:.2px;cursor:pointer}
-  .btn.active{background:#0066ff;border-color:#4c8dff}
-  .tag{background:#181a20;border:1px solid #3a3d45;padding:.25rem .5rem;border-radius:999px;font-size:.82rem;white-space:nowrap}
+.card{
+  background:#15171d; border:1px solid #33373f; border-radius:12px; padding:.9rem;
+}
+.card h3{margin:.1rem 0 .7rem; font-size:1rem; opacity:.95}
+.row{display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; margin:.45rem 0; width:100%;}
+.btn{border:1px solid #3a3d45;padding:.45rem .7rem;border-radius:999px;background:#181a20;color:#e8e8ea;font-weight:600;letter-spacing:.2px;cursor:pointer}
+.btn.active{background:#0066ff;border-color:#4c8dff}
+.tag{background:#181a20;border:1px solid #3a3d45;padding:.25rem .5rem;border-radius:999px;font-size:.82rem;white-space:nowrap}
 
-  .sl{
-    display:flex; align-items:center; gap:.6rem; flex-wrap:nowrap;
-    width:100%; min-width:0;
-  }
-  .sl label{
-    font-size:.88rem; opacity:.92; flex:0 0 150px; min-width:120px; max-width:220px;
-  }
-  .sl input[type=range]{
-    accent-color:#4c8dff;
-    flex:1 1 auto; min-width:0; max-width:100%; width:100%;
-  }
-  .sl .tag{flex:0 0 auto}
+.sl{
+  display:flex; align-items:center; gap:.6rem; flex-wrap:nowrap;
+  width:100%; min-width:0;
+}
+.sl label{
+  font-size:.88rem; opacity:.92; flex:0 0 150px; min-width:120px; max-width:220px;
+}
+.sl input[type=range]{
+  accent-color:#4c8dff;
+  flex:1 1 auto; min-width:0; max-width:100%; width:100%;
+}
+.sl .tag{flex:0 0 auto}
 
-  @media (max-width:520px){
-    .sl{flex-wrap:wrap}
-    .sl label{flex:1 0 100%}
-    .sl input[type=range]{flex:1 0 100%}
-    .sl .tag{margin-left:auto}
-  }
+@media (max-width:520px){
+  .sl{flex-wrap:wrap}
+  .sl label{flex:1 0 100%}
+  .sl input[type=range]{flex:1 0 100%}
+  .sl .tag{margin-left:auto}
+}
 
-  select{background:#181a20;color:#e8e8ea;border:1px solid #3a3d45;border-radius:10px;padding:.35rem .5rem;max-width:100%}
+select{background:#181a20;color:#e8e8ea;border:1px solid #3a3d45;border-radius:10px;padding:.35rem .5rem;max-width:100%}
 
-  /* Hints (stick/DAR) */
-  #joyHint,#darHint{position:fixed; z-index:2; pointer-events:none;background:rgba(24,26,32,.92); border:1px solid #3a3d45; color:#cfd3dc;
-    padding:.35rem .55rem; border-radius:10px; font-size:.85rem; white-space:nowrap; transform:translate(-50%,-50%); opacity:0; transition:opacity .25s ease;}
-  #joyHint.show,#darHint.show{opacity:1;}
+/* Hints (stick/DAR) */
+#joyHint,#darHint{position:fixed; z-index:2; pointer-events:none;background:rgba(24,26,32,.92); border:1px solid #3a3d45; color:#cfd3dc;
+  padding:.35rem .55rem; border-radius:10px; font-size:.85rem; white-space:nowrap; transform:translate(-50%,-50%); opacity:0; transition:opacity .25s ease;}
+#joyHint.show,#darHint.show{opacity:1;}
 
-  /* XYZ gizmo frame */
-  #gizmoFrame{
-    position:fixed; right:.6rem; top:64px; width:84px; height:84px; z-index:2;
-    border-radius:10px; border:1px solid #3a3d45; background:rgba(24,26,32,.5);
-    box-shadow:0 8px 24px rgba(0,0,0,.2); pointer-events:none;
-  }
+/* XYZ gizmo frame */
+#gizmoFrame{
+  position:fixed; right:.6rem; top:64px; width:84px; height:84px; z-index:2;
+  border-radius:10px; border:1px solid #3a3d45; background:rgba(24,26,32,.5);
+  box-shadow:0 8px 24px rgba(0,0,0,.2); pointer-events:none;
+}
+
+/* Theme toggle button */
+#themeToggle{
+  position:fixed;top:.6rem;right:3.9rem;z-index:3;width:44px;height:44px;
+  border-radius:12px;border:1px solid #3a3d45;background:#181a20;
+  color:#e8e8ea;font-weight:700;box-shadow:0 2px 10px rgba(0,0,0,.25);
+}
 </style>
 </head>
 <body>
@@ -123,6 +123,9 @@ body{ background: var(--bg-grad); }
 
   <!-- HAMBURGER -->
   <button id="menuBtn" type="button" title="Open Menu"><span class="bar"></span><span class="bar"></span><span class="bar"></span></button>
+
+  <!-- THEME TOGGLE -->
+  <button id="themeToggle" type="button" title="Toggle light/dark">🌙</button>
 
   <!-- OVERLAY MENU -->
   <div id="menuOverlay">
@@ -302,7 +305,7 @@ dir.position.set(-350, 700, 900);
 dir.castShadow = false;
 scene.add(dir);
 
-  /* === Light/Dark theming for background, fog, and grid === */
+/* === Light/Dark theming for background, fog, and grid === */
 const THEMES = {
   light: {
     fog: 0xeef1f6,
@@ -319,15 +322,13 @@ const THEMES = {
 };
 
 function setGridColors(lineHex, centerHex){
-  // three.js GridHelper uses two materials in recent versions
-  if (gridMain.material && gridMain.material.color) {
-    gridMain.material.color.setHex(centerHex); // center lines
-  }
-  if (gridMain.material2 && gridMain.material2.color) {
-    gridMain.material2.color.setHex(lineHex);  // grid lines
-  } else {
-    // fallback: if only one material is present, at least update it
-    gridMain.material.color.setHex(lineHex);
+  const m = gridMain.material;
+  if (Array.isArray(m) && m.length >= 2) {
+    // [0] = center line(s), [1] = grid lines
+    m[0].color.setHex(centerHex);
+    m[1].color.setHex(lineHex);
+  } else if (m && m.color) {
+    m.color.setHex(lineHex);
   }
 }
 
@@ -337,7 +338,7 @@ function applyTheme(name){
   // Body gradient via CSS class
   document.body.classList.toggle('theme-dark', t.bodyClass === 'theme-dark');
 
-  // Scene fog (creates the “atmosphere” shift)
+  // Scene fog
   if (scene.fog) {
     scene.fog.color.setHex(t.fog);
   } else {
@@ -357,9 +358,7 @@ function applyTheme(name){
 
 function initTheme(){
   let saved = 'light';
-  try {
-    saved = localStorage.getItem('l4_theme') || 'light';
-  } catch {}
+  try { saved = localStorage.getItem('l4_theme') || 'light'; } catch {}
   applyTheme(saved);
 }
 
@@ -368,9 +367,6 @@ document.getElementById('themeToggle')?.addEventListener('click', ()=>{
   applyTheme(next);
 });
 
-// Initialize once things exist
-initTheme();
-  
 /* Grid */
 const grid = new THREE.Group();
 const gridMain = new THREE.GridHelper(2600, 26, 0xd7dde6, 0xE5E9F1);
@@ -380,6 +376,9 @@ grid.add(gridMain);
 grid.rotation.x = -Math.PI/2;
 grid.position.y = -160;
 scene.add(grid);
+
+// Now that gridMain exists, apply saved theme
+initTheme();
 
 /* Colors */
 const COL_UP   = 0xff5c5c;
