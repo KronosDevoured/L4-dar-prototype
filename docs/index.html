@@ -8,17 +8,17 @@
 /* === CSS BASE START === */
 html,body{
   margin:0;padding:0;height:100%;
-  background:#ffffff; /* fallback; real bg from variable below */
+  background:#ffffff; /* fallback; real bg comes from body var below */
   color:#0e0f12;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
   overscroll-behavior:none;
 }
 
 /* Theme vars */
 :root{
-  --bg-grad: linear-gradient(180deg,#f6f7fb 0%,#eef1f6 45%,#e9edf3 100%); /* light */
+  --bg-grad: linear-gradient(180deg,#f6f7fb 0%,#eef1f6 45%,#e9edf3 100%);
 }
 .theme-dark{
-  --bg-grad: linear-gradient(180deg,#111318 0%, #0f1217 40%, #0d0f14 100%); /* dark */
+  --bg-grad: linear-gradient(180deg,#111318 0%, #0f1217 40%, #0d0f14 100%);
 }
 
 /* Use the variable */
@@ -38,6 +38,13 @@ body{ background: var(--bg-grad); }
 }
 #menuBtn .bar{display:block;width:20px;height:2px;background:#e8e8ea;margin:3px 0}
 #menuBtn.active{background:#0066ff;border-color:#4c8dff}
+
+/* Theme toggle button */
+#themeToggle{
+  position:fixed;top:.6rem;right:3.9rem;z-index:3;width:44px;height:44px;
+  border-radius:12px;border:1px solid #3a3d45;background:#181a20;
+  color:#e8e8ea;font-weight:700;box-shadow:0 2px 10px rgba(0,0,0,.25);
+}
 
 /* === OVERLAY MENU PANEL === */
 #menuOverlay{
@@ -106,13 +113,6 @@ select{background:#181a20;color:#e8e8ea;border:1px solid #3a3d45;border-radius:1
   border-radius:10px; border:1px solid #3a3d45; background:rgba(24,26,32,.5);
   box-shadow:0 8px 24px rgba(0,0,0,.2); pointer-events:none;
 }
-
-/* Theme toggle button */
-#themeToggle{
-  position:fixed;top:.6rem;right:3.9rem;z-index:3;width:44px;height:44px;
-  border-radius:12px;border:1px solid #3a3d45;background:#181a20;
-  color:#e8e8ea;font-weight:700;box-shadow:0 2px 10px rgba(0,0,0,.25);
-}
 </style>
 </head>
 <body>
@@ -121,11 +121,11 @@ select{background:#181a20;color:#e8e8ea;border:1px solid #3a3d45;border-radius:1
   <canvas id="hud"></canvas>
   <div id="gizmoFrame"></div>
 
-  <!-- HAMBURGER -->
-  <button id="menuBtn" type="button" title="Open Menu"><span class="bar"></span><span class="bar"></span><span class="bar"></span></button>
-
   <!-- THEME TOGGLE -->
   <button id="themeToggle" type="button" title="Toggle light/dark">🌙</button>
+
+  <!-- HAMBURGER -->
+  <button id="menuBtn" type="button" title="Open Menu"><span class="bar"></span><span class="bar"></span><span class="bar"></span></button>
 
   <!-- OVERLAY MENU -->
   <div id="menuOverlay">
@@ -285,8 +285,13 @@ import { GLTFLoader } from "https://esm.sh/three@0.155.0/examples/jsm/loaders/GL
 /* ====== Renderer / Scene / Camera ====== */
 const gl = document.getElementById('gl');
 const hud = document.getElementById('hud');
-const renderer = new THREE.WebGLRenderer({canvas: gl, antialias: true});
-renderer.outputColorSpace = THREE.SRGBColorSpace; // ensure PBR looks correct
+
+// transparent canvas + ACES tone mapping + slight exposure lift
+const renderer = new THREE.WebGLRenderer({ canvas: gl, antialias: true, alpha: true });
+renderer.setClearColor(0x000000, 0); // transparent over CSS gradient
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.12; // brighten the scene a touch
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
 
@@ -298,76 +303,49 @@ const CAM_BASE = { y: 280, z: 760 };
 camera.position.set(0, CAM_BASE.y, CAM_BASE.z);
 scene.add(camera);
 
-/* Lights */
-scene.add(new THREE.AmbientLight(0xffffff, 0.8));
-const dir = new THREE.DirectionalLight(0xffffff, 1.15);
+/* Lights (slightly brighter + soft hemisphere fill) */
+scene.add(new THREE.AmbientLight(0xffffff, 1.0));          // was 0.8
+const dir = new THREE.DirectionalLight(0xffffff, 1.25);    // was 1.15
 dir.position.set(-350, 700, 900);
 dir.castShadow = false;
 scene.add(dir);
 
-/* === Light/Dark theming for background, fog, and grid === */
+// Soft fill so the car reads in dark backgrounds too
+const hemi = new THREE.HemisphereLight(0xf0f4ff, 0x3a3a40, 0.7);
+scene.add(hemi);
+
+/* THEME (background/fog toggle; grid stays as original colors) */
 const THEMES = {
   light: {
     fog: 0xeef1f6,
-    gridLine: 0xE5E9F1,
-    gridCenter: 0xd7dde6,
-    bodyClass: ''     // no class → light
+    bodyClass: '' // no class → light
   },
   dark: {
-    fog: 0x101318,
-    gridLine: 0x1f232b,
-    gridCenter: 0x2a2e36,
+    fog: 0x171a21,       // not too dark so the car stays visible
     bodyClass: 'theme-dark'
   }
 };
 
-function setGridColors(lineHex, centerHex){
-  const m = gridMain.material;
-  if (Array.isArray(m) && m.length >= 2) {
-    // [0] = center line(s), [1] = grid lines
-    m[0].color.setHex(centerHex);
-    m[1].color.setHex(lineHex);
-  } else if (m && m.color) {
-    m.color.setHex(lineHex);
-  }
-}
-
 function applyTheme(name){
   const t = THEMES[name] || THEMES.light;
-
-  // Body gradient via CSS class
   document.body.classList.toggle('theme-dark', t.bodyClass === 'theme-dark');
-
-  // Scene fog
-  if (scene.fog) {
-    scene.fog.color.setHex(t.fog);
-  } else {
-    scene.fog = new THREE.Fog(t.fog, 900, 2200);
-  }
-
-  // Grid colors
-  setGridColors(t.gridLine, t.gridCenter);
-
-  // Button icon
+  if (scene.fog) scene.fog.color.setHex(t.fog); else scene.fog = new THREE.Fog(t.fog, 900, 2200);
   const btn = document.getElementById('themeToggle');
   if (btn) btn.textContent = (name === 'dark') ? '☀️' : '🌙';
-
-  // Persist
   try { localStorage.setItem('l4_theme', name); } catch {}
 }
-
 function initTheme(){
   let saved = 'light';
   try { saved = localStorage.getItem('l4_theme') || 'light'; } catch {}
   applyTheme(saved);
 }
-
 document.getElementById('themeToggle')?.addEventListener('click', ()=>{
   const next = (localStorage.getItem('l4_theme') === 'dark') ? 'light' : 'dark';
   applyTheme(next);
 });
+initTheme();
 
-/* Grid */
+/* Grid (unchanged colors) */
 const grid = new THREE.Group();
 const gridMain = new THREE.GridHelper(2600, 26, 0xd7dde6, 0xE5E9F1);
 gridMain.material.opacity = 0.65;
@@ -376,9 +354,6 @@ grid.add(gridMain);
 grid.rotation.x = -Math.PI/2;
 grid.position.y = -160;
 scene.add(grid);
-
-// Now that gridMain exists, apply saved theme
-initTheme();
 
 /* Colors */
 const COL_UP   = 0xff5c5c;
