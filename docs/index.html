@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>L4 DAR Prototype — GLB (ESM via esm.sh)</title>
+  <title>L4 DAR Prototype — GLB Auto-Frame</title>
   <!-- Inline favicon to avoid /favicon.ico 404 -->
   <link rel="icon" type="image/svg+xml"
         href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="%23202020"/><text x="50%" y="55%" font-size="28" text-anchor="middle" fill="white" font-family="Arial,Helvetica,sans-serif">L4</text></svg>'/>
@@ -29,11 +29,12 @@
     const canvas = document.getElementById("bg");
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x202020);
 
-    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 5000);
     camera.position.set(0, 2, 6);
 
     const controls = new OrbitControls(camera, renderer.domElement);
@@ -58,25 +59,46 @@
       MODEL_URL,
       (gltf) => {
         car = gltf.scene || gltf.scenes?.[0];
-        if (!car) {
-          console.error("No scene in GLB");
-          setLoading("GLB missing scene");
-          return;
-        }
-        // Face toward camera and center on origin
-        car.rotation.y = Math.PI;
-        const box = new THREE.Box3().setFromObject(car);
-        const center = box.getCenter(new THREE.Vector3());
-        car.position.sub(center);
-        scene.add(car);
+        if (!car) { setLoading("GLB missing scene"); return; }
 
+        // 1) Normalize orientation (face camera)
+        car.rotation.y = Math.PI;
+
+        // 2) Compute bounds & center
+        const box = new THREE.Box3().setFromObject(car);
+        const size = new THREE.Vector3();
+        const center = new THREE.Vector3();
+        box.getSize(size);
+        box.getCenter(center);
+
+        // 3) Move model so its center is at origin
+        car.position.sub(center);
+
+        // 4) Scale to a target longest dimension
+        const currentLongest = Math.max(size.x, size.y, size.z);
+        const TARGET_LONGEST = 2.4; // tune this (units) to taste
+        const scale = currentLongest > 0 ? TARGET_LONGEST / currentLongest : 1;
+        car.scale.setScalar(scale);
+
+        // 5) Recompute bounds after scaling and frame it
+        const box2 = new THREE.Box3().setFromObject(car);
+        const sphere = box2.getBoundingSphere(new THREE.Sphere());
+
+        const halfFov = THREE.MathUtils.degToRad(camera.fov * 0.5);
+        const dist = sphere.radius / Math.sin(halfFov);
+
+        camera.position.set(0, sphere.radius * 0.5, dist * 1.15);
+        controls.target.copy(sphere.center);
+        controls.update();
+
+        scene.add(car);
         setLoading("Model loaded");
         setTimeout(removeLoading, 900);
       },
       undefined,
       (err) => {
         console.error("GLB load failed:", err);
-        // Fallback so page still renders
+        // Fallback so the page still renders
         const fallback = new THREE.Mesh(
           new THREE.BoxGeometry(1, 0.5, 2),
           new THREE.MeshStandardMaterial({ color: 0x00ffcc })
@@ -86,25 +108,27 @@
       }
     );
 
-    function setLoading(text) {
-      const el = document.getElementById("loading");
-      if (el) el.textContent = text;
-    }
-
-    function removeLoading() {
-      const el = document.getElementById("loading");
-      if (el && el.parentNode) el.parentNode.removeChild(el);
-    }
-
+    // Resize
     window.addEventListener("resize", () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
     });
 
+    // Loading HUD helpers
+    function setLoading(text) {
+      const el = document.getElementById("loading");
+      if (el) el.textContent = text;
+    }
+    function removeLoading() {
+      const el = document.getElementById("loading");
+      if (el && el.parentNode) el.parentNode.removeChild(el);
+    }
+
+    // Loop
     function animate() {
       requestAnimationFrame(animate);
-      if (car) car.rotation.y += 0.004; // gentle idle spin
+      if (car) car.rotation.y += 0.002; // gentle idle spin
       controls.update();
       renderer.render(scene, camera);
     }
