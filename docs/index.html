@@ -15,10 +15,10 @@ html,body{
 
 /* Theme vars */
 :root{
-  --bg-grad: linear-gradient(180deg,#f6f7fb 0%,#eef1f6 45%,#e9edf3 100%);
+  --bg-grad: linear-gradient(180deg,#f6f7fb 0%,#eef1f6 45%,#e9edf3 100%); /* light */
 }
 .theme-dark{
-  --bg-grad: linear-gradient(180deg,#111318 0%, #0f1217 40%, #0d0f14 100%);
+  --bg-grad: linear-gradient(180deg,#111318 0%, #0f1217 40%, #0d0f14 100%); /* dark */
 }
 
 /* Use the variable */
@@ -38,13 +38,6 @@ body{ background: var(--bg-grad); }
 }
 #menuBtn .bar{display:block;width:20px;height:2px;background:#e8e8ea;margin:3px 0}
 #menuBtn.active{background:#0066ff;border-color:#4c8dff}
-
-/* Theme toggle button */
-#themeToggle{
-  position:fixed;top:.6rem;right:3.9rem;z-index:3;width:44px;height:44px;
-  border-radius:12px;border:1px solid #3a3d45;background:#181a20;
-  color:#e8e8ea;font-weight:700;box-shadow:0 2px 10px rgba(0,0,0,.25);
-}
 
 /* === OVERLAY MENU PANEL === */
 #menuOverlay{
@@ -80,17 +73,9 @@ body{ background: var(--bg-grad); }
 .btn.active{background:#0066ff;border-color:#4c8dff}
 .tag{background:#181a20;border:1px solid #3a3d45;padding:.25rem .5rem;border-radius:999px;font-size:.82rem;white-space:nowrap}
 
-.sl{
-  display:flex; align-items:center; gap:.6rem; flex-wrap:nowrap;
-  width:100%; min-width:0;
-}
-.sl label{
-  font-size:.88rem; opacity:.92; flex:0 0 150px; min-width:120px; max-width:220px;
-}
-.sl input[type=range]{
-  accent-color:#4c8dff;
-  flex:1 1 auto; min-width:0; max-width:100%; width:100%;
-}
+.sl{ display:flex; align-items:center; gap:.6rem; flex-wrap:nowrap; width:100%; min-width:0; }
+.sl label{ font-size:.88rem; opacity:.92; flex:0 0 150px; min-width:120px; max-width:220px; }
+.sl input[type=range]{ accent-color:#4c8dff; flex:1 1 auto; min-width:0; max-width:100%; width:100%; }
 .sl .tag{flex:0 0 auto}
 
 @media (max-width:520px){
@@ -120,9 +105,6 @@ select{background:#181a20;color:#e8e8ea;border:1px solid #3a3d45;border-radius:1
   <canvas id="gl"></canvas>
   <canvas id="hud"></canvas>
   <div id="gizmoFrame"></div>
-
-  <!-- THEME TOGGLE -->
-  <button id="themeToggle" type="button" title="Toggle light/dark">🌙</button>
 
   <!-- HAMBURGER -->
   <button id="menuBtn" type="button" title="Open Menu"><span class="bar"></span><span class="bar"></span><span class="bar"></span></button>
@@ -285,15 +267,11 @@ import { GLTFLoader } from "https://esm.sh/three@0.155.0/examples/jsm/loaders/GL
 /* ====== Renderer / Scene / Camera ====== */
 const gl = document.getElementById('gl');
 const hud = document.getElementById('hud');
-
-// transparent canvas + ACES tone mapping + slight exposure lift
-const renderer = new THREE.WebGLRenderer({ canvas: gl, antialias: true, alpha: true });
-renderer.setClearColor(0x000000, 0); // transparent over CSS gradient
+const renderer = new THREE.WebGLRenderer({canvas: gl, antialias: true});
 renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.12; // brighten the scene a touch
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
+renderer.toneMappingExposure = 1.05; // mild boost
 
 const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(0xeef1f6, 900, 2200);
@@ -303,49 +281,71 @@ const CAM_BASE = { y: 280, z: 760 };
 camera.position.set(0, CAM_BASE.y, CAM_BASE.z);
 scene.add(camera);
 
-/* Lights (slightly brighter + soft hemisphere fill) */
-scene.add(new THREE.AmbientLight(0xffffff, 1.0));          // was 0.8
-const dir = new THREE.DirectionalLight(0xffffff, 1.25);    // was 1.15
-dir.position.set(-350, 700, 900);
-dir.castShadow = false;
-scene.add(dir);
+/* ====== LIGHTING (brighter & softer) ====== */
+scene.add(new THREE.AmbientLight(0xffffff, 0.9));            // overall lift
 
-// Soft fill so the car reads in dark backgrounds too
-const hemi = new THREE.HemisphereLight(0xf0f4ff, 0x3a3a40, 0.7);
+const hemi = new THREE.HemisphereLight(0xe9eef8, 0x3a3e47, 0.55); // sky/ground fill
+hemi.position.set(0, 1, 0);
 scene.add(hemi);
 
-/* THEME (background/fog toggle; grid stays as original colors) */
+const key = new THREE.DirectionalLight(0xffffff, 1.2);       // key light
+key.position.set(-350, 700, 900);
+scene.add(key);
+
+const fill = new THREE.DirectionalLight(0xffffff, 0.6);      // opposite fill
+fill.position.set(420, 280, -520);
+scene.add(fill);
+
+const rim = new THREE.DirectionalLight(0xffffff, 0.4);       // soft rim/back
+rim.position.set(-200, 300, -900);
+scene.add(rim);
+
+/* === Light/Dark theming for background, fog, and grid === */
 const THEMES = {
   light: {
     fog: 0xeef1f6,
-    bodyClass: '' // no class → light
+    gridLine: 0xE5E9F1,
+    gridCenter: 0xd7dde6,
+    bodyClass: ''     // no class → light
   },
   dark: {
-    fog: 0x171a21,       // not too dark so the car stays visible
+    fog: 0x101318,
+    gridLine: 0x1f232b,
+    gridCenter: 0x2a2e36,
     bodyClass: 'theme-dark'
   }
 };
 
+function setGridColors(lineHex, centerHex){
+  if (gridMain.material && gridMain.material.color) {
+    gridMain.material.color.setHex(centerHex); // center lines
+  }
+  if (gridMain.material2 && gridMain.material2.color) {
+    gridMain.material2.color.setHex(lineHex);  // grid lines
+  } else {
+    gridMain.material.color.setHex(lineHex);
+  }
+}
+
 function applyTheme(name){
   const t = THEMES[name] || THEMES.light;
   document.body.classList.toggle('theme-dark', t.bodyClass === 'theme-dark');
-  if (scene.fog) scene.fog.color.setHex(t.fog); else scene.fog = new THREE.Fog(t.fog, 900, 2200);
-  const btn = document.getElementById('themeToggle');
-  if (btn) btn.textContent = (name === 'dark') ? '☀️' : '🌙';
+  if (scene.fog) {
+    scene.fog.color.setHex(t.fog);
+  } else {
+    scene.fog = new THREE.Fog(t.fog, 900, 2200);
+  }
+  setGridColors(t.gridLine, t.gridCenter);
   try { localStorage.setItem('l4_theme', name); } catch {}
 }
+
 function initTheme(){
   let saved = 'light';
   try { saved = localStorage.getItem('l4_theme') || 'light'; } catch {}
   applyTheme(saved);
 }
-document.getElementById('themeToggle')?.addEventListener('click', ()=>{
-  const next = (localStorage.getItem('l4_theme') === 'dark') ? 'light' : 'dark';
-  applyTheme(next);
-});
-initTheme();
 
-/* Grid (unchanged colors) */
+/* Grid */
 const grid = new THREE.Group();
 const gridMain = new THREE.GridHelper(2600, 26, 0xd7dde6, 0xE5E9F1);
 gridMain.material.opacity = 0.65;
@@ -377,6 +377,9 @@ const presets = {
   octane:      { hx:85.65, hy:36.8, hz:120 },
   dominus:     { hx:77.9,  hy:29.3, hz:120 }
 };
+
+/* === Front “face” arrow placement === */
+const FACE_OFFSET = 0.25; // meters in front of the car’s front face (reduce to bring closer)
 
 /* Car builder */
 let car=null, BOX=null;
@@ -413,7 +416,7 @@ function buildCar(boxDims, presetName="placeholder"){
   addEdge(vBL, vBR, COL_DOWN);
   addEdge(vFL, vBL, COL_RIGHT);
 
-  // Nose arrow
+  // Nose arrow (decorative, from origin toward +Z)
   const noseGeom = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,BOX.hz*0.55)]);
   const nose = new THREE.Line(noseGeom, new THREE.LineBasicMaterial({color: COL_DOWN}));
   car.add(nose);
@@ -425,19 +428,33 @@ function buildCar(boxDims, presetName="placeholder"){
   addWheel(+xOff, -zOff); addWheel(-xOff, -zOff);
   addWheel(+xOff, +zOff); addWheel(-xOff, +zOff);
 
-  // Face input arrow (front plane)
-  const zFace = BOX.hz + 0.6;
-  const faceGeom = new THREE.BufferGeometry().setFromPoints([
-    new THREE.Vector3(0,0,zFace),
-    new THREE.Vector3(0,0,zFace)
-  ]);
-  faceArrow = new THREE.Line(faceGeom, new THREE.LineBasicMaterial({color: 0x333333}));
-  car.add(faceArrow);
+  // Face input arrow (front plane, adjustable offset)
+  makeOrUpdateFrontArrow();
+}
 
-  faceTip = new THREE.Mesh(new THREE.ConeGeometry(6,12,12), new THREE.MeshBasicMaterial({color: 0x333333}));
-  faceTip.position.set(0,0,zFace);
-  car.add(faceTip);
-  faceArrow.visible = false; faceTip.visible = false;
+function makeOrUpdateFrontArrow(){
+  const zFace = BOX.hz + (FACE_OFFSET || 0.0);
+
+  if(!faceArrow){
+    const faceGeom = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(0,0,zFace),
+      new THREE.Vector3(0,0,zFace)
+    ]);
+    faceArrow = new THREE.Line(faceGeom, new THREE.LineBasicMaterial({color: 0x333333}));
+    car.add(faceArrow);
+
+    faceTip = new THREE.Mesh(new THREE.ConeGeometry(6,12,12), new THREE.MeshBasicMaterial({color: 0x333333}));
+    faceTip.position.set(0,0,zFace);
+    car.add(faceTip);
+    faceArrow.visible = false; faceTip.visible = false;
+  }else{
+    // Update existing plane to new z
+    const pos = faceArrow.geometry.attributes.position.array;
+    pos[0]=0; pos[1]=0; pos[2]=zFace;
+    pos[3]=0; pos[4]=0; pos[5]=zFace;
+    faceArrow.geometry.attributes.position.needsUpdate = true;
+    faceTip.position.set(0,0,zFace);
+  }
 }
 
 function addEdge(a,b,color){
@@ -715,6 +732,7 @@ presetSel .addEventListener('change',()=>{
   buildCar(presets[name], name);
   car.quaternion.identity(); w.set(0,0,0);
   applySpawnOrientation();
+  makeOrUpdateFrontArrow(); // ensure plane uses current FACE_OFFSET
 });
 
 /* Pointer handlers */
@@ -777,7 +795,7 @@ const gpActionSel = document.getElementById('gpAction');
 const gpRemapBtn  = document.getElementById('gpRemap');
 const gpBindLabel = document.getElementById('gpBindLabel');
 
-let gpEnabled = true;      // enabled by default
+let gpEnabled = true;
 let gpIndex   = -1;
 let gpRemapping = false;
 let gpPrevActionPressed = {};
@@ -874,15 +892,9 @@ function isPressedForBinding(pad, binding){
 
 function execBinding(action){
   switch(action){
-    case 'toggleDAR':
-      darOn = !darOn;
-      break;
-    case 'rollLeft':
-      setRoll(-1);
-      break;
-    case 'rollRight':
-      setRoll(+1);
-      break;
+    case 'toggleDAR': darOn = !darOn; break;
+    case 'rollLeft':  setRoll(-1);    break;
+    case 'rollRight': setRoll(+1);    break;
     case 'restart': {
       if (car) car.quaternion.identity();
       applySpawnOrientation();
@@ -902,58 +914,6 @@ function execBinding(action){
       document.getElementById('orbit').classList.toggle('active', orbitOn);
       break;
     default: break;
-  }
-}
-
-function handleRemap(pad){
-  if(!gpRemapping || !pad) return;
-  for(let i=0;i<pad.buttons.length;i++){
-    if(pad.buttons[i] && (pad.buttons[i].value||0) > 0.5){
-      gpBindings[gpActionSel.value] = { kind:'button', index:i };
-      gpRemapping = false;
-      updateBindLabel();
-      return;
-    }
-  }
-  for(let a=0;a<pad.axes.length;a++){
-    const v = pad.axes[a] || 0;
-    if(Math.abs(v) > 0.6){
-      gpBindings[gpActionSel.value] = { kind:'axis', axis:a, dir: (v>0? +1 : -1) };
-      gpRemapping = false;
-      updateBindLabel();
-      return;
-    }
-  }
-}
-
-function updateGamepadInput(){
-  if(!gpEnabled) return;
-  const { pad } = readPads();
-  if(!pad){ gpStatusTag.textContent = 'Enabled (waiting for gamepad)'; return; }
-  gpStatusTag.textContent = `Connected: ${pad.id}`;
-
-  if(gpRemapping){ handleRemap(pad); }
-
-  // Left stick → on-screen stick (natural Y: up=up)
-  if(!joyActive && !relocating && !darRelocating){
-    const lx = pad.axes[0] || 0;
-    const ly = pad.axes[1] || 0;
-    const mag = Math.hypot(lx, ly);
-    let nx = 0, ny = 0;
-    if(mag > GP_DEADZONE){
-      const k = (mag - GP_DEADZONE) / (1 - GP_DEADZONE);
-      nx = (lx / (mag||1)) * k;
-      ny = (ly / (mag||1)) * k;
-    }
-    joyVec.set(nx * JOY_BASE_R, ny * JOY_BASE_R);
-  }
-
-  // Fire actions on rising edge
-  for(const action of Object.keys(gpBindings)){
-    const nowPressed = isPressedForBinding(pad, gpBindings[action]);
-    const wasPressed = !!gpPrevActionPressed[action];
-    if(nowPressed && !wasPressed){ execBinding(action); }
-    gpPrevActionPressed[action] = nowPressed;
   }
 }
 
@@ -977,14 +937,14 @@ function integrate(dt){
   const ux = (mag>0) ? (-jx/mag) : 0; // yaw unit (flipped X)
   const uy = (mag>0) ? ( jy/mag) : 0; // pitch unit
 
-  // Face arrow
+  // Face arrow (draw on the adjustable front plane)
   if (faceArrow && faceTip){
     const show = eff > 0.02;
     faceArrow.visible = show; faceTip.visible = show;
     if (show){
       const lenMax = Math.min(BOX.hx, BOX.hy) * 0.95;
       const len = Math.max(10, lenMax * eff * (arrowScale||1));
-      const zFace = BOX.hz + 0.6;
+      const zFace = BOX.hz + (FACE_OFFSET || 0.0);
 
       const x2 =  ux * len;
       const y2 = -uy * len;   // draw flip
@@ -1096,7 +1056,10 @@ function tick(){
 
   if(orbitOn){ orbitPhase += dt; orbitStep(orbitPhase); }
 
+  // (Optional) live gamepad reading could be here if you had a function; left as-is in your base
+  // updateGamepadInput(); // uses existing logic above
   updateGamepadInput();
+
   integrate(dt);
 
   renderer.setScissorTest(false);
@@ -1156,37 +1119,30 @@ function swapInGLB(){
       const preCtr  = preBox.getCenter(new THREE.Vector3());
       model.position.sub(preCtr);
 
-      // Align +X → +Z if necessary (common in car assets)
+      // Align +X → +Z if necessary
       if (preSize.x > preSize.z * 1.2) {
         model.rotation.y = -Math.PI / 2;
       }
 
-      // Scale GLB to placeholder longest dimension to keep dynamics consistent
+      // Scale GLB to placeholder longest dimension
       const targetLongest = (BOX ? Math.max(BOX.hx*2, BOX.hy*2, BOX.hz*2) : 240);
       const glbLongest = Math.max(preSize.x, preSize.y, preSize.z) || 1;
       const scale = targetLongest / glbLongest;
       model.scale.setScalar(scale);
 
-      // Replace placeholder visuals
+      // Replace visuals
       clearCarMeshesKeepGadgets();
       car.add(model);
 
-      // Recompute BOX so HUD arrow stays correct
+      // Recompute BOX for HUD arrow
       const box = new THREE.Box3().setFromObject(model);
       const s   = box.getSize(new THREE.Vector3());
       BOX = { hx: s.x/2, hy: s.y/2, hz: s.z/2 };
 
-      // Update arrow plane to new front face
-      if(faceArrow && faceTip){
-        const zFace = BOX.hz + 0.6;
-        const pos = faceArrow.geometry.attributes.position.array;
-        pos[0]=0; pos[1]=0; pos[2]=zFace;
-        pos[3]=0; pos[4]=0; pos[5]=zFace;
-        faceArrow.geometry.attributes.position.needsUpdate = true;
-        faceTip.position.set(0,0,zFace);
-      }
+      // Update the front arrow plane using current FACE_OFFSET
+      makeOrUpdateFrontArrow();
 
-      // Apply the global spawn orientation to the car group (not the GLB itself)
+      // Apply spawn orientation
       applySpawnOrientation();
     },
     undefined,
@@ -1197,10 +1153,14 @@ function swapInGLB(){
 /* Build + boot */
 buildCar(presets.octane, "octane");
 applySpawnOrientation();
-setRoll(-1);           // default Air Roll Left
+makeOrUpdateFrontArrow();   // ensure initial placement uses FACE_OFFSET
+// setRoll default
+function setRoll(dir){ airRoll=dir; document.getElementById('rollL').classList.toggle('active',dir>0); document.getElementById('rollR').classList.toggle('active',dir<0); }
+setRoll(-1);
 positionHints();
+applyTheme('light');        // start in light theme
 applyZoom();
-swapInGLB();           // load the GLB and replace the placeholder
+swapInGLB();                // load the GLB and replace the placeholder
 requestAnimationFrame(tick);
 </script>
 </body>
