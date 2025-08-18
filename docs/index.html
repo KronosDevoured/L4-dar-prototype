@@ -5,99 +5,113 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 <title>L4 — Blender-Style + XYZ Gizmo + DAR Toggle/Relocate</title>
 <style>
-/* === CSS BASE START === */
-html,body{
-  margin:0;padding:0;height:100%;
-  background:#ffffff; /* fallback; real bg comes from body var below */
-  color:#0e0f12;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-  overscroll-behavior:none;
-}
+  /* === CSS BASE START === */
+  html,body{
+    margin:0;padding:0;height:100%;
+    background:#ffffff; /* fallback; actual bg via var below */
+    color:#0e0f12;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+    overscroll-behavior:none;
+  }
 
-/* Theme vars */
-:root{
-  --bg-grad: linear-gradient(180deg,#f6f7fb 0%,#eef1f6 45%,#e9edf3 100%); /* light */
-}
-.theme-dark{
-  --bg-grad: linear-gradient(180deg,#111318 0%, #0f1217 40%, #0d0f14 100%); /* dark */
-}
+  /* Theme vars */
+  :root{
+    --bg-grad: linear-gradient(180deg,#f6f7fb 0%,#eef1f6 45%,#e9edf3 100%); /* light */
+  }
+  .theme-dark{
+    --bg-grad: linear-gradient(180deg,#111318 0%, #0f1217 40%, #0d0f14 100%); /* dark */
+  }
+  body{ background: var(--bg-grad); }
 
-/* Use the variable */
-body{ background: var(--bg-grad); }
+  *, *::before, *::after{ box-sizing:border-box }
+  *{ user-select:none; -webkit-user-select:none; -ms-user-select:none; -webkit-touch-callout:none }
+  #gl{ position:fixed; inset:0; z-index:0; display:block }
+  #hud{ position:fixed; inset:0; z-index:1; display:block; touch-action:none }
+  /* === CSS BASE END === */
 
-*, *::before, *::after{ box-sizing:border-box }
-*{ user-select:none; -webkit-user-select:none; -ms-user-select:none; -webkit-touch-callout:none }
-#gl{ position:fixed; inset:0; z-index:0; display:block }
-#hud{ position:fixed; inset:0; z-index:1; display:block; touch-action:none }
-/* === CSS BASE END === */
+  /* === HAMBURGER === */
+  #menuBtn{
+    position:fixed;top:.6rem;right:.6rem;z-index:3;width:44px;height:44px;
+    border-radius:12px;border:1px solid #3a3d45;background:#181a20;display:grid;place-items:center;
+    box-shadow:0 2px 10px rgba(0,0,0,.25)
+  }
+  #menuBtn .bar{display:block;width:20px;height:2px;background:#e8e8ea;margin:3px 0}
+  #menuBtn.active{background:#0066ff;border-color:#4c8dff}
 
-/* === HAMBURGER === */
-#menuBtn{
-  position:fixed;top:.6rem;right:.6rem;z-index:3;width:44px;height:44px;
-  border-radius:12px;border:1px solid #3a3d45;background:#181a20;display:grid;place-items:center;
-  box-shadow:0 2px 10px rgba(0,0,0,.25)
-}
-#menuBtn .bar{display:block;width:20px;height:2px;background:#e8e8ea;margin:3px 0}
-#menuBtn.active{background:#0066ff;border-color:#4c8dff}
+  /* Theme toggle */
+  #themeToggle{
+    position:fixed;top:.6rem;right:3.9rem;z-index:3;width:44px;height:44px;
+    border-radius:12px;border:1px solid #3a3d45;background:#181a20;
+    color:#e8e8ea;font-weight:700;box-shadow:0 2px 10px rgba(0,0,0,.25);
+    cursor:pointer;
+  }
 
-/* === OVERLAY MENU PANEL === */
-#menuOverlay{
-  position:fixed; inset:0; z-index:4; display:none;
-  background:rgba(10,12,16,0.45); backdrop-filter: blur(3px);
-  overflow-x:hidden;
-}
-#menuPanel{
-  position:absolute; left:50%; top:12vh; transform:translateX(-50%);
-  width:min(960px, calc(100vw - 2rem)); max-height:76vh; overflow:auto;
-  background:rgba(24,26,32,.96); color:#e8e8ea; border:1px solid #3a3d45; border-radius:14px;
-  box-shadow:0 20px 60px rgba(0,0,0,.35);
-  overflow-x:hidden;
-}
-.mp-header{
-  position:sticky; top:0; background:rgba(24,26,32,.98); z-index:1;
-  padding:.9rem clamp(.8rem, 2vw, 1rem); border-bottom:1px solid #33373f; display:flex; align-items:center; justify-content:space-between;
-}
-.mp-title{font-weight:700;letter-spacing:.2px}
-.mp-close{border:1px solid #3a3d45;background:#181a20;color:#e8e8ea;border-radius:10px;padding:.35rem .6rem;font-weight:600}
-.mp-body{
-  padding:clamp(.6rem,2vw,1rem);
-  display:grid; grid-template-columns: 1fr 1fr; gap:14px;
-}
-@media (max-width: 860px){ .mp-body{grid-template-columns: 1fr;} }
+  /* === OVERLAY MENU PANEL === */
+  #menuOverlay{
+    position:fixed; inset:0; z-index:4; display:none;
+    background:rgba(10,12,16,0.45); backdrop-filter: blur(3px);
+    overflow-x:hidden;
+  }
+  #menuPanel{
+    position:absolute; left:50%; top:12vh; transform:translateX(-50%);
+    width:min(960px, calc(100vw - 2rem)); max-height:76vh; overflow:auto;
+    background:rgba(24,26,32,.96); color:#e8e8ea; border:1px solid #3a3d45; border-radius:14px;
+    box-shadow:0 20px 60px rgba(0,0,0,.35);
+    overflow-x:hidden;
+  }
+  .mp-header{
+    position:sticky; top:0; background:rgba(24,26,32,.98); z-index:1;
+    padding:.9rem clamp(.8rem, 2vw, 1rem); border-bottom:1px solid #33373f; display:flex; align-items:center; justify-content:space-between;
+  }
+  .mp-title{font-weight:700;letter-spacing:.2px}
+  .mp-close{border:1px solid #3a3d45;background:#181a20;color:#e8e8ea;border-radius:10px;padding:.35rem .6rem;font-weight:600}
+  .mp-body{
+    padding:clamp(.6rem,2vw,1rem);
+    display:grid; grid-template-columns: 1fr 1fr; gap:14px;
+  }
+  @media (max-width: 860px){ .mp-body{grid-template-columns: 1fr;} }
 
-.card{
-  background:#15171d; border:1px solid #33373f; border-radius:12px; padding:.9rem;
-}
-.card h3{margin:.1rem 0 .7rem; font-size:1rem; opacity:.95}
-.row{display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; margin:.45rem 0; width:100%;}
-.btn{border:1px solid #3a3d45;padding:.45rem .7rem;border-radius:999px;background:#181a20;color:#e8e8ea;font-weight:600;letter-spacing:.2px;cursor:pointer}
-.btn.active{background:#0066ff;border-color:#4c8dff}
-.tag{background:#181a20;border:1px solid #3a3d45;padding:.25rem .5rem;border-radius:999px;font-size:.82rem;white-space:nowrap}
+  .card{
+    background:#15171d; border:1px solid #33373f; border-radius:12px; padding:.9rem;
+  }
+  .card h3{margin:.1rem 0 .7rem; font-size:1rem; opacity:.95}
+  .row{display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; margin:.45rem 0; width:100%;}
+  .btn{border:1px solid #3a3d45;padding:.45rem .7rem;border-radius:999px;background:#181a20;color:#e8e8ea;font-weight:600;letter-spacing:.2px;cursor:pointer}
+  .btn.active{background:#0066ff;border-color:#4c8dff}
+  .tag{background:#181a20;border:1px solid #3a3d45;padding:.25rem .5rem;border-radius:999px;font-size:.82rem;white-space:nowrap}
 
-.sl{ display:flex; align-items:center; gap:.6rem; flex-wrap:nowrap; width:100%; min-width:0; }
-.sl label{ font-size:.88rem; opacity:.92; flex:0 0 150px; min-width:120px; max-width:220px; }
-.sl input[type=range]{ accent-color:#4c8dff; flex:1 1 auto; min-width:0; max-width:100%; width:100%; }
-.sl .tag{flex:0 0 auto}
+  .sl{
+    display:flex; align-items:center; gap:.6rem; flex-wrap:nowrap;
+    width:100%; min-width:0;
+  }
+  .sl label{
+    font-size:.88rem; opacity:.92; flex:0 0 150px; min-width:120px; max-width:220px;
+  }
+  .sl input[type=range]{
+    accent-color:#4c8dff;
+    flex:1 1 auto; min-width:0; max-width:100%; width:100%;
+  }
+  .sl .tag{flex:0 0 auto}
 
-@media (max-width:520px){
-  .sl{flex-wrap:wrap}
-  .sl label{flex:1 0 100%}
-  .sl input[type=range]{flex:1 0 100%}
-  .sl .tag{margin-left:auto}
-}
+  @media (max-width:520px){
+    .sl{flex-wrap:wrap}
+    .sl label{flex:1 0 100%}
+    .sl input[type=range]{flex:1 0 100%}
+    .sl .tag{margin-left:auto}
+  }
 
-select{background:#181a20;color:#e8e8ea;border:1px solid #3a3d45;border-radius:10px;padding:.35rem .5rem;max-width:100%}
+  select{background:#181a20;color:#e8e8ea;border:1px solid #3a3d45;border-radius:10px;padding:.35rem .5rem;max-width:100%}
 
-/* Hints (stick/DAR) */
-#joyHint,#darHint{position:fixed; z-index:2; pointer-events:none;background:rgba(24,26,32,.92); border:1px solid #3a3d45; color:#cfd3dc;
-  padding:.35rem .55rem; border-radius:10px; font-size:.85rem; white-space:nowrap; transform:translate(-50%,-50%); opacity:0; transition:opacity .25s ease;}
-#joyHint.show,#darHint.show{opacity:1;}
+  /* Hints (stick/DAR) */
+  #joyHint,#darHint{position:fixed; z-index:2; pointer-events:none;background:rgba(24,26,32,.92); border:1px solid #3a3d45; color:#cfd3dc;
+    padding:.35rem .55rem; border-radius:10px; font-size:.85rem; white-space:nowrap; transform:translate(-50%,-50%); opacity:0; transition:opacity .25s ease;}
+  #joyHint.show,#darHint.show{opacity:1;}
 
-/* XYZ gizmo frame */
-#gizmoFrame{
-  position:fixed; right:.6rem; top:64px; width:84px; height:84px; z-index:2;
-  border-radius:10px; border:1px solid #3a3d45; background:rgba(24,26,32,.5);
-  box-shadow:0 8px 24px rgba(0,0,0,.2); pointer-events:none;
-}
+  /* XYZ gizmo frame */
+  #gizmoFrame{
+    position:fixed; right:.6rem; top:64px; width:84px; height:84px; z-index:2;
+    border-radius:10px; border:1px solid #3a3d45; background:rgba(24,26,32,.5);
+    box-shadow:0 8px 24px rgba(0,0,0,.2); pointer-events:none;
+  }
 </style>
 </head>
 <body>
@@ -105,6 +119,9 @@ select{background:#181a20;color:#e8e8ea;border:1px solid #3a3d45;border-radius:1
   <canvas id="gl"></canvas>
   <canvas id="hud"></canvas>
   <div id="gizmoFrame"></div>
+
+  <!-- THEME TOGGLE -->
+  <button id="themeToggle" type="button" title="Toggle light/dark">🌙</button>
 
   <!-- HAMBURGER -->
   <button id="menuBtn" type="button" title="Open Menu"><span class="bar"></span><span class="bar"></span><span class="bar"></span></button>
@@ -271,9 +288,9 @@ const renderer = new THREE.WebGLRenderer({canvas: gl, antialias: true});
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
-renderer.toneMappingExposure = 1.05; // mild boost
 
 const scene = new THREE.Scene();
+/* fog color is themed later via applyTheme */
 scene.fog = new THREE.Fog(0xeef1f6, 900, 2200);
 
 const camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 0.1, 5000);
@@ -281,26 +298,36 @@ const CAM_BASE = { y: 280, z: 760 };
 camera.position.set(0, CAM_BASE.y, CAM_BASE.z);
 scene.add(camera);
 
-/* ====== LIGHTING (brighter & softer) ====== */
-scene.add(new THREE.AmbientLight(0xffffff, 0.9));            // overall lift
+/* Lights (brighter setup + tone mapping exposure) */
+renderer.toneMappingExposure = 1.15;
 
-const hemi = new THREE.HemisphereLight(0xe9eef8, 0x3a3e47, 0.55); // sky/ground fill
-hemi.position.set(0, 1, 0);
-scene.add(hemi);
+const ambient = new THREE.AmbientLight(0xffffff, 1.05);
+scene.add(ambient);
 
-const key = new THREE.DirectionalLight(0xffffff, 1.2);       // key light
-key.position.set(-350, 700, 900);
-scene.add(key);
+const dir = new THREE.DirectionalLight(0xffffff, 1.25);
+dir.position.set(-350, 700, 900);
+dir.castShadow = false;
+scene.add(dir);
 
-const fill = new THREE.DirectionalLight(0xffffff, 0.6);      // opposite fill
-fill.position.set(420, 280, -520);
+const fill = new THREE.DirectionalLight(0xffffff, 0.75);
+fill.position.set(600, 300, -400);
 scene.add(fill);
 
-const rim = new THREE.DirectionalLight(0xffffff, 0.4);       // soft rim/back
-rim.position.set(-200, 300, -900);
+const rim = new THREE.DirectionalLight(0xffffff, 0.55);
+rim.position.set(-900, 450, -700);
 scene.add(rim);
 
-/* === Light/Dark theming for background, fog, and grid === */
+/* Grid */
+const grid = new THREE.Group();
+const gridMain = new THREE.GridHelper(2600, 26, 0xd7dde6, 0xE5E9F1);
+gridMain.material.opacity = 0.65;
+gridMain.material.transparent = true;
+grid.add(gridMain);
+grid.rotation.x = -Math.PI/2;
+grid.position.y = -160;
+scene.add(grid);
+
+/* === Theme (runs AFTER grid exists) === */
 const THEMES = {
   light: {
     fog: 0xeef1f6,
@@ -316,26 +343,31 @@ const THEMES = {
   }
 };
 
+// Version-safe GridHelper color update
 function setGridColors(lineHex, centerHex){
-  if (gridMain.material && gridMain.material.color) {
-    gridMain.material.color.setHex(centerHex); // center lines
-  }
-  if (gridMain.material2 && gridMain.material2.color) {
-    gridMain.material2.color.setHex(lineHex);  // grid lines
+  const m = gridMain.material;
+  if (Array.isArray(m)) {
+    // Try to set both materials (order can vary)
+    m[0]?.color?.setHex(centerHex);
+    m[1]?.color?.setHex(lineHex);
   } else {
-    gridMain.material.color.setHex(lineHex);
+    m?.color?.setHex(lineHex);
   }
 }
 
 function applyTheme(name){
   const t = THEMES[name] || THEMES.light;
+
   document.body.classList.toggle('theme-dark', t.bodyClass === 'theme-dark');
-  if (scene.fog) {
-    scene.fog.color.setHex(t.fog);
-  } else {
-    scene.fog = new THREE.Fog(t.fog, 900, 2200);
-  }
+
+  if (scene.fog) scene.fog.color.setHex(t.fog);
+  else scene.fog = new THREE.Fog(t.fog, 900, 2200);
+
   setGridColors(t.gridLine, t.gridCenter);
+
+  const btn = document.getElementById('themeToggle');
+  if (btn) btn.textContent = (name === 'dark') ? '☀️' : '🌙';
+
   try { localStorage.setItem('l4_theme', name); } catch {}
 }
 
@@ -345,15 +377,13 @@ function initTheme(){
   applyTheme(saved);
 }
 
-/* Grid */
-const grid = new THREE.Group();
-const gridMain = new THREE.GridHelper(2600, 26, 0xd7dde6, 0xE5E9F1);
-gridMain.material.opacity = 0.65;
-gridMain.material.transparent = true;
-grid.add(gridMain);
-grid.rotation.x = -Math.PI/2;
-grid.position.y = -160;
-scene.add(grid);
+document.getElementById('themeToggle')?.addEventListener('click', ()=>{
+  const next = (localStorage.getItem('l4_theme') === 'dark') ? 'light' : 'dark';
+  applyTheme(next);
+});
+
+// Initialize theme now that grid exists
+initTheme();
 
 /* Colors */
 const COL_UP   = 0xff5c5c;
@@ -378,12 +408,12 @@ const presets = {
   dominus:     { hx:77.9,  hy:29.3, hz:120 }
 };
 
-/* === Front “face” arrow placement === */
-const FACE_OFFSET = 0.25; // meters in front of the car’s front face (reduce to bring closer)
-
 /* Car builder */
 let car=null, BOX=null;
 let faceArrow=null, faceTip=null;
+
+// How far in front of the front face the HUD arrow sits (world units)
+const FACE_OFFSET = 0.20; // smaller = closer to the nose (default was ~0.6)
 
 function clearCar(){
   if(!car) return;
@@ -416,7 +446,7 @@ function buildCar(boxDims, presetName="placeholder"){
   addEdge(vBL, vBR, COL_DOWN);
   addEdge(vFL, vBL, COL_RIGHT);
 
-  // Nose arrow (decorative, from origin toward +Z)
+  // Nose arrow (body axis indicator, not the face arrow)
   const noseGeom = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,BOX.hz*0.55)]);
   const nose = new THREE.Line(noseGeom, new THREE.LineBasicMaterial({color: COL_DOWN}));
   car.add(nose);
@@ -428,33 +458,19 @@ function buildCar(boxDims, presetName="placeholder"){
   addWheel(+xOff, -zOff); addWheel(-xOff, -zOff);
   addWheel(+xOff, +zOff); addWheel(-xOff, +zOff);
 
-  // Face input arrow (front plane, adjustable offset)
-  makeOrUpdateFrontArrow();
-}
+  // Face input arrow (front plane, moves with car)
+  const zFace = BOX.hz + FACE_OFFSET;
+  const faceGeom = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(0,0,zFace),
+    new THREE.Vector3(0,0,zFace)
+  ]);
+  faceArrow = new THREE.Line(faceGeom, new THREE.LineBasicMaterial({color: 0x333333}));
+  car.add(faceArrow);
 
-function makeOrUpdateFrontArrow(){
-  const zFace = BOX.hz + (FACE_OFFSET || 0.0);
-
-  if(!faceArrow){
-    const faceGeom = new THREE.BufferGeometry().setFromPoints([
-      new THREE.Vector3(0,0,zFace),
-      new THREE.Vector3(0,0,zFace)
-    ]);
-    faceArrow = new THREE.Line(faceGeom, new THREE.LineBasicMaterial({color: 0x333333}));
-    car.add(faceArrow);
-
-    faceTip = new THREE.Mesh(new THREE.ConeGeometry(6,12,12), new THREE.MeshBasicMaterial({color: 0x333333}));
-    faceTip.position.set(0,0,zFace);
-    car.add(faceTip);
-    faceArrow.visible = false; faceTip.visible = false;
-  }else{
-    // Update existing plane to new z
-    const pos = faceArrow.geometry.attributes.position.array;
-    pos[0]=0; pos[1]=0; pos[2]=zFace;
-    pos[3]=0; pos[4]=0; pos[5]=zFace;
-    faceArrow.geometry.attributes.position.needsUpdate = true;
-    faceTip.position.set(0,0,zFace);
-  }
+  faceTip = new THREE.Mesh(new THREE.ConeGeometry(6,12,12), new THREE.MeshBasicMaterial({color: 0x333333}));
+  faceTip.position.set(0,0,zFace);
+  car.add(faceTip);
+  faceArrow.visible = false; faceTip.visible = false;
 }
 
 function addEdge(a,b,color){
@@ -732,7 +748,6 @@ presetSel .addEventListener('change',()=>{
   buildCar(presets[name], name);
   car.quaternion.identity(); w.set(0,0,0);
   applySpawnOrientation();
-  makeOrUpdateFrontArrow(); // ensure plane uses current FACE_OFFSET
 });
 
 /* Pointer handlers */
@@ -795,7 +810,7 @@ const gpActionSel = document.getElementById('gpAction');
 const gpRemapBtn  = document.getElementById('gpRemap');
 const gpBindLabel = document.getElementById('gpBindLabel');
 
-let gpEnabled = true;
+let gpEnabled = true;      // enabled by default
 let gpIndex   = -1;
 let gpRemapping = false;
 let gpPrevActionPressed = {};
@@ -810,20 +825,8 @@ let gpBindings = {
 };
 
 const GP_PRESETS = {
-  ps5: {
-    toggleDAR:  { kind:'button', index: 1 },
-    rollLeft:   { kind:'button', index: 4 },
-    rollRight:  { kind:'button', index: 5 },
-    restart:    { kind:'button', index: 9 },
-    orbitToggle:{ kind:'button', index: 2 }
-  },
-  xinput: {
-    toggleDAR:  { kind:'button', index: 1 },
-    rollLeft:   { kind:'button', index: 4 },
-    rollRight:  { kind:'button', index: 5 },
-    restart:    { kind:'button', index: 9 },
-    orbitToggle:{ kind:'button', index: 2 }
-  }
+  ps5: { toggleDAR:{kind:'button',index:1}, rollLeft:{kind:'button',index:4}, rollRight:{kind:'button',index:5}, restart:{kind:'button',index:9}, orbitToggle:{kind:'button',index:2} },
+  xinput: { toggleDAR:{kind:'button',index:1}, rollLeft:{kind:'button',index:4}, rollRight:{kind:'button',index:5}, restart:{kind:'button',index:9}, orbitToggle:{kind:'button',index:2} }
 };
 
 function bindingToLabel(b){
@@ -892,9 +895,15 @@ function isPressedForBinding(pad, binding){
 
 function execBinding(action){
   switch(action){
-    case 'toggleDAR': darOn = !darOn; break;
-    case 'rollLeft':  setRoll(-1);    break;
-    case 'rollRight': setRoll(+1);    break;
+    case 'toggleDAR':
+      darOn = !darOn;
+      break;
+    case 'rollLeft':
+      setRoll(-1);
+      break;
+    case 'rollRight':
+      setRoll(+1);
+      break;
     case 'restart': {
       if (car) car.quaternion.identity();
       applySpawnOrientation();
@@ -914,6 +923,58 @@ function execBinding(action){
       document.getElementById('orbit').classList.toggle('active', orbitOn);
       break;
     default: break;
+  }
+}
+
+function handleRemap(pad){
+  if(!gpRemapping || !pad) return;
+  for(let i=0;i<pad.buttons.length;i++){
+    if(pad.buttons[i] && (pad.buttons[i].value||0) > 0.5){
+      gpBindings[gpActionSel.value] = { kind:'button', index:i };
+      gpRemapping = false;
+      updateBindLabel();
+      return;
+    }
+  }
+  for(let a=0;a<pad.axes.length;a++){
+    const v = pad.axes[a] || 0;
+    if(Math.abs(v) > 0.6){
+      gpBindings[gpActionSel.value] = { kind:'axis', axis:a, dir: (v>0? +1 : -1) };
+      gpRemapping = false;
+      updateBindLabel();
+      return;
+    }
+  }
+}
+
+function updateGamepadInput(){
+  if(!gpEnabled) return;
+  const { pad } = readPads();
+  if(!pad){ gpStatusTag.textContent = 'Enabled (waiting for gamepad)'; return; }
+  gpStatusTag.textContent = `Connected: ${pad.id}`;
+
+  if(gpRemapping){ handleRemap(pad); }
+
+  // Left stick → on-screen stick (natural Y: up=up)
+  if(!joyActive && !relocating && !darRelocating){
+    const lx = pad.axes[0] || 0;
+    const ly = pad.axes[1] || 0;
+    const mag = Math.hypot(lx, ly);
+    let nx = 0, ny = 0;
+    if(mag > GP_DEADZONE){
+      const k = (mag - GP_DEADZONE) / (1 - GP_DEADZONE);
+      nx = (lx / (mag||1)) * k;
+      ny = (ly / (mag||1)) * k;
+    }
+    joyVec.set(nx * JOY_BASE_R, ny * JOY_BASE_R);
+  }
+
+  // Fire actions on rising edge
+  for(const action of Object.keys(gpBindings)){
+    const nowPressed = isPressedForBinding(pad, gpBindings[action]);
+    const wasPressed = !!gpPrevActionPressed[action];
+    if(nowPressed && !wasPressed){ execBinding(action); }
+    gpPrevActionPressed[action] = nowPressed;
   }
 }
 
@@ -937,14 +998,14 @@ function integrate(dt){
   const ux = (mag>0) ? (-jx/mag) : 0; // yaw unit (flipped X)
   const uy = (mag>0) ? ( jy/mag) : 0; // pitch unit
 
-  // Face arrow (draw on the adjustable front plane)
+  // Face arrow (draws on the car's front plane)
   if (faceArrow && faceTip){
     const show = eff > 0.02;
     faceArrow.visible = show; faceTip.visible = show;
     if (show){
       const lenMax = Math.min(BOX.hx, BOX.hy) * 0.95;
       const len = Math.max(10, lenMax * eff * (arrowScale||1));
-      const zFace = BOX.hz + (FACE_OFFSET || 0.0);
+      const zFace = BOX.hz + FACE_OFFSET;
 
       const x2 =  ux * len;
       const y2 = -uy * len;   // draw flip
@@ -1056,10 +1117,7 @@ function tick(){
 
   if(orbitOn){ orbitPhase += dt; orbitStep(orbitPhase); }
 
-  // (Optional) live gamepad reading could be here if you had a function; left as-is in your base
-  // updateGamepadInput(); // uses existing logic above
   updateGamepadInput();
-
   integrate(dt);
 
   renderer.setScissorTest(false);
@@ -1119,30 +1177,37 @@ function swapInGLB(){
       const preCtr  = preBox.getCenter(new THREE.Vector3());
       model.position.sub(preCtr);
 
-      // Align +X → +Z if necessary
+      // Align +X → +Z if necessary (common in car assets)
       if (preSize.x > preSize.z * 1.2) {
         model.rotation.y = -Math.PI / 2;
       }
 
-      // Scale GLB to placeholder longest dimension
+      // Scale GLB to placeholder longest dimension to keep dynamics consistent
       const targetLongest = (BOX ? Math.max(BOX.hx*2, BOX.hy*2, BOX.hz*2) : 240);
       const glbLongest = Math.max(preSize.x, preSize.y, preSize.z) || 1;
       const scale = targetLongest / glbLongest;
       model.scale.setScalar(scale);
 
-      // Replace visuals
+      // Replace placeholder visuals
       clearCarMeshesKeepGadgets();
       car.add(model);
 
-      // Recompute BOX for HUD arrow
+      // Recompute BOX so HUD arrow stays correct
       const box = new THREE.Box3().setFromObject(model);
       const s   = box.getSize(new THREE.Vector3());
       BOX = { hx: s.x/2, hy: s.y/2, hz: s.z/2 };
 
-      // Update the front arrow plane using current FACE_OFFSET
-      makeOrUpdateFrontArrow();
+      // Update arrow plane to new front face (still moves with car)
+      if(faceArrow && faceTip){
+        const zFace = BOX.hz + FACE_OFFSET;
+        const pos = faceArrow.geometry.attributes.position.array;
+        pos[0]=0; pos[1]=0; pos[2]=zFace;
+        pos[3]=0; pos[4]=0; pos[5]=zFace;
+        faceArrow.geometry.attributes.position.needsUpdate = true;
+        faceTip.position.set(0,0,zFace);
+      }
 
-      // Apply spawn orientation
+      // Apply the global spawn orientation to the car group (not the GLB itself)
       applySpawnOrientation();
     },
     undefined,
@@ -1153,14 +1218,10 @@ function swapInGLB(){
 /* Build + boot */
 buildCar(presets.octane, "octane");
 applySpawnOrientation();
-makeOrUpdateFrontArrow();   // ensure initial placement uses FACE_OFFSET
-// setRoll default
-function setRoll(dir){ airRoll=dir; document.getElementById('rollL').classList.toggle('active',dir>0); document.getElementById('rollR').classList.toggle('active',dir<0); }
-setRoll(-1);
+setRoll(-1);           // default Air Roll Left
 positionHints();
-applyTheme('light');        // start in light theme
 applyZoom();
-swapInGLB();                // load the GLB and replace the placeholder
+swapInGLB();           // load the GLB and replace the placeholder
 requestAnimationFrame(tick);
 </script>
 </body>
