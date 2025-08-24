@@ -68,7 +68,7 @@
     padding:clamp(.6rem,2vw,1rem);
     display:grid; grid-template-columns: 1fr 1fr; gap:14px;
   }
-  @media (max-width: 860px){ .mp-body{grid-template-columns: 1fr;} }
+  @media (max-width: 860px){ .mp-body{grid-template-columns: 1 fr;} }
 
   .card{
     background:#15171d; border:1px solid #33373f; border-radius:12px; padding:.9rem;
@@ -149,6 +149,12 @@
             <label for="spinSlider">DAR Roll</label>
             <input id="spinSlider" type="range" min="0" max="3.0" step="0.01" value="1.20"/>
             <span class="tag" id="rollVal">1.20 s/rot</span>
+          </div>
+
+          <!-- NEW: Lock yaw/pitch from stick -->
+          <div class="row">
+            <button id="lockYP" class="btn" type="button" title="Disable yaw & pitch commands from the stick">Lock Y/P (stick)</button>
+            <span class="tag" id="lockYPState">Off</span>
           </div>
 
           <div class="row" style="font-size:.86rem;opacity:.85;line-height:1.35;">
@@ -237,6 +243,13 @@
             <input id="arrowSlider" type="range" min="0.60" max="4.00" step="0.01" value="4.00" />
             <span class="tag" id="arrowVal">4.00×</span>
           </div>
+
+          <!-- NEW: Scene brightness -->
+          <div class="row sl">
+            <label for="brightSlider">Scene Brightness</label>
+            <input id="brightSlider" type="range" min="0.60" max="2.40" step="0.01" value="1.35" />
+            <span class="tag" id="brightVal">1.35×</span>
+          </div>
         </div>
 
         <!-- Gamepad -->
@@ -298,22 +311,22 @@ const CAM_BASE = { y: 280, z: 760 };
 camera.position.set(0, CAM_BASE.y, CAM_BASE.z);
 scene.add(camera);
 
-/* Lights (brighter setup + tone mapping exposure) */
-renderer.toneMappingExposure = 1.15;
+/* Lights (base intensities) */
+let baseAmbient = 1.05, baseDir = 1.25, baseFill = 0.75, baseRim = 0.55;
 
-const ambient = new THREE.AmbientLight(0xffffff, 1.05);
+const ambient = new THREE.AmbientLight(0xffffff, baseAmbient);
 scene.add(ambient);
 
-const dir = new THREE.DirectionalLight(0xffffff, 1.25);
+const dir = new THREE.DirectionalLight(0xffffff, baseDir);
 dir.position.set(-350, 700, 900);
 dir.castShadow = false;
 scene.add(dir);
 
-const fill = new THREE.DirectionalLight(0xffffff, 0.75);
+const fill = new THREE.DirectionalLight(0xffffff, baseFill);
 fill.position.set(600, 300, -400);
 scene.add(fill);
 
-const rim = new THREE.DirectionalLight(0xffffff, 0.55);
+const rim = new THREE.DirectionalLight(0xffffff, baseRim);
 rim.position.set(-900, 450, -700);
 scene.add(rim);
 
@@ -347,7 +360,6 @@ const THEMES = {
 function setGridColors(lineHex, centerHex){
   const m = gridMain.material;
   if (Array.isArray(m)) {
-    // Try to set both materials (order can vary)
     m[0]?.color?.setHex(centerHex);
     m[1]?.color?.setHex(lineHex);
   } else {
@@ -413,8 +425,8 @@ let car=null, BOX=null;
 let faceArrow=null, faceTip=null;
 
 /* === Arrow plane exactly on the nose === */
-const FACE_OFFSET = 0.0;  // <<< was 0.20 — keep arrow base on the front face
-const FACE_EPS    = 0.05; // <<< tiny nudge to avoid z-fighting
+const FACE_OFFSET = 0.0;
+const FACE_EPS    = 0.05;
 
 function clearCar(){
   if(!car) return;
@@ -460,16 +472,16 @@ function buildCar(boxDims, presetName="placeholder"){
   addWheel(+xOff, +zOff); addWheel(-xOff, +zOff);
 
   // Face input arrow (front plane, moves with car)
-  const zFace = BOX.hz + FACE_OFFSET; // <<<
+  const zFace = BOX.hz + FACE_OFFSET;
   const faceGeom = new THREE.BufferGeometry().setFromPoints([
-    new THREE.Vector3(0,0,zFace + FACE_EPS), // <<<
-    new THREE.Vector3(0,0,zFace + FACE_EPS)  // <<<
+    new THREE.Vector3(0,0,zFace + FACE_EPS),
+    new THREE.Vector3(0,0,zFace + FACE_EPS)
   ]);
   faceArrow = new THREE.Line(faceGeom, new THREE.LineBasicMaterial({color: 0x333333}));
   car.add(faceArrow);
 
   faceTip = new THREE.Mesh(new THREE.ConeGeometry(6,12,12), new THREE.MeshBasicMaterial({color: 0x333333}));
-  faceTip.position.set(0,0,zFace + FACE_EPS); // <<<
+  faceTip.position.set(0,0,zFace + FACE_EPS);
   car.add(faceTip);
   faceArrow.visible = false; faceTip.visible = false;
 }
@@ -693,6 +705,16 @@ document.getElementById('orbit').addEventListener('click',()=>{
   orbitOn=!orbitOn; document.getElementById('orbit').classList.toggle('active',orbitOn);
 });
 
+/* NEW: Lock Y/P toggle */
+let lockYP = false;
+const lockBtn = document.getElementById('lockYP');
+const lockState = document.getElementById('lockYPState');
+lockBtn.addEventListener('click', ()=>{
+  lockYP = !lockYP;
+  lockBtn.classList.toggle('active', lockYP);
+  lockState.textContent = lockYP ? 'On' : 'Off';
+});
+
 /* Sliders / select */
 const accelRange=document.getElementById('accelRange'), accelTag=document.getElementById('accelTag');
 const curveRange=document.getElementById('curveRange'), curveTag=document.getElementById('curveTag');
@@ -705,6 +727,7 @@ const spinSlider=document.getElementById('spinSlider'), rollVal=document.getElem
 const sizeSlider=document.getElementById('stickSizeSlider'), stickVal=document.getElementById('stickVal');
 const zoomSlider=document.getElementById('zoomSlider'), zoomVal=document.getElementById('zoomVal');
 const arrowSlider=document.getElementById('arrowSlider'), arrowVal=document.getElementById('arrowVal');
+const brightSlider=document.getElementById('brightSlider'), brightVal=document.getElementById('brightVal');
 const presetSel=document.getElementById('presetSel');
 
 let maxAccelDeg=parseFloat(accelRange.value),
@@ -716,7 +739,8 @@ let maxAccelDeg=parseFloat(accelRange.value),
     wMaxYaw=parseFloat(wmaxYawRange.value),
     freeRollPeriod=parseFloat(spinSlider.value),
     zoom=parseFloat(zoomSlider.value),
-    arrowScale=parseFloat(arrowSlider.value);
+    arrowScale=parseFloat(arrowSlider.value),
+    sceneExposure=parseFloat(brightSlider.value)||1.35;
 
 function syncTags(){
   accelTag.textContent=maxAccelDeg.toFixed(0);
@@ -730,8 +754,18 @@ function syncTags(){
   stickVal.textContent = String(Math.round(JOY_BASE_R));
   zoomVal.textContent = `${(zoom||1).toFixed(2)}×`;
   arrowVal.textContent = `${(arrowScale||1).toFixed(2)}×`;
+  brightVal.textContent = `${(sceneExposure||1).toFixed(2)}×`;
 }
 syncTags();
+
+/* Brightness application */
+function applyExposure(){
+  renderer.toneMappingExposure = sceneExposure;
+  ambient.intensity = baseAmbient * sceneExposure;
+  dir.intensity     = baseDir     * sceneExposure;
+  fill.intensity    = baseFill    * sceneExposure;
+  rim.intensity     = baseRim     * sceneExposure;
+}
 
 accelRange.addEventListener('input',()=>{maxAccelDeg=parseFloat(accelRange.value)||255; syncTags();});
 curveRange.addEventListener('input',()=>{inputPow=parseFloat(curveRange.value)||1.0; syncTags();});
@@ -744,6 +778,7 @@ spinSlider.addEventListener('input',()=>{freeRollPeriod=parseFloat(spinSlider.va
 sizeSlider.addEventListener('input',()=>{JOY_BASE_R=parseInt(stickSizeSlider.value,10)||100; JOY_KNOB_R=Math.round(JOY_BASE_R*0.32); clampJoyCenter(); positionHints(); syncTags();});
 zoomSlider.addEventListener('input',()=>{zoom=parseFloat(zoomSlider.value)||1.0; applyZoom(); syncTags();});
 arrowSlider.addEventListener('input',()=>{arrowScale=parseFloat(arrowSlider.value)||4.0; syncTags();});
+brightSlider.addEventListener('input',()=>{sceneExposure=parseFloat(brightSlider.value)||1.0; applyExposure(); syncTags();});
 presetSel .addEventListener('change',()=>{
   const name = presetSel.value;
   buildCar(presets[name], name);
@@ -1006,14 +1041,14 @@ function integrate(dt){
     if (show){
       const lenMax = Math.min(BOX.hx, BOX.hy) * 0.95;
       const len = Math.max(10, lenMax * eff * (arrowScale||1));
-      const zFace = BOX.hz + FACE_OFFSET; // <<<
+      const zFace = BOX.hz + FACE_OFFSET;
 
       const x2 =  ux * len;
       const y2 = -uy * len;   // draw flip
 
       const pos = faceArrow.geometry.attributes.position.array;
-      pos[0]=0; pos[1]=0; pos[2]=zFace + FACE_EPS; // <<<
-      pos[3]=x2; pos[4]=y2; pos[5]=zFace + FACE_EPS; // <<<
+      pos[0]=0; pos[1]=0; pos[2]=zFace + FACE_EPS;
+      pos[3]=x2; pos[4]=y2; pos[5]=zFace + FACE_EPS;
       faceArrow.geometry.attributes.position.needsUpdate = true;
 
       const col = (Math.abs(x2) > Math.abs(y2))
@@ -1022,7 +1057,7 @@ function integrate(dt){
       faceArrow.material.color.setHex(col);
       faceTip.material.color.setHex(col);
 
-      faceTip.position.set(x2, y2, zFace + FACE_EPS); // <<<
+      faceTip.position.set(x2, y2, zFace + FACE_EPS);
       const ang = Math.atan2(x2, -y2) + Math.PI; // point outward
       faceTip.rotation.set(0, 0, ang);
       const s = 0.95 * (arrowScale||1);
@@ -1032,11 +1067,14 @@ function integrate(dt){
 
   const maxAccelRad = (maxAccelDeg * Math.PI) / 180;
 
-  // commanded angular accel in body axes
+  // commanded angular accel in body axes (respect Y/P lock)
+  const cmdPitch = lockYP ? 0 : (maxAccelRad * eff * uy); // X
+  const cmdYaw   = lockYP ? 0 : (maxAccelRad * eff * ux); // Y
+
   const alpha = new THREE.Vector3(
-    maxAccelRad * eff * uy,   // pitch (X)
-    maxAccelRad * eff * ux,   // yaw (Y)
-    0
+    cmdPitch,   // pitch (X)
+    cmdYaw,     // yaw (Y)
+    0           // roll (Z) set by DAR controller below
   );
 
   // DAR roll controller (period 0 = off)
@@ -1200,12 +1238,12 @@ function swapInGLB(){
 
       // Update arrow plane to new front face (still moves with car)
       if(faceArrow && faceTip){
-        const zFace = BOX.hz + FACE_OFFSET; // <<<
+        const zFace = BOX.hz + FACE_OFFSET;
         const pos = faceArrow.geometry.attributes.position.array;
-        pos[0]=0; pos[1]=0; pos[2]=zFace + FACE_EPS; // <<<
-        pos[3]=0; pos[4]=0; pos[5]=zFace + FACE_EPS; // <<<
+        pos[0]=0; pos[1]=0; pos[2]=zFace + FACE_EPS;
+        pos[3]=0; pos[4]=0; pos[5]=zFace + FACE_EPS;
         faceArrow.geometry.attributes.position.needsUpdate = true;
-        faceTip.position.set(0,0,zFace + FACE_EPS); // <<<
+        faceTip.position.set(0,0,zFace + FACE_EPS);
       }
 
       // Apply the global spawn orientation to the car group (not the GLB itself)
@@ -1222,6 +1260,10 @@ applySpawnOrientation();
 setRoll(-1);           // default Air Roll Left
 positionHints();
 applyZoom();
+
+/* Apply initial brightness AFTER lights are built */
+applyExposure();
+
 swapInGLB();           // load the GLB and replace the placeholder
 requestAnimationFrame(tick);
 </script>
