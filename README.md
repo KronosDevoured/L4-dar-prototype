@@ -1,6 +1,6 @@
 # L4-dar-prototype
 
-Interactive Rocket League–style air-roll sandbox with joystick + gamepad support, face-direction HUD, and DAR (Digital Auto Roll) toggle. Built with Three.js.
+Interactive Rocket League–style air-roll sandbox with joystick + gamepad support, face-direction HUD, and DAR (Directional Air Roll) toggle. Built with Three.js.
 
 **Live demo:** https://kronosdevoured.github.io/L4-dar-prototype/
 
@@ -22,14 +22,7 @@ The build is a single file at `docs/index.html`. Just visit the live link above.
 
 ## Model
 - Default model: `docs/models/octane.glb`
-- Load your own via *Car → Load GLB…* or replace the hosted file.
 
 ## Credits & License
 See [CREDITS.md](CREDITS.md) for model attribution (CC-BY).
 This project is fan-made and non-commercial. Rocket League/Octane are trademarks of Psyonix/Epic Games.
-
-## Roadmap (short)
-- Save/restore settings to `localStorage`.
-- Per-device gamepad presets.
-- Screenshot/export pose.
-
