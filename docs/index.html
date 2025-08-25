@@ -371,7 +371,7 @@ const COLS={UP:'#ff5c5c',RIGHT:'#4c8dff',DOWN:'#53d769',LEFT:'#ffd166'};
 function drawJoystick(){
   const cx=JOY_CENTER.x, cy=JOY_CENTER.y, r=JOY_BASE_R;
   if(spinStick && darOn){ hctx.save(); hctx.translate(cx,cy); hctx.rotate(-stickAngle); hctx.translate(-cx,-cy); }
-  const t=performance.now(), pulse=1+0.06*Math.sin(t*0.008), halo=r*pulse+10;
+  const t=performance.now(), pulse=1+0.06*Math.sin(t*0.0049502), halo=r*pulse+10;
   Hcircle(cx,cy,halo,'rgba(76,141,255,0.28)',8);
   Harc(cx,cy,r,-Math.PI/4,Math.PI/4,COLS.RIGHT,12);
   Harc(cx,cy,r, Math.PI/4,3*Math.PI/4,COLS.UP,12);
