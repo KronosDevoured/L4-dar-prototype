@@ -8,20 +8,13 @@
   /* === CSS BASE START === */
   html,body{
     margin:0;padding:0;height:100%;
-    background:#ffffff; /* fallback; actual bg via var below */
+    background:#ffffff;
     color:#0e0f12;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
     overscroll-behavior:none;
   }
-
-  /* Theme vars */
-  :root{
-    --bg-grad: linear-gradient(180deg,#f6f7fb 0%,#eef1f6 45%,#e9edf3 100%); /* light */
-  }
-  .theme-dark{
-    --bg-grad: linear-gradient(180deg,#111318 0%, #0f1217 40%, #0d0f14 100%); /* dark */
-  }
+  :root{ --bg-grad: linear-gradient(180deg,#f6f7fb 0%,#eef1f6 45%,#e9edf3 100%); }
+  .theme-dark{ --bg-grad: linear-gradient(180deg,#111318 0%, #0f1217 40%, #0d0f14 100%); }
   body{ background: var(--bg-grad); }
-
   *, *::before, *::after{ box-sizing:border-box }
   *{ user-select:none; -webkit-user-select:none; -ms-user-select:none; -webkit-touch-callout:none }
   #gl{ position:fixed; inset:0; z-index:0; display:block }
@@ -70,35 +63,23 @@
   }
   @media (max-width: 860px){ .mp-body{grid-template-columns: 1fr;} }
 
-  .card{
-    background:#15171d; border:1px solid #33373f; border-radius:12px; padding:.9rem;
-  }
+  .card{ background:#15171d; border:1px solid #33373f; border-radius:12px; padding:.9rem; }
   .card h3{margin:.1rem 0 .7rem; font-size:1rem; opacity:.95}
   .row{display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; margin:.45rem 0; width:100%;}
   .btn{border:1px solid #3a3d45;padding:.45rem .7rem;border-radius:999px;background:#181a20;color:#e8e8ea;font-weight:600;letter-spacing:.2px;cursor:pointer}
   .btn.active{background:#0066ff;border-color:#4c8dff}
   .tag{background:#181a20;border:1px solid #3a3d45;padding:.25rem .5rem;border-radius:999px;font-size:.82rem;white-space:nowrap}
 
-  .sl{
-    display:flex; align-items:center; gap:.6rem; flex-wrap:nowrap;
-    width:100%; min-width:0;
-  }
-  .sl label{
-    font-size:.88rem; opacity:.92; flex:0 0 150px; min-width:120px; max-width:220px;
-  }
-  .sl input[type=range]{
-    accent-color:#4c8dff;
-    flex:1 1 auto; min-width:0; max-width:100%; width:100%;
-  }
+  .sl{ display:flex; align-items:center; gap:.6rem; flex-wrap:nowrap; width:100%; min-width:0; }
+  .sl label{ font-size:.88rem; opacity:.92; flex:0 0 150px; min-width:120px; max-width:220px; }
+  .sl input[type=range]{ accent-color:#4c8dff; flex:1 1 auto; min-width:0; max-width:100%; width:100%; }
   .sl .tag{flex:0 0 auto}
-
   @media (max-width:520px){
     .sl{flex-wrap:wrap}
     .sl label{flex:1 0 100%}
     .sl input[type=range]{flex:1 0 100%}
     .sl .tag{margin-left:auto}
   }
-
   select{background:#181a20;color:#e8e8ea;border:1px solid #3a3d45;border-radius:10px;padding:.35rem .5rem;max-width:100%}
 
   /* Hints (stick/DAR) */
@@ -143,8 +124,6 @@
             <button id="rollR" class="btn active" type="button">Air Roll Left</button>
             <button id="restart" class="btn" type="button">Restart</button>
             <button id="orbit" class="btn" type="button">Orbit</button>
-            <!-- NEW: spin stick with car's roll -->
-            <button id="stickSpinBtn" class="btn" type="button">Spin Stick with Roll</button>
           </div>
 
           <div class="row sl">
@@ -239,6 +218,11 @@
             <input id="arrowSlider" type="range" min="0.60" max="4.00" step="0.01" value="4.00" />
             <span class="tag" id="arrowVal">4.00×</span>
           </div>
+
+          <div class="row">
+            <button id="spinStickBtn" class="btn" type="button">Spin Stick (follow roll)</button>
+            <span class="tag" id="spinStickTag">Off</span>
+          </div>
         </div>
 
         <!-- Gamepad -->
@@ -286,14 +270,12 @@ import { GLTFLoader } from "https://esm.sh/three@0.155.0/examples/jsm/loaders/GL
 /* ====== Renderer / Scene / Camera ====== */
 const gl = document.getElementById('gl');
 const hud = document.getElementById('hud');
-const renderer = new THREE.WebGLRenderer({canvas: gl, antialias: true, alpha: true}); // alpha → show CSS gradient
+const renderer = new THREE.WebGLRenderer({canvas: gl, antialias: true});
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
-renderer.setClearColor(0x000000, 0); // transparent clear
 
 const scene = new THREE.Scene();
-/* fog color is themed later via applyTheme */
 scene.fog = new THREE.Fog(0xeef1f6, 900, 2200);
 
 const camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 0.1, 5000);
@@ -301,15 +283,13 @@ const CAM_BASE = { y: 280, z: 760 };
 camera.position.set(0, CAM_BASE.y, CAM_BASE.z);
 scene.add(camera);
 
-/* Lights (brighter setup + tone mapping exposure) */
-renderer.toneMappingExposure = 1.35; // brighter overall
-
-const ambient = new THREE.AmbientLight(0xffffff, 1.25); // brighter ambient
+/* Lights (brighter) */
+renderer.toneMappingExposure = 1.35;
+const ambient = new THREE.AmbientLight(0xffffff, 1.25);
 scene.add(ambient);
 
-const dir = new THREE.DirectionalLight(0xffffff, 1.35);
+const dir = new THREE.DirectionalLight(0xffffff, 1.45);
 dir.position.set(-350, 700, 900);
-dir.castShadow = false;
 scene.add(dir);
 
 const fill = new THREE.DirectionalLight(0xffffff, 0.95);
@@ -323,7 +303,7 @@ scene.add(rim);
 /* Grid */
 const grid = new THREE.Group();
 const gridMain = new THREE.GridHelper(2600, 26, 0xd7dde6, 0xE5E9F1);
-gridMain.material.opacity = 0.75;
+gridMain.material.opacity = 0.70;
 gridMain.material.transparent = true;
 grid.add(gridMain);
 grid.rotation.x = -Math.PI/2;
@@ -332,66 +312,37 @@ scene.add(grid);
 
 /* === Theme (runs AFTER grid exists) === */
 const THEMES = {
-  light: {
-    fog: 0xeef1f6,
-    gridLine: 0xE5E9F1,
-    gridCenter: 0xd7dde6,
-    bodyClass: ''     // no class → light
-  },
-  dark: {
-    fog: 0x101318,
-    gridLine: 0x1f232b,
-    gridCenter: 0x2a2e36,
-    bodyClass: 'theme-dark'
-  }
+  light: { fog: 0xeef1f6, gridLine: 0xE5E9F1, gridCenter: 0xd7dde6, bodyClass: '' },
+  dark:  { fog: 0x101318, gridLine: 0x1f232b, gridCenter: 0x2a2e36, bodyClass: 'theme-dark' }
 };
-
-// Version-safe GridHelper color update
 function setGridColors(lineHex, centerHex){
   const m = gridMain.material;
-  if (Array.isArray(m)) {
-    m[0]?.color?.setHex(centerHex);
-    m[1]?.color?.setHex(lineHex);
-  } else {
-    m?.color?.setHex(lineHex);
-  }
+  if (Array.isArray(m)) { m[0]?.color?.setHex(centerHex); m[1]?.color?.setHex(lineHex); }
+  else { m?.color?.setHex(lineHex); }
 }
-
 function applyTheme(name){
   const t = THEMES[name] || THEMES.light;
-
   document.body.classList.toggle('theme-dark', t.bodyClass === 'theme-dark');
-
   if (scene.fog) scene.fog.color.setHex(t.fog);
   else scene.fog = new THREE.Fog(t.fog, 900, 2200);
-
   setGridColors(t.gridLine, t.gridCenter);
-
   const btn = document.getElementById('themeToggle');
   if (btn) btn.textContent = (name === 'dark') ? '☀️' : '🌙';
-
   try { localStorage.setItem('l4_theme', name); } catch {}
 }
-
 function initTheme(){
   let saved = 'light';
   try { saved = localStorage.getItem('l4_theme') || 'light'; } catch {}
   applyTheme(saved);
 }
-
 document.getElementById('themeToggle')?.addEventListener('click', ()=>{
   const next = (localStorage.getItem('l4_theme') === 'dark') ? 'light' : 'dark';
   applyTheme(next);
 });
-
-// Initialize theme now that grid exists
 initTheme();
 
 /* Colors */
-const COL_UP   = 0xff5c5c;
-const COL_RIGHT= 0x4c8dff;
-const COL_DOWN = 0x53d769;
-const COL_LEFT = 0xffd166;
+const COL_UP=0xff5c5c, COL_RIGHT=0x4c8dff, COL_DOWN=0x53d769, COL_LEFT=0xffd166;
 
 /* Materials */
 const MAT_BODY  = new THREE.MeshPhongMaterial({color: 0xdfe5ef, shininess: 50, specular: 0x666666});
@@ -413,10 +364,7 @@ const presets = {
 /* Car builder */
 let car=null, BOX=null;
 let faceArrow=null, faceTip=null;
-
-/* === Arrow plane exactly on the nose === */
-const FACE_OFFSET = 0.0;
-const FACE_EPS    = 0.05;
+const FACE_OFFSET = 0.0, FACE_EPS = 0.05;
 
 function clearCar(){
   if(!car) return;
@@ -424,7 +372,6 @@ function clearCar(){
   car.traverse(o=>{ if(o.geometry) o.geometry.dispose(); if(o.material) o.material.dispose?.(); });
   car = null;
 }
-
 function buildCar(boxDims, presetName="placeholder"){
   clearCar();
   BOX = boxDims;
@@ -439,7 +386,6 @@ function buildCar(boxDims, presetName="placeholder"){
   else if(presetName==="dominus") buildDominus();
   else buildPlaceholderFancy();
 
-  // Front-face colored edges
   const vFL = new THREE.Vector3(-BOX.hx, +BOX.hy, +BOX.hz);
   const vFR = new THREE.Vector3(+BOX.hx, +BOX.hy, +BOX.hz);
   const vBR = new THREE.Vector3(+BOX.hx, -BOX.hy, +BOX.hz);
@@ -449,19 +395,16 @@ function buildCar(boxDims, presetName="placeholder"){
   addEdge(vBL, vBR, COL_DOWN);
   addEdge(vFL, vBL, COL_RIGHT);
 
-  // Nose axis indicator
   const noseGeom = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,BOX.hz*0.55)]);
   const nose = new THREE.Line(noseGeom, new THREE.LineBasicMaterial({color: COL_DOWN}));
   car.add(nose);
   const noseTip = new THREE.Mesh(new THREE.ConeGeometry(8,16,12), new THREE.MeshBasicMaterial({color: COL_DOWN}));
   noseTip.rotation.x = Math.PI/2; noseTip.position.z = BOX.hz*0.55 + 10; car.add(noseTip);
 
-  // Wheels
   const xOff = BOX.hx-10, zOff = BOX.hz*0.68;
   addWheel(+xOff, -zOff); addWheel(-xOff, -zOff);
   addWheel(+xOff, +zOff); addWheel(-xOff, +zOff);
 
-  // Face input arrow (front plane, moves with car)
   const zFace = BOX.hz + FACE_OFFSET;
   const faceGeom = new THREE.BufferGeometry().setFromPoints([
     new THREE.Vector3(0,0,zFace + FACE_EPS),
@@ -475,12 +418,7 @@ function buildCar(boxDims, presetName="placeholder"){
   car.add(faceTip);
   faceArrow.visible = false; faceTip.visible = false;
 }
-
-function addEdge(a,b,color){
-  const geo = new THREE.BufferGeometry().setFromPoints([a,b]);
-  const line = new THREE.Line(geo, MAT_EDGE(color));
-  car.add(line);
-}
+function addEdge(a,b,color){ const geo = new THREE.BufferGeometry().setFromPoints([a,b]); const line = new THREE.Line(geo, MAT_EDGE(color)); car.add(line); }
 function addWheel(x, z, r=18, w=12){
   const g = new THREE.CylinderGeometry(r, r, w, 16);
   const front = new THREE.Mesh(g, MAT_TIRE_F);
@@ -557,7 +495,6 @@ function buildDominus(){
 /* === Spawn Orientation Helper === */
 function applySpawnOrientation() {
   if (!car) return;
-  // Nose up, roof toward camera (roll 90° nose-up, yaw 180°)
   car.rotation.set(-Math.PI / 2, 0, Math.PI);
 }
 
@@ -567,15 +504,10 @@ function sizeHud(){ hud.width = innerWidth; hud.height = innerHeight; }
 sizeHud();
 function Hclear(){hctx.setTransform(1,0,0,1,0,0); hctx.clearRect(0,0,hud.width,hud.height);}
 
-/* ====== SPIN STICK WITH CAR ROLL (TOGGLE) ====== */
-let spinStickWithRoll = false;
-const stickSpinBtn = document.getElementById('stickSpinBtn');
-stickSpinBtn.addEventListener('click', ()=>{
-  spinStickWithRoll = !spinStickWithRoll;
-  stickSpinBtn.classList.toggle('active', spinStickWithRoll);
-});
+/* === Joystick spin follow === */
+let spinStick = false;
+let stickAngle = 0;   // radians
 
-/* Draw helpers */
 function Hcircle(x,y,r,strokeStyle,width){hctx.beginPath();hctx.lineWidth=width;hctx.strokeStyle=strokeStyle;hctx.arc(x,y,r,0,Math.PI*2);hctx.stroke();}
 function HfillCircle(x,y,r,fillStyle){hctx.beginPath();hctx.fillStyle=fillStyle;hctx.arc(x,y,r,0,Math.PI*2);hctx.fill();}
 function Harc(x,y,r,a1,a2,strokeStyle,width){hctx.beginPath();hctx.lineWidth=width;hctx.strokeStyle=strokeStyle;hctx.arc(x,y,r,a1,a2);hctx.stroke();}
@@ -590,24 +522,16 @@ const STICK_TAU_MS=8, RELOCATE_HOLD_MS=250, STICK_MIN=0.02;
 let activeId=null, relocating=false, holdTimer=null;
 const COLS = {UP:'#ff5c5c', RIGHT:'#4c8dff', DOWN:'#53d769', LEFT:'#ffd166'};
 
-const _euler = new THREE.Euler(0,0,0,'XYZ'); // reuse for roll extraction
-
 function drawJoystick(){
   const cx=JOY_CENTER.x, cy=JOY_CENTER.y, r=JOY_BASE_R;
 
-  // Optional rotation to match car's roll orientation (keeps alignment)
-  hctx.save();
-  if (spinStickWithRoll && car){
-    _euler.setFromQuaternion(car.quaternion, 'XYZ');
-    // Canvas positive rotation is clockwise (because y-down),
-    // but we want AR Right → CCW on screen; invert sign:
-    const rollAngle = -_euler.z;
+  if (spinStick){
+    hctx.save();
     hctx.translate(cx, cy);
-    hctx.rotate(rollAngle);
+    hctx.rotate(-stickAngle); // negative so AR Right appears CCW on HUD
     hctx.translate(-cx, -cy);
   }
 
-  // Halo + rings
   const t=performance.now(); const pulse=1+0.06*Math.sin(t*0.008), halo=r*pulse+10;
   Hcircle(cx,cy,halo, 'rgba(76,141,255,0.28)', 8);
   Harc(cx,cy,r, -Math.PI/4,  Math.PI/4,   COLS.RIGHT, 12);
@@ -618,14 +542,12 @@ function drawJoystick(){
   Hline(cx-r+12,cy,cx+r-12,cy,'#cfd6e2',1.5);
   Hline(cx,cy-r+12,cx,cy+r-12,'#cfd6e2',1.5);
 
-  // Knob
   const kx=cx+joyVec.x, ky=cy+joyVec.y;
   Hcircle(kx,ky,JOY_KNOB_R,'#4c8dff',4); HfillCircle(kx,ky,JOY_KNOB_R,'#0f1116');
   hctx.fillStyle='#222'; hctx.beginPath(); hctx.arc(cx,cy,3,0,Math.PI*2);hctx.fill();
 
-  hctx.restore();
+  if (spinStick){ hctx.restore(); }
 }
-
 function inJoyLoose(x,y){
   const dx=x-JOY_CENTER.x, dy=y-JOY_CENTER.y;
   const loose=JOY_BASE_R+28;
@@ -657,10 +579,7 @@ function drawDAR(){
   Htri(cx,cy,a, r*0.55, darOn ? '#0e0f12' : '#e8e8ea');
   Hcircle(cx,cy,r-12, '#bdbdbd', 1.5);
 }
-function inDAR(x,y){
-  const dx=x-DAR_CENTER.x, dy=y-DAR_CENTER.y;
-  return (dx*dx+dy*dy) <= (DAR_R*DAR_R);
-}
+function inDAR(x,y){ const dx=x-DAR_CENTER.x, dy=y-DAR_CENTER.y; return (dx*dx+dy*dy) <= (DAR_R*DAR_R); }
 function clampDARCenter(){
   const m=DAR_R+20;
   DAR_CENTER.x = Math.max(m, Math.min(innerWidth - m, DAR_CENTER.x));
@@ -683,17 +602,8 @@ const menuBtn=document.getElementById('menuBtn');
 const menuOverlay=document.getElementById('menuOverlay');
 const menuCloseBtn=document.getElementById('menuCloseBtn');
 let chromeShown=false;
-
-function openMenu(){
-  chromeShown=true;
-  menuBtn.classList.add('active');
-  menuOverlay.style.display='block';
-}
-function closeMenu(){
-  chromeShown=false;
-  menuBtn.classList.remove('active');
-  menuOverlay.style.display='none';
-}
+function openMenu(){ chromeShown=true; menuBtn.classList.add('active'); menuOverlay.style.display='block'; }
+function closeMenu(){ chromeShown=false; menuBtn.classList.remove('active'); menuOverlay.style.display='none'; }
 menuBtn.addEventListener('click',()=> chromeShown ? closeMenu() : openMenu());
 menuCloseBtn.addEventListener('click', closeMenu);
 menuOverlay.addEventListener('click',(e)=>{ if(e.target===menuOverlay) closeMenu(); });
@@ -712,6 +622,7 @@ document.getElementById('restart').addEventListener('click',()=>{
   if (car) car.quaternion.identity();
   applySpawnOrientation();
   w.set(0,0,0);
+  stickAngle = 0;
   orbitOn = false;
   const orbitBtn = document.getElementById('orbit');
   if (orbitBtn) orbitBtn.classList.remove('active');
@@ -739,6 +650,8 @@ const sizeSlider=document.getElementById('stickSizeSlider'), stickVal=document.g
 const zoomSlider=document.getElementById('zoomSlider'), zoomVal=document.getElementById('zoomVal');
 const arrowSlider=document.getElementById('arrowSlider'), arrowVal=document.getElementById('arrowVal');
 const presetSel=document.getElementById('presetSel');
+const spinStickBtn=document.getElementById('spinStickBtn');
+const spinStickTag=document.getElementById('spinStickTag');
 
 let maxAccelDeg=parseFloat(accelRange.value),
     inputPow=parseFloat(curveRange.value),
@@ -763,6 +676,7 @@ function syncTags(){
   stickVal.textContent = String(Math.round(JOY_BASE_R));
   zoomVal.textContent = `${(zoom||1).toFixed(2)}×`;
   arrowVal.textContent = `${(arrowScale||1).toFixed(2)}×`;
+  spinStickTag.textContent = spinStick ? 'On' : 'Off';
 }
 syncTags();
 
@@ -781,10 +695,16 @@ presetSel .addEventListener('change',()=>{
   const name = presetSel.value;
   buildCar(presets[name], name);
   car.quaternion.identity(); w.set(0,0,0);
+  stickAngle = 0;
   applySpawnOrientation();
 });
+spinStickBtn.addEventListener('click',()=>{
+  spinStick = !spinStick;
+  spinStickBtn.classList.toggle('active', spinStick);
+  syncTags();
+});
 
-/* Pointer handlers */
+/* Pointer handlers — knob follows freely while pressed */
 hud.addEventListener('pointerdown',(e)=>{
   try{hud.setPointerCapture(e.pointerId);}catch(_){}
   activeId=e.pointerId;
@@ -801,7 +721,8 @@ hud.addEventListener('pointerdown',(e)=>{
   }
 
   if(inJoyLoose(e.clientX,e.clientY)){
-    joyActive=true; joyVec = vecFromJoyPx(e.clientX,e.clientY);
+    joyActive=true;
+    joyVec = vecFromJoyPx(e.clientX,e.clientY);  // start following immediately
   }else if(!chromeShown){
     clearTimeout(holdTimer);
     holdTimer = setTimeout(()=>{
@@ -812,13 +733,18 @@ hud.addEventListener('pointerdown',(e)=>{
   }
   e.preventDefault();
 },{passive:false});
+
 hud.addEventListener('pointermove',(e)=>{
   if(activeId!==e.pointerId)return;
   if(darRelocating){ DAR_CENTER.set(e.clientX,e.clientY); clampDARCenter(); positionHints(); }
   else if(relocating){ JOY_CENTER.set(e.clientX,e.clientY); clampJoyCenter(); positionHints(); }
-  else if(joyActive){ joyVec = vecFromJoyPx(e.clientX,e.clientY); }
+  else if(joyActive){
+    // FREELY follow pointer while pressed
+    joyVec = vecFromJoyPx(e.clientX,e.clientY);
+  }
   e.preventDefault();
 },{passive:false});
+
 function endPtr(e){
   if(activeId!==e.pointerId) return;
   try{hud.releasePointerCapture(e.pointerId);}catch(_){}
@@ -844,7 +770,7 @@ const gpActionSel = document.getElementById('gpAction');
 const gpRemapBtn  = document.getElementById('gpRemap');
 const gpBindLabel = document.getElementById('gpBindLabel');
 
-let gpEnabled = true;      // enabled by default
+let gpEnabled = true;
 let gpIndex   = -1;
 let gpRemapping = false;
 let gpPrevActionPressed = {};
@@ -859,8 +785,8 @@ let gpBindings = {
 };
 
 const GP_PRESETS = {
-  ps5: { toggleDAR:{kind:'button',index:1}, rollLeft:{kind:'button',index:4}, rollRight:{kind:'button',index:5}, restart:{kind:'button',index:9}, orbitToggle:{kind:'button',index:2} },
-  xinput: { toggleDAR:{kind:'button',index:1}, rollLeft:{kind:'button',index:4}, rollRight:{kind:'button',index:5}, restart:{kind:'button',index:9}, orbitToggle:{kind:'button',index:2} }
+  ps5:   { toggleDAR:{kind:'button',index:1}, rollLeft:{kind:'button',index:4}, rollRight:{kind:'button',index:5}, restart:{kind:'button',index:9}, orbitToggle:{kind:'button',index:2} },
+  xinput:{ toggleDAR:{kind:'button',index:1}, rollLeft:{kind:'button',index:4}, rollRight:{kind:'button',index:5}, restart:{kind:'button',index:9}, orbitToggle:{kind:'button',index:2} }
 };
 
 function bindingToLabel(b){
@@ -878,7 +804,6 @@ function updateBindLabel(){
   const act = gpActionSel.value;
   gpBindLabel.textContent = bindingToLabel(gpBindings[act]);
 }
-
 gpEnableBtn.addEventListener('click',()=>{
   gpEnabled = !gpEnabled;
   gpEnableBtn.classList.toggle('active', gpEnabled);
@@ -890,7 +815,6 @@ gpRemapBtn.addEventListener('click',()=>{
   gpRemapping = true;
   gpBindLabel.textContent = 'Press button / move axis…';
 });
-
 setBindingPreset('ps5');
 updateBindLabel();
 
@@ -913,35 +837,22 @@ function readPads(){
   }
   return { pad: (gpIndex>=0 ? arr[gpIndex] : null), all: arr };
 }
-
 function isPressedForBinding(pad, binding){
   if(!binding || !pad) return false;
-  if(binding.kind==='button'){
-    const b = pad.buttons[binding.index];
-    return !!(b && (b.value||0) > 0.5);
-  }
-  if(binding.kind==='axis'){
-    const v = pad.axes[b.axis] || 0;
-    return binding.dir>0 ? (v>0.6) : (v<-0.6);
-  }
+  if(binding.kind==='button'){ const b = pad.buttons[binding.index]; return !!(b && (b.value||0) > 0.5); }
+  if(binding.kind==='axis'){ const v = pad.axes[b.axis] || 0; return binding.dir>0 ? (v>0.6) : (v<-0.6); }
   return false;
 }
-
 function execBinding(action){
   switch(action){
-    case 'toggleDAR':
-      darOn = !darOn;
-      break;
-    case 'rollLeft':
-      setRoll(-1);
-      break;
-    case 'rollRight':
-      setRoll(+1);
-      break;
+    case 'toggleDAR': darOn = !darOn; break;
+    case 'rollLeft':  setRoll(-1);   break;
+    case 'rollRight': setRoll(+1);   break;
     case 'restart': {
       if (car) car.quaternion.identity();
       applySpawnOrientation();
       w.set(0,0,0);
+      stickAngle = 0;
       orbitOn = false;
       const orbitBtn = document.getElementById('orbit');
       if (orbitBtn) orbitBtn.classList.remove('active');
@@ -956,10 +867,8 @@ function execBinding(action){
       orbitOn = !orbitOn;
       document.getElementById('orbit').classList.toggle('active', orbitOn);
       break;
-    default: break;
   }
 }
-
 function handleRemap(pad){
   if(!gpRemapping || !pad) return;
   for(let i=0;i<pad.buttons.length;i++){
@@ -980,7 +889,6 @@ function handleRemap(pad){
     }
   }
 }
-
 function updateGamepadInput(){
   if(!gpEnabled) return;
   const { pad } = readPads();
@@ -989,7 +897,7 @@ function updateGamepadInput(){
 
   if(gpRemapping){ handleRemap(pad); }
 
-  // Left stick → on-screen stick (natural Y: up=up)
+  // Move the on-screen stick with the left analog only when user isn't dragging
   if(!joyActive && !relocating && !darRelocating){
     const lx = pad.axes[0] || 0;
     const ly = pad.axes[1] || 0;
@@ -1003,7 +911,7 @@ function updateGamepadInput(){
     joyVec.set(nx * JOY_BASE_R, ny * JOY_BASE_R);
   }
 
-  // Fire actions on rising edge
+  // Fire actions on rising edges
   for(const action of Object.keys(gpBindings)){
     const nowPressed = isPressedForBinding(pad, gpBindings[action]);
     const wasPressed = !!gpPrevActionPressed[action];
@@ -1012,9 +920,9 @@ function updateGamepadInput(){
   }
 }
 
-/* ===== Physics / Integrator ===== */
+/* ===== PHYSICS ===== */
 let w = new THREE.Vector3(0,0,0);
-const STICK_DEADZONE = STICK_MIN;
+const STICK_DEADZONE = 0.02;
 const KP_ROLL = 3.2, KD_ROLL = 0.25;
 
 function integrate(dt){
@@ -1032,7 +940,7 @@ function integrate(dt){
   const ux = (mag>0) ? (-jx/mag) : 0; // yaw unit (flipped X)
   const uy = (mag>0) ? ( jy/mag) : 0; // pitch unit
 
-  // Face arrow (draws on the car's front plane)
+  // Face arrow (front plane, moves with car)
   if (faceArrow && faceTip){
     const show = eff > 0.02;
     faceArrow.visible = show; faceTip.visible = show;
@@ -1042,7 +950,7 @@ function integrate(dt){
       const zFace = BOX.hz + FACE_OFFSET;
 
       const x2 =  ux * len;
-      const y2 = -uy * len;
+      const y2 = -uy * len;   // draw flip
 
       const pos = faceArrow.geometry.attributes.position.array;
       pos[0]=0; pos[1]=0; pos[2]=zFace + FACE_EPS;
@@ -1105,6 +1013,11 @@ function integrate(dt){
   const rz =   q.w*wz + q.x*wy - q.y*wx;
   q.w += rw*halfdt; q.x += rx*halfdt; q.y += ry*halfdt; q.z += rz*halfdt;
   q.normalize();
+
+  // HUD stick rotation follows actual roll rate
+  if (spinStick){
+    stickAngle += w.z * dt;
+  }
 }
 
 /* Camera zoom/orbit */
@@ -1186,7 +1099,6 @@ addEventListener('resize', resize);
 
 /* ==== GLB SWAP LOGIC ==== */
 const gltfLoader = new GLTFLoader();
-
 function clearCarMeshesKeepGadgets(){
   if(!car) return;
   const keep = new Set([faceArrow, faceTip]);
@@ -1197,41 +1109,29 @@ function clearCarMeshesKeepGadgets(){
     ch.traverse?.(o=>{ if(o.geometry) o.geometry.dispose(); if(o.material) o.material.dispose?.(); });
   });
 }
-
 function swapInGLB(){
   gltfLoader.load(
     "./models/octane.glb",
     (gltf)=>{
       const model = gltf.scene || gltf.scenes?.[0];
       if(!model){ console.warn("[GLB] No scene in file"); return; }
-
-      // Center
       const preBox  = new THREE.Box3().setFromObject(model);
       const preSize = preBox.getSize(new THREE.Vector3());
       const preCtr  = preBox.getCenter(new THREE.Vector3());
       model.position.sub(preCtr);
-
-      // Align +X → +Z if necessary (common in car assets)
-      if (preSize.x > preSize.z * 1.2) {
-        model.rotation.y = -Math.PI / 2;
-      }
-
-      // Scale GLB to placeholder longest dimension to keep dynamics consistent
+      if (preSize.x > preSize.z * 1.2) { model.rotation.y = -Math.PI / 2; }
       const targetLongest = (BOX ? Math.max(BOX.hx*2, BOX.hy*2, BOX.hz*2) : 240);
       const glbLongest = Math.max(preSize.x, preSize.y, preSize.z) || 1;
       const scale = targetLongest / glbLongest;
       model.scale.setScalar(scale);
 
-      // Replace placeholder visuals
       clearCarMeshesKeepGadgets();
       car.add(model);
 
-      // Recompute BOX so HUD arrow stays correct
       const box = new THREE.Box3().setFromObject(model);
       const s   = box.getSize(new THREE.Vector3());
       BOX = { hx: s.x/2, hy: s.y/2, hz: s.z/2 };
 
-      // Update arrow plane to new front face (still moves with car)
       if(faceArrow && faceTip){
         const zFace = BOX.hz + FACE_OFFSET;
         const pos = faceArrow.geometry.attributes.position.array;
@@ -1240,8 +1140,6 @@ function swapInGLB(){
         faceArrow.geometry.attributes.position.needsUpdate = true;
         faceTip.position.set(0,0,zFace + FACE_EPS);
       }
-
-      // Apply the global spawn orientation to the car group (not the GLB itself)
       applySpawnOrientation();
     },
     undefined,
@@ -1252,10 +1150,10 @@ function swapInGLB(){
 /* Build + boot */
 buildCar(presets.octane, "octane");
 applySpawnOrientation();
-setRoll(-1);           // default Air Roll Left
+setRoll(-1);
 positionHints();
 applyZoom();
-swapInGLB();           // load the GLB and replace the placeholder
+swapInGLB();
 requestAnimationFrame(tick);
 </script>
 </body>
