@@ -2,10 +2,10 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>L4 — Blender-Style + XYZ Gizmo + DAR Toggle/Relocate (Optimized)</title>
+<title>L4 — Blender-Style + XYZ Gizmo + DAR Toggle/Relocate (Optimized + brighter env + per-axis accel/ω caps)</title>
 <style>
   html,body{margin:0;padding:0;height:100%;background:#fff;color:#0e0f12;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;overscroll-behavior:none}
-  :root{--bg-grad:linear-gradient(180deg,#f6f7fb 0%,#eef1f6 45%,#e9edf3 100%)}
+  :root{--bg-grad:linear-gradient(180deg,#f9fbff 0%,#f2f6fc 45%,#edf2f8 100%)}
   .theme-dark{--bg-grad:linear-gradient(180deg,#111318 0%,#0f1217 40%,#0d0f14 100%)}
   body{background:var(--bg-grad)}
   *,*:before,*:after{box-sizing:border-box} *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
@@ -66,16 +66,16 @@
             <input id="spinSlider" type="range" min="0" max="3.0" step="0.01" value="1.20"/>
             <span class="tag" id="rollVal">1.20 s/rot</span>
           </div>
-          <div class="row" style="font-size:.86rem;opacity:.85;line-height:1.35;">Tip: With <b>Air Roll Right</b>, rotate the stick clockwise. With <b>Air Roll Left</b>, rotate counter-clockwise.</div>
         </div><div class="card">
       <h3>Dynamics</h3>
-      <div class="row sl"><label for="accelRange">Max Accel (°/s²)</label><input id="accelRange" type="range" min="120" max="1210" step="5" value="255"/><span class="tag" id="accelTag">255</span></div>
+      <div class="row sl"><label for="accelPitchRange">Pitch Accel (°/s²)</label><input id="accelPitchRange" type="range" min="120" max="1210" step="5" value="255"/><span class="tag" id="accelPitchTag">255</span></div>
+      <div class="row sl"><label for="accelYawRange">Yaw Accel (°/s²)</label><input id="accelYawRange" type="range" min="120" max="1210" step="5" value="255"/><span class="tag" id="accelYawTag">255</span></div>
       <div class="row sl"><label for="curveRange">Input Curve</label><input id="curveRange" type="range" min="1.0" max="12.2" step="0.05" value="1.0"/><span class="tag" id="curveTag">1.00</span></div>
-      <div class="row sl"><label for="dampRange">Damp</label><input id="dampRange" type="range" min="0.0" max="11.2" step="0.05" value="1.2"/><span class="tag" id="dampTag">1.20</span></div>
-      <div class="row sl"><label for="brakeRange">Release Brake</label><input id="brakeRange" type="range" min="0.0" max="16.0" step="0.1" value="6.0"/><span class="tag" id="brakeTag">6.0</span></div>
-      <div class="row sl"><label for="wmaxRange">Max ω (global)</label><input id="wmaxRange" type="range" min="6.0" max="34.0" step="0.5" value="6.0"/><span class="tag" id="wmaxTag">6.0</span></div>
+      <div class="row sl"><label for="dampRange">Damp</label><input id="dampRange" type="range" min="0.0" max="24.0" step="0.05" value="1.2"/><span class="tag" id="dampTag">1.20</span></div>
+      <div class="row sl"><label for="brakeRange">Release Brake</label><input id="brakeRange" type="range" min="0.0" max="32.0" step="0.1" value="6.0"/><span class="tag" id="brakeTag">6.0</span></div>
       <div class="row sl"><label for="wmaxPitch">Max Pitch ω</label><input id="wmaxPitch" type="range" min="4.0" max="34.0" step="0.5" value="8.5"/><span class="tag" id="wmaxPitchTag">8.5</span></div>
       <div class="row sl"><label for="wmaxYaw">Max Yaw ω</label><input id="wmaxYaw" type="range" min="4.0" max="34.0" step="0.5" value="9.0"/><span class="tag" id="wmaxYawTag">9.0</span></div>
+      <div class="row sl"><label for="wmaxRoll">Max Roll ω</label><input id="wmaxRoll" type="range" min="4.0" max="34.0" step="0.5" value="12.0"/><span class="tag" id="wmaxRollTag">12.0</span></div>
     </div>
 
     <div class="card">
@@ -116,21 +116,8 @@
 import * as THREE from "https://esm.sh/three@0.155.0";
 import { GLTFLoader } from "https://esm.sh/three@0.155.0/examples/jsm/loaders/GLTFLoader.js";
 
-/* ====== Compact DOM helpers ====== */
 const $ = id => document.getElementById(id);
-const E = {
-  gl:$("gl"), hud:$("hud"), giz:$("gizmoFrame"),
-  theme:$("themeToggle"), menuBtn:$("menuBtn"), menuOL:$("menuOverlay"), menuClose:$("menuCloseBtn"),
-  rollL:$("rollL"), rollR:$("rollR"), restart:$("restart"), orbit:$("orbit"), lockPY:$("lockPY"), lockPYTag:$("lockPYTag"),
-  spinSlider:$("spinSlider"), rollVal:$("rollVal"),
-  accelRange:$("accelRange"), accelTag:$("accelTag"), curveRange:$("curveRange"), curveTag:$("curveTag"),
-  dampRange:$("dampRange"), dampTag:$("dampTag"), brakeRange:$("brakeRange"), brakeTag:$("brakeTag"),
-  wmaxRange:$("wmaxRange"), wmaxTag:$("wmaxTag"), wmaxPitch:$("wmaxPitch"), wmaxPitchTag:$("wmaxPitchTag"), wmaxYaw:$("wmaxYaw"), wmaxYawTag:$("wmaxYawTag"),
-  presetSel:$("presetSel"), zoomSlider:$("zoomSlider"), zoomVal:$("zoomVal"), stickSizeSlider:$("stickSizeSlider"), stickVal:$("stickVal"),
-  arrowSlider:$("arrowSlider"), arrowVal:$("arrowVal"), spinStickBtn:$("spinStickBtn"), spinStickTag:$("spinStickTag"),
-  gpEnable:$("gpEnable"), gpStatus:$("gpStatus"), gpPreset:$("gpPreset"), gpRemap:$("gpRemap"), gpAction:$("gpAction"), gpBindLabel:$("gpBindLabel"),
-  joyHint:$("joyHint"), darHint:$("darHint")
-};
+const E = { gl:$("gl"), hud:$("hud"), giz:$("gizmoFrame"), theme:$("themeToggle"), menuBtn:$("menuBtn"), menuOL:$("menuOverlay"), menuClose:$("menuCloseBtn"), rollL:$("rollL"), rollR:$("rollR"), restart:$("restart"), orbit:$("orbit"), lockPY:$("lockPY"), lockPYTag:$("lockPYTag"), spinSlider:$("spinSlider"), rollVal:$("rollVal"), accelPitchRange:$("accelPitchRange"), accelPitchTag:$("accelPitchTag"), accelYawRange:$("accelYawRange"), accelYawTag:$("accelYawTag"), curveRange:$("curveRange"), curveTag:$("curveTag"), dampRange:$("dampRange"), dampTag:$("dampTag"), brakeRange:$("brakeRange"), brakeTag:$("brakeTag"), wmaxPitch:$("wmaxPitch"), wmaxPitchTag:$("wmaxPitchTag"), wmaxYaw:$("wmaxYaw"), wmaxYawTag:$("wmaxYawTag"), wmaxRoll:$("wmaxRoll"), wmaxRollTag:$("wmaxRollTag"), presetSel:$("presetSel"), zoomSlider:$("zoomSlider"), zoomVal:$("zoomVal"), stickSizeSlider:$("stickSizeSlider"), stickVal:$("stickVal"), arrowSlider:$("arrowSlider"), arrowVal:$("arrowVal"), spinStickBtn:$("spinStickBtn"), spinStickTag:$("spinStickTag"), gpEnable:$("gpEnable"), gpStatus:$("gpStatus"), gpPreset:$("gpPreset"), gpRemap:$("gpRemap"), gpAction:$("gpAction"), gpBindLabel:$("gpBindLabel"), joyHint:$("joyHint"), darHint:$("darHint") };
 
 /* ====== Renderer / Scene / Camera ====== */
 const renderer = new THREE.WebGLRenderer({canvas:E.gl, antialias:true});
@@ -138,43 +125,35 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
 renderer.setSize(innerWidth,innerHeight);
 const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(0xeef1f6,900,2200);
+scene.fog = new THREE.Fog(0xf3f6fb,900,2400);
 const camera = new THREE.PerspectiveCamera(55,innerWidth/innerHeight,0.1,5000);
 const CAM_BASE = {y:280,z:760};
 camera.position.set(0,CAM_BASE.y,CAM_BASE.z); scene.add(camera);
 
-/* Lights */
-renderer.toneMappingExposure = 1.35;
-scene.add(new THREE.AmbientLight(0xffffff,1.25));
-const dir=new THREE.DirectionalLight(0xffffff,1.45); dir.position.set(-350,700,900); scene.add(dir);
-const fill=new THREE.DirectionalLight(0xffffff,0.95); fill.position.set(600,300,-400); scene.add(fill);
-const rim =new THREE.DirectionalLight(0xffffff,0.75); rim.position.set(-900,450,-700); scene.add(rim);
+/* Lights: brighter + sky fill */
+renderer.toneMappingExposure = 1.6;
+scene.add(new THREE.AmbientLight(0xffffff,1.6));
+const hemi=new THREE.HemisphereLight(0xffffff,0xbcc3cf,0.65); scene.add(hemi);
+const dir=new THREE.DirectionalLight(0xffffff,1.6); dir.position.set(-350,700,900); scene.add(dir);
+const fill=new THREE.DirectionalLight(0xffffff,1.15); fill.position.set(600,300,-400); scene.add(fill);
+const rim =new THREE.DirectionalLight(0xffffff,0.9); rim.position.set(-900,450,-700); scene.add(rim);
 
 /* Grid */
 const grid = new THREE.Group();
-const gridMain = new THREE.GridHelper(2600,26,0xd7dde6,0xE5E9F1);
-Object.assign(gridMain.material,{opacity:.7,transparent:true});
+const gridMain = new THREE.GridHelper(2600,26,0xdfe5ee,0xE9EDF5);
+Object.assign(gridMain.material,{opacity:.78,transparent:true});
 grid.add(gridMain); grid.rotation.x = -Math.PI/2; grid.position.y = -160; scene.add(grid);
 
 /* Theme */
-const THEMES={light:{fog:0xeef1f6,line:0xE5E9F1,center:0xd7dde6,dark:false},dark:{fog:0x101318,line:0x1f232b,center:0x2a2e36,dark:true}};
+const THEMES={light:{fog:0xf3f6fb,line:0xE9EDF5,center:0xdfe5ee,dark:false},dark:{fog:0x0e1014,line:0x1f232b,center:0x2a2e36,dark:true}};
 const setGrid=(l,c)=>{const m=gridMain.material; (m.color?m:m[1]).color.setHex(l); if(m[0]) m[0].color.setHex(c)};
-function applyTheme(name){const t=THEMES[name]||THEMES.light; document.body.classList.toggle('theme-dark',t.dark); (scene.fog?scene.fog:scene.fog=new THREE.Fog(t.fog,900,2200)).color.setHex(t.fog); setGrid(t.line,t.center); E.theme.textContent=(name==='dark')?'☀️':'🌙'; try{localStorage.setItem('l4_theme',name)}catch{}}
+function applyTheme(name){const t=THEMES[name]||THEMES.light; document.body.classList.toggle('theme-dark',t.dark); (scene.fog?scene.fog:scene.fog=new THREE.Fog(t.fog,900,2400)).color.setHex(t.fog); setGrid(t.line,t.center); E.theme.textContent=(name==='dark')?'☀️':'🌙'; try{localStorage.setItem('l4_theme',name)}catch{}}
 (function initTheme(){let v='light'; try{v=localStorage.getItem('l4_theme')||'light'}catch{} applyTheme(v)})();
 E.theme?.addEventListener('click',()=>{applyTheme((localStorage.getItem('l4_theme')==='dark')?'light':'dark')});
 
 /* Colors & Materials */
 const COL={UP:0xff5c5c, RIGHT:0x4c8dff, DOWN:0x53d769, LEFT:0xffd166};
-const MAT={
-  BODY:new THREE.MeshPhongMaterial({color:0xdfe5ef,shininess:50,specular:0x666666}),
-  GLASS:new THREE.MeshPhongMaterial({color:0x9aa6b7,shininess:40,specular:0x222222,transparent:true,opacity:.65}),
-  ACC:new THREE.MeshPhongMaterial({color:0xcbd3df,shininess:35,specular:0x222222}),
-  DARK:new THREE.MeshPhongMaterial({color:0xaeb7c4,shininess:28,specular:0x222222}),
-  EDGE:h=>new THREE.LineBasicMaterial({color:h}),
-  TIREF:new THREE.MeshLambertMaterial({color:0x8a93a0}),
-  TIREB:new THREE.MeshLambertMaterial({color:0x808896}),
-  HUB:new THREE.MeshBasicMaterial({color:0x5a6270})
-};
+const MAT={ BODY:new THREE.MeshPhongMaterial({color:0xe6ebf3,shininess:50,specular:0x666}), GLASS:new THREE.MeshPhongMaterial({color:0xa3afbf,shininess:40,specular:0x222,transparent:true,opacity:.68}), ACC:new THREE.MeshPhongMaterial({color:0xd3dbe7,shininess:35,specular:0x222}), DARK:new THREE.MeshPhongMaterial({color:0xb3bcc9,shininess:28,specular:0x222}), EDGE:h=>new THREE.LineBasicMaterial({color:h}), TIREF:new THREE.MeshLambertMaterial({color:0x96a0ad}), TIREB:new THREE.MeshLambertMaterial({color:0x8a93a0}), HUB:new THREE.MeshBasicMaterial({color:0x5a6270}) };
 
 /* Presets */
 const PRESETS={ placeholder:{hx:70,hy:28,hz:120}, octane:{hx:85.65,hy:36.8,hz:120}, dominus:{hx:77.9,hy:29.3,hz:120} };
@@ -233,16 +212,34 @@ E.restart.addEventListener('click',resetSim);
 let orbitOn=false; E.orbit.addEventListener('click',()=>{orbitOn=!orbitOn; E.orbit.classList.toggle('active',orbitOn)})
 
 /* Sliders/selects */
-let maxAccelDeg=+E.accelRange.value, inputPow=+E.curveRange.value, damp=+E.dampRange.value, brakeOnRelease=+E.brakeRange.value, wMax=+E.wmaxRange.value, wMaxPitch=+E.wmaxPitch.value, wMaxYaw=+E.wmaxYaw.value, freeRollPeriod=+E.spinSlider.value, zoom=+E.zoomSlider.value, arrowScale=+E.arrowSlider.value;
-function syncTags(){E.accelTag.textContent=maxAccelDeg.toFixed(0); E.curveTag.textContent=inputPow.toFixed(2); E.dampTag.textContent=damp.toFixed(2); E.brakeTag.textContent=brakeOnRelease.toFixed(1); E.wmaxTag.textContent=wMax.toFixed(1); E.wmaxPitchTag.textContent=wMaxPitch.toFixed(1); E.wmaxYawTag.textContent=wMaxYaw.toFixed(1); E.rollVal.textContent=(freeRollPeriod>0)?`${freeRollPeriod.toFixed(2)} s/rot`:'off'; E.stickVal.textContent=String(Math.round(JOY_BASE_R)); E.zoomVal.textContent=`${(zoom||1).toFixed(2)}×`; E.arrowVal.textContent=`${(arrowScale||1).toFixed(2)}×`; E.spinStickTag.textContent=spinStick?'On':'Off'}
+let maxAccelPitchDeg=+E.accelPitchRange.value, maxAccelYawDeg=+E.accelYawRange.value,
+    inputPow=+E.curveRange.value, damp=+E.dampRange.value, brakeOnRelease=+E.brakeRange.value,
+    wMaxPitch=+E.wmaxPitch.value, wMaxYaw=+E.wmaxYaw.value, wMaxRoll=+E.wmaxRoll.value,
+    freeRollPeriod=+E.spinSlider.value, zoom=+E.zoomSlider.value, arrowScale=+E.arrowSlider.value;
+function syncTags(){
+  E.accelPitchTag.textContent=maxAccelPitchDeg.toFixed(0);
+  E.accelYawTag.textContent=maxAccelYawDeg.toFixed(0);
+  E.curveTag.textContent=inputPow.toFixed(2);
+  E.dampTag.textContent=damp.toFixed(2);
+  E.brakeTag.textContent=brakeOnRelease.toFixed(1);
+  E.wmaxPitchTag.textContent=wMaxPitch.toFixed(1);
+  E.wmaxYawTag.textContent=wMaxYaw.toFixed(1);
+  E.wmaxRollTag.textContent=wMaxRoll.toFixed(1);
+  E.rollVal.textContent=(freeRollPeriod>0)?`${freeRollPeriod.toFixed(2)} s/rot`:'off';
+  E.stickVal.textContent=String(Math.round(JOY_BASE_R));
+  E.zoomVal.textContent=`${(zoom||1).toFixed(2)}×`;
+  E.arrowVal.textContent=`${(arrowScale||1).toFixed(2)}×`;
+  E.spinStickTag.textContent=spinStick?'On':'Off'
+}
 const sliderHooks={
-  accelRange:v=>maxAccelDeg=v,
+  accelPitchRange:v=>maxAccelPitchDeg=v,
+  accelYawRange:v=>maxAccelYawDeg=v,
   curveRange:v=>inputPow=v,
   dampRange:v=>damp=v,
   brakeRange:v=>brakeOnRelease=v,
-  wmaxRange:v=>wMax=v,
   wmaxPitch:v=>wMaxPitch=v,
   wmaxYaw:v=>wMaxYaw=v,
+  wmaxRoll:v=>wMaxRoll=v,
   spinSlider:v=>freeRollPeriod=v,
   stickSizeSlider:v=>{JOY_BASE_R=parseInt(v,10)||100; JOY_KNOB_R=Math.round(JOY_BASE_R*.32); clampJoyCenter(); positionHints()},
   zoomSlider:v=>{zoom=v; applyZoom()},
@@ -277,9 +274,35 @@ function handleRemap(pad){if(!gpRemapping||!pad) return; for(let i=0;i<pad.butto
 function updatePad(){ if(!gpEnabled) return; const pad=pads(); if(!pad){E.gpStatus.textContent='Enabled (waiting for gamepad)'; return} E.gpStatus.textContent=`Connected: ${pad.id}`; if(gpRemapping) handleRemap(pad); if(!joyActive && !relocating && !darRelocating){ const lx=pad.axes[0]||0, ly=pad.axes[1]||0, m=Math.hypot(lx,ly); let nx=0, ny=0; if(m>GP_DEADZONE){const k=(m-GP_DEADZONE)/(1-GP_DEADZONE); nx=(lx/(m||1))*k; ny=(ly/(m||1))*k} joyVec.set(nx*JOY_BASE_R,ny*JOY_BASE_R)} for(const a of Object.keys(gpBindings)){const now=pressed(pad,gpBindings[a]), was=!!gpPrevActionPressed[a]; if(now && !was) exec(a); gpPrevActionPressed[a]=now} }
 setBindingPreset('ps5');
 
-/* Physics */
+/* Physics: per-axis accel + per-axis ω caps. No global |ω| cap. */
 let w=new THREE.Vector3(0,0,0); const STICK_DEADZONE=STICK_MIN, KP_ROLL=3.2, KD_ROLL=0.25;
-function integrate(dt){ const a=1-Math.exp(-(dt*1000)/Math.max(1,STICK_TAU_MS)); smJoy.lerp(joyVec,a); const jx= smJoy.x/JOY_BASE_R, jy=-smJoy.y/JOY_BASE_R, mag=Math.hypot(jx,jy); let eff=Math.max(0,mag-STICK_DEADZONE)/(1-STICK_DEADZONE); eff=Math.pow(eff,inputPow); const ux=(mag>0)?(-jx/mag):0, uy=(mag>0)?(jy/mag):0; if(faceArrow&&faceTip){const show=eff>0.02; faceArrow.visible=faceTip.visible=show; if(show){const lenMax=Math.min(BOX.hx,BOX.hy)*.95, len=Math.max(10,lenMax*eff*(arrowScale||1)), zFace=BOX.hz+FACE_OFFSET, x2=ux*len, y2=-uy*len, pos=faceArrow.geometry.attributes.position.array; pos[0]=0;pos[1]=0;pos[2]=zFace+FACE_EPS; pos[3]=x2;pos[4]=y2;pos[5]=zFace+FACE_EPS; faceArrow.geometry.attributes.position.needsUpdate=true; const col=(Math.abs(x2)>Math.abs(y2))?(x2>=0?COL.LEFT:COL.RIGHT):(uy>=0?COL.DOWN:COL.UP); faceArrow.material.color.setHex(col); faceTip.material.color.setHex(col); faceTip.position.set(x2,y2,zFace+FACE_EPS); const ang=Math.atan2(x2,-y2)+Math.PI; faceTip.rotation.set(0,0,ang); const s=.95*(arrowScale||1); faceTip.scale.set(s,s,1)}} const maxAccelRad=(maxAccelDeg*Math.PI)/180; const alpha=new THREE.Vector3(lockPitchYaw?0:(maxAccelRad*eff*uy), lockPitchYaw?0:(maxAccelRad*eff*ux), 0); let targetWz=0; if(darOn && freeRollPeriod>0) targetWz=airRoll*(2*Math.PI)/freeRollPeriod; alpha.z=KP_ROLL*(targetWz-w.z)-KD_ROLL*w.z; w.addScaledVector(alpha,dt); const noStick=eff<0.02, dampEff=(damp||0)+((noStick && !darOn)?(brakeOnRelease||0):0), scale=Math.exp(-dampEff*dt); w.multiplyScalar(scale); if(Math.abs(w.x)>wMaxPitch) w.x=Math.sign(w.x)*wMaxPitch; if(Math.abs(w.y)>wMaxYaw) w.y=Math.sign(w.y)*wMaxYaw; const wm=w.length(); if(wm>wMax) w.multiplyScalar(wMax/(wm||1)); const {x:wx,y:wy,z:wz}=w, halfdt=.5*dt, q=car.quaternion; const rw=-q.x*wx-q.y*wy-q.z*wz, rx=q.w*wx+q.y*wz-q.z*wy, ry=q.w*wy+q.z*wx-q.x*wz, rz=q.w*wz+q.x*wy-q.y*wx; q.w+=rw*halfdt; q.x+=rx*halfdt; q.y+=ry*halfdt; q.z+=rz*halfdt; q.normalize(); if(spinStick) stickAngle+=w.z*dt }
+function integrate(dt){
+  const a=1-Math.exp(-(dt*1000)/Math.max(1,STICK_TAU_MS));
+  smJoy.lerp(joyVec,a);
+  const jx= smJoy.x/JOY_BASE_R, jy=-smJoy.y/JOY_BASE_R, mag=Math.hypot(jx,jy);
+  let eff=Math.max(0,mag-STICK_DEADZONE)/(1-STICK_DEADZONE); eff=Math.pow(eff,inputPow);
+  const ux=(mag>0)?(-jx/mag):0, uy=(mag>0)?(jy/mag):0;
+  if(faceArrow&&faceTip){const show=eff>0.02; faceArrow.visible=faceTip.visible=show; if(show){const lenMax=Math.min(BOX.hx,BOX.hy)*.95, len=Math.max(10,lenMax*eff*(arrowScale||1)), zFace=BOX.hz+FACE_OFFSET, x2=ux*len, y2=-uy*len, pos=faceArrow.geometry.attributes.position.array; pos[0]=0;pos[1]=0;pos[2]=zFace+FACE_EPS; pos[3]=x2;pos[4]=y2;pos[5]=zFace+FACE_EPS; faceArrow.geometry.attributes.position.needsUpdate=true; const col=(Math.abs(x2)>Math.abs(y2))?(x2>=0?COL.LEFT:COL.RIGHT):(uy>=0?COL.DOWN:COL.UP); faceArrow.material.color.setHex(col); faceTip.material.color.setHex(col); faceTip.position.set(x2,y2,zFace+FACE_EPS); const ang=Math.atan2(x2,-y2)+Math.PI; faceTip.rotation.set(0,0,ang); const s=.95*(arrowScale||1); faceTip.scale.set(s,s,1)}}
+  const maxAccelPitchRad=(maxAccelPitchDeg*Math.PI)/180;
+  const maxAccelYawRad  =(maxAccelYawDeg*Math.PI)/180;
+  const alpha=new THREE.Vector3(
+    lockPitchYaw ? 0 : (maxAccelPitchRad*eff*uy),
+    lockPitchYaw ? 0 : (maxAccelYawRad  *eff*ux),
+    0
+  );
+  let targetWz=0; if(darOn && freeRollPeriod>0) targetWz=airRoll*(2*Math.PI)/freeRollPeriod;
+  alpha.z=KP_ROLL*(targetWz-w.z)-KD_ROLL*w.z;
+  w.addScaledVector(alpha,dt);
+  const noStick=eff<0.02, dampEff=(damp||0)+((noStick && !darOn)?(brakeOnRelease||0):0), scale=Math.exp(-dampEff*dt);
+  w.multiplyScalar(scale);
+  if(Math.abs(w.x)>wMaxPitch) w.x=Math.sign(w.x)*wMaxPitch;
+  if(Math.abs(w.y)>wMaxYaw)   w.y=Math.sign(w.y)*wMaxYaw;
+  if(Math.abs(w.z)>wMaxRoll)  w.z=Math.sign(w.z)*wMaxRoll;
+  const {x:wx,y:wy,z:wz}=w, halfdt=.5*dt, q=car.quaternion;
+  const rw=-q.x*wx-q.y*wy-q.z*wz, rx=q.w*wx+q.y*wz-q.z*wy, ry=q.w*wy+q.z*wx-q.x*wz, rz=q.w*wz+q.x*wy-q.y*wx;
+  q.w+=rw*halfdt; q.x+=rx*halfdt; q.y+=ry*halfdt; q.z+=rz*halfdt; q.normalize();
+  if(spinStick) stickAngle+=w.z*dt
+}
 
 /* Camera */
 let orbitPhase=0; function applyZoom(){const f=Math.max(.7,Math.min(1.6,zoom||1)), dist=CAM_BASE.z/f, h=CAM_BASE.y/f; if(!orbitOn){camera.position.set(0,h,dist); camera.lookAt(0,car?car.position.y:0,0)}}
