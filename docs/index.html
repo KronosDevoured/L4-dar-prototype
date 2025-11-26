@@ -328,7 +328,8 @@ let faceArrow=null, faceTip=null;
 function clearCar(){
   if(!car) return;
   scene.remove(car);
-  car.traverse(o=>{ if(o.geometry) o.geometry.dispose(); if(o.material) o.material.dispose?.(); });
+  car.traverse(o=>{ if(o.geometry) o.geometry.dispose(); 
+  });
   car = null;
 }
 
@@ -362,11 +363,6 @@ function buildCar(boxDims, presetName="placeholder"){
   car.add(nose);
   const noseTip = new THREE.Mesh(new THREE.ConeGeometry(8,16,12), new THREE.MeshBasicMaterial({color: COL_DOWN}));
   noseTip.rotation.x = Math.PI/2; noseTip.position.z = BOX.hz*0.55 + 10; car.add(noseTip);
-
-  // Wheels
-  const xOff = BOX.hx-10, zOff = BOX.hz*0.68;
-  addWheel(+xOff, -zOff); addWheel(-xOff, -zOff);
-  addWheel(+xOff, +zOff); addWheel(-xOff, +zOff);
 
   // Face input arrow (front plane)
   const zFace = BOX.hz + 0.6;
@@ -437,6 +433,11 @@ function addFlares(xw, zw, r=10, w=6){
 }
 function buildPlaceholderFancy(){
   const xOff = BOX.hx-10, zOff = BOX.hz*0.68;
+   addWheel(+xOff, -zOff);
+  addWheel(-xOff, -zOff);
+  addWheel(+xOff, +zOff);
+  addWheel(-xOff, +zOff);
+  
   addFlares(xOff, zOff, 10, 6);
   addCabin(BOX.hx*1.0, BOX.hy*0.9, BOX.hz*0.55, BOX.hy*0.65, -BOX.hz*0.1);
   addSpoiler(BOX.hx*1.0, 6, 24, BOX.hy*0.8, -BOX.hz*0.95);
