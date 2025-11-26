@@ -334,7 +334,7 @@ function clearCar(){
 }
 
 function buildCar(boxDims, presetName="placeholder"){
-  console.log("buildCar preset:", presetName);  // ← add this line
+  console.log("buildCar preset:", presetName); // <-- goes here, at the top
 
   clearCar();
   BOX = boxDims;
@@ -351,7 +351,6 @@ function buildCar(boxDims, presetName="placeholder"){
   if (presetName === "octane")      buildOctane();
   else if (presetName === "dominus") buildDominus();
   else                               buildPlaceholderFancy();
-}
 
   // Front-face colored edges
   const vFL = new THREE.Vector3(-BOX.hx, +BOX.hy, +BOX.hz);
