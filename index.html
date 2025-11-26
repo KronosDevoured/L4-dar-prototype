@@ -131,66 +131,77 @@
           </div>
         </div>
 
-        <!-- Dynamics -->
-        <div class="card">
-          <h3>Dynamics</h3>
+<!-- Dynamics -->
+<div class="card">
+  <h3>Dynamics</h3>
 
-          <div class="row sl">
-            <label for="accelRange">Max Accel (°/s²)</label>
-            <input id="accelRange" type="range" min="120" max="1200" step="5" value="255"/>
-            <span class="tag" id="accelTag">255</span>
-          </div>
+  <div class="row sl">
+    <label for="accelPitch">Max Pitch Accel (°/s²)</label>
+    <input id="accelPitch" type="range" min="120" max="1200" step="5" value="400"/>
+    <span class="tag" id="accelPitchTag">400</span>
+  </div>
 
-          <div class="row sl">
-            <label for="curveRange">Input Curve</label>
-            <input id="curveRange" type="range" min="1.0" max="2.2" step="0.05" value="1.0"/>
-            <span class="tag" id="curveTag">1.00</span>
-          </div>
+  <div class="row sl">
+    <label for="accelYaw">Max Yaw Accel (°/s²)</label>
+    <input id="accelYaw" type="range" min="120" max="1200" step="5" value="400"/>
+    <span class="tag" id="accelYawTag">400</span>
+  </div>
 
-          <div class="row sl">
-            <label for="dampRange">Damp</label>
-            <input id="dampRange" type="range" min="0.0" max="1.2" step="0.05" value="1.2"/>
-            <span class="tag" id="dampTag">1.20</span>
-          </div>
+  <div class="row sl">
+    <label for="accelRoll">Max Roll Accel (°/s²)</label>
+    <input id="accelRoll" type="range" min="120" max="1200" step="5" value="400"/>
+    <span class="tag" id="accelRollTag">400</span>
+  </div>
 
-          <div class="row sl">
-            <label for="brakeRange">Release Brake</label>
-            <input id="brakeRange" type="range" min="0.0" max="6.0" step="0.1" value="6.0"/>
-            <span class="tag" id="brakeTag">6.0</span>
-          </div>
+  <div class="row sl">
+    <label for="curveRange">Input Curve</label>
+    <input id="curveRange" type="range" min="1.0" max="2.2" step="0.05" value="1.0"/>
+    <span class="tag" id="curveTag">1.00</span>
+  </div>
 
-          <div class="row sl">
-            <label for="wmaxRange">Max ω (global)</label>
-            <input id="wmaxRange" type="range" min="6.0" max="24.0" step="0.5" value="6.0"/>
-            <span class="tag" id="wmaxTag">6.0</span>
-          </div>
+  <!-- Rest of your sliders stay the same -->
+  <div class="row sl">
+    <label for="dampRange">Damp</label>
+    <input id="dampRange" type="range" min="0.0" max="1.2" step="0.05" value="1.2"/>
+    <span class="tag" id="dampTag">1.20</span>
+  </div>
 
-          <div class="row sl">
-            <label for="wmaxPitch">Max Pitch ω</label>
-            <input id="wmaxPitch" type="range" min="4.0" max="24.0" step="0.5" value="8.5"/>
-            <span class="tag" id="wmaxPitchTag">8.5</span>
-          </div>
+  <div class="row sl">
+    <label for="brakeRange">Release Brake</label>
+    <input id="brakeRange" type="range" min="0.0" max="6.0" step="0.1" value="6.0"/>
+    <span class="tag" id="brakeTag">6.0</span>
+  </div>
 
-          <div class="row sl">
-            <label for="wmaxYaw">Max Yaw ω</label>
-            <input id="wmaxYaw" type="range" min="4.0" max="24.0" step="0.5" value="9.0"/>
-            <span class="tag" id="wmaxYawTag">9.0</span>
-          </div>
-        </div>
+  <div class="row sl">
+    <label for="wmaxRange">Max ω (global)</label>
+    <input id="wmaxRange" type="range" min="6.0" max="24.0" step="0.5" value="6.0"/>
+    <span class="tag" id="wmaxTag">6.0</span>
+  </div>
 
-        <!-- Car -->
-        <div class="card">
-          <h3>Car</h3>
-          <div class="row sl">
-            <label for="presetSel">Body</label>
-            <select id="presetSel">
-              <option value="placeholder">Placeholder (140×56×240)</option>
-              <option value="octane" selected>Octane proportions</option>
-              <option value="dominus">Dominus proportions</option>
-            </select>
-          </div>
-        </div>
+  <div class="row sl">
+    <label for="wmaxPitch">Max Pitch ω</label>
+    <input id="wmaxPitch" type="range" min="4.0" max="24.0" step="0.5" value="8.5"/>
+    <span class="tag" id="wmaxPitchTag">8.5</span>
+  </div>
 
+  <div class="row sl">
+    <label for="wmaxYaw">Max Yaw ω</label>
+    <input id="wmaxYaw" type="range" min="4.0" max="24.0" step="0.5" value="9.0"/>
+    <span class="tag" id="wmaxYawTag">9.0</span>
+  </div>
+</div>
+<!-- Car -->
+<div class="card">
+  <h3>Car</h3>
+  <div class="row sl">
+    <label for="presetSel">Body</label>
+    <select id="presetSel">
+      <option value="placeholder">Placeholder (140×56×240)</option>
+      <option value="octane" selected>Octane proportions</option>
+      <option value="dominus">Dominus proportions</option>
+    </select>
+  </div>
+</div>
         <!-- View / HUD -->
         <div class="card">
           <h3>View & HUD</h3>
@@ -584,7 +595,9 @@ document.getElementById('orbit').addEventListener('click',()=>{
 });
 
 /* Sliders / select */
-const accelRange=document.getElementById('accelRange'), accelTag=document.getElementById('accelTag');
+const accelPitch=document.getElementById('accelPitch'), accelPitchTag=document.getElementById('accelPitchTag');
+const accelYaw=document.getElementById('accelYaw'), accelYawTag=document.getElementById('accelYawTag');
+const accelRoll=document.getElementById('accelRoll'), accelRollTag=document.getElementById('accelRollTag');
 const curveRange=document.getElementById('curveRange'), curveTag=document.getElementById('curveTag');
 const dampRange=document.getElementById('dampRange'),   dampTag=document.getElementById('dampTag');
 const brakeRange=document.getElementById('brakeRange'), brakeTag=document.getElementById('brakeTag');
@@ -597,7 +610,9 @@ const zoomSlider=document.getElementById('zoomSlider'), zoomVal=document.getElem
 const arrowSlider=document.getElementById('arrowSlider'), arrowVal=document.getElementById('arrowVal');
 const presetSel=document.getElementById('presetSel');
 
-let maxAccelDeg=parseFloat(accelRange.value),
+let maxAccelPitch=parseFloat(accelPitch.value),
+    maxAccelYaw=parseFloat(accelYaw.value),
+    maxAccelRoll=parseFloat(accelRoll.value),
     inputPow=parseFloat(curveRange.value),
     damp=parseFloat(dampRange.value),
     brakeOnRelease=parseFloat(brakeRange.value),
@@ -609,7 +624,9 @@ let maxAccelDeg=parseFloat(accelRange.value),
     arrowScale=parseFloat(arrowSlider.value);
 
 function syncTags(){
-  accelTag.textContent=maxAccelDeg.toFixed(0);
+  accelPitchTag.textContent=maxAccelPitch.toFixed(0);
+accelYawTag.textContent=maxAccelYaw.toFixed(0);
+accelRollTag.textContent=maxAccelRoll.toFixed(0);
   curveTag.textContent=inputPow.toFixed(2);
   dampTag.textContent=damp.toFixed(2);
   brakeTag.textContent=brakeOnRelease.toFixed(1);
@@ -623,7 +640,9 @@ function syncTags(){
 }
 syncTags();
 
-accelRange.addEventListener('input',()=>{maxAccelDeg=parseFloat(accelRange.value)||255; syncTags();});
+accelPitch.addEventListener('input',()=>{maxAccelPitch=parseFloat(accelPitch.value)||400; syncTags();});
+accelYaw.addEventListener('input',()=>{maxAccelYaw=parseFloat(accelYaw.value)||400; syncTags();});
+accelRoll.addEventListener('input',()=>{maxAccelRoll=parseFloat(accelRoll.value)||400; syncTags();});
 curveRange.addEventListener('input',()=>{inputPow=parseFloat(curveRange.value)||1.0; syncTags();});
 dampRange .addEventListener('input',()=>{damp=parseFloat(dampRange.value)||1.20; syncTags();});
 brakeRange.addEventListener('input',()=>{brakeOnRelease=parseFloat(brakeRange.value)||6.0; syncTags();});
@@ -884,33 +903,78 @@ let w = new THREE.Vector3(0,0,0);
 const STICK_DEADZONE = STICK_MIN;
 const KP_ROLL = 3.2, KD_ROLL = 0.25;
 
-function integrate(dt){
-  const a = 1 - Math.exp(-(dt*1000)/Math.max(1,STICK_TAU_MS));
+// === NEW VARIABLES - Add these here ===
+let inputHistory = { x: [], y: [] };
+const INPUT_HISTORY_SIZE = 3;
+let prevAlpha = new THREE.Vector3(0, 0, 0);
+
+// === HELPER FUNCTIONS ===
+function smoothInput(jx, jy) {
+  inputHistory.x.push(jx);
+  inputHistory.y.push(jy);
+  if (inputHistory.x.length > INPUT_HISTORY_SIZE) {
+    inputHistory.x.shift();
+    inputHistory.y.shift();
+  }
+  
+  const avgX = inputHistory.x.reduce((a, b) => a + b, 0) / inputHistory.x.length;
+  const avgY = inputHistory.y.reduce((a, b) => a + b, 0) / inputHistory.y.length;
+  return { x: avgX, y: avgY };
+}
+
+function softClampAngularVelocity(w, max) {
+  const mag = w.length();
+  if (mag <= max) return;
+  
+  const excess = mag - max;
+  const reduction = Math.min(1.0, excess / max);
+  const scale = 1.0 - (reduction * 0.3);
+  w.multiplyScalar(scale);
+}
+
+// Put these near your other physics constants:
+const KpPitch = 18.0, KdPitch = 4.0;
+const KpYaw   = 18.0, KdYaw   = 4.0;
+const KpRoll  = 12.0, KdRoll  = 3.0;
+
+function integrate(dt) {
+  // --- 1. Smooth joystick position ---
+  const a = 1 - Math.exp(-(dt * 1000) / Math.max(1, STICK_TAU_MS));
   smJoy.lerp(joyVec, a);
 
-  const jx =  smJoy.x/JOY_BASE_R;
-  const jy = -smJoy.y/JOY_BASE_R;
-  const mag = Math.hypot(jx,jy);
+  const jx = smJoy.x / JOY_BASE_R;
+  const jy = -smJoy.y / JOY_BASE_R; // up is positive
+  let mag = Math.hypot(jx, jy);
 
-  let eff = Math.max(0, mag - STICK_DEADZONE) / (1 - STICK_DEADZONE);
-  eff = Math.pow(eff, inputPow);
-  const ux = (mag>0) ? (-jx/mag) : 0;
-  const uy = (mag>0) ? ( jy/mag) : 0;
+  let eff = 0;
+  let ux = 0, uy = 0;
 
-  if (faceArrow && faceTip){
+  if (mag > STICK_DEADZONE) {
+    const m2 = (mag - STICK_DEADZONE) / (1 - STICK_DEADZONE);
+    const shaped = Math.pow(Math.max(0, m2), inputPow || 1.0); // 0..1
+    eff = shaped;
+
+    ux = -jx / (mag || 1); // right = +ux
+    uy = jy  / (mag || 1); // up = +uy
+  }
+
+  // --- 2. Front-face arrow (same behavior as before, just using ux,uy,eff) ---
+  if (faceArrow && faceTip) {
     const show = eff > 0.02;
-    faceArrow.visible = show; faceTip.visible = show;
-    if (show){
-      const lenMax = Math.min(BOX.hx, BOX.hy) * 0.95;
-      const len = Math.max(10, lenMax * eff * (arrowScale||1));
-      const zFace = BOX.hz + 0.6;
+    faceArrow.visible = show;
+    faceTip.visible   = show;
 
-      const x2 =  ux * len;
+    if (show) {
+      const lenMax = Math.min(BOX.hx, BOX.hy) * 0.95;
+      const len    = Math.max(10, lenMax * eff * (arrowScale || 1));
+      const zFace  = BOX.hz + 0.6;
+
+      const x2 = ux * len;
       const y2 = -uy * len;
 
       const pos = faceArrow.geometry.attributes.position.array;
-      pos[0]=0; pos[1]=0; pos[2]=zFace;
-      pos[3]=x2; pos[4]=y2; pos[5]=zFace;
+      pos[0] = 0;  pos[1] = 0;  pos[2] = zFace;
+      pos[3] = x2; pos[4] = y2; pos[5] = zFace;
       faceArrow.geometry.attributes.position.needsUpdate = true;
 
       const col = (Math.abs(x2) > Math.abs(y2))
@@ -922,50 +986,83 @@ function integrate(dt){
       faceTip.position.set(x2, y2, zFace);
       const ang = Math.atan2(x2, -y2) + Math.PI;
       faceTip.rotation.set(0, 0, ang);
-      const s = 0.95 * (arrowScale||1);
+      const s = 0.95 * (arrowScale || 1);
       faceTip.scale.set(s, s, 1);
     }
   }
 
-  const maxAccelRad = (maxAccelDeg * Math.PI) / 180;
+  // --- 3. Slider conversions (deg/s² → rad/s²) ---
+  const maxAccelPitchRad = (maxAccelPitch * Math.PI) / 180;
+  const maxAccelYawRad   = (maxAccelYaw   * Math.PI) / 180;
+  const maxAccelRollRad  = (maxAccelRoll  * Math.PI) / 180;
 
-  const alpha = new THREE.Vector3(
-    maxAccelRad * eff * uy,
-    maxAccelRad * eff * ux,
-    0
-  );
+  // --- 4. Desired angular velocities (rate control) ---
+  let maxPitchSpeed = wMaxPitch;  // rad/s, slider already in "ω"
+  let maxYawSpeed   = wMaxYaw;    // rad/s
+  let targetRollSpeed = 0;        // rad/s
 
-  let targetWz = 0;
-  if (darOn && freeRollPeriod > 0){
-    targetWz = airRoll * (2*Math.PI)/freeRollPeriod;
+  // DAR tornado cone: shrink pitch/yaw authority while rolling
+  if (darOn && freeRollPeriod > 0) {
+    targetRollSpeed = airRoll * (2 * Math.PI) / freeRollPeriod;
+
+    const maxTornadoAngle = 0.40;
+    const minTornadoAngle = 0.10;
+    const tornadoFactor = minTornadoAngle + eff * (maxTornadoAngle - minTornadoAngle);
+
+    maxPitchSpeed *= tornadoFactor;
+    maxYawSpeed   *= tornadoFactor;
   }
-  alpha.z = KP_ROLL*(targetWz - w.z) - KD_ROLL*w.z;
 
-  w.addScaledVector(alpha, dt);
+  // stick → desired spin rates
+  const wx_des = maxPitchSpeed * eff * uy; // pitch
+  const wy_des = maxYawSpeed   * eff * ux; // yaw
+  const wz_des = targetRollSpeed;         // roll from DAR
 
+  // --- 5. PD control → angular acceleration per axis ---
+  const ax_des = KpPitch * (wx_des - w.x) - KdPitch * w.x;
+  const ay_des = KpYaw   * (wy_des - w.y) - KdYaw   * w.y;
+  const az_des = KpRoll  * (wz_des - w.z) - KdRoll  * w.z;
+
+  const ax = THREE.MathUtils.clamp(ax_des, -maxAccelPitchRad, maxAccelPitchRad);
+  const ay = THREE.MathUtils.clamp(ay_des, -maxAccelYawRad,   maxAccelYawRad);
+  const az = THREE.MathUtils.clamp(az_des, -maxAccelRollRad,  maxAccelRollRad);
+
+  // --- 6. Integrate angular velocity ---
+  w.x += ax * dt;
+  w.y += ay * dt;
+  w.z += az * dt;
+
+  // --- 7. Damping + release brake ---
   const noStick = eff < 0.02;
-  const dampEff = (damp||0) + ((noStick && !darOn) ? (brakeOnRelease||0) : 0);
+  const dampEff = (damp || 0) + ((noStick && !darOn) ? (brakeOnRelease || 0) : 0);
   const scale = Math.exp(-dampEff * dt);
   w.multiplyScalar(scale);
 
+  // --- 8. Per-axis caps + global cap ---
   if (Math.abs(w.x) > wMaxPitch) w.x = Math.sign(w.x) * wMaxPitch;
-  if (Math.abs(w.y) > wMaxYaw)   w.y = Math.sign(w.y)   * wMaxYaw;
+  if (Math.abs(w.y) > wMaxYaw)   w.y = Math.sign(w.y) * wMaxYaw;
 
-  const wm = w.length();
-  if (wm > wMax) w.multiplyScalar(wMax/(wm||1));
+  const wMag = w.length();
+  if (wMag > wMax) {
+    w.multiplyScalar(wMax / wMag);
+  }
 
-  const wx=w.x, wy=w.y, wz=w.z, halfdt=0.5*dt;
-  const q=car.quaternion;
-  const rw = - q.x*wx - q.y*wy - q.z*wz;
-  const rx =   q.w*wx + q.y*wz - q.z*wy;
-  const ry =   q.w*wy + q.z*wx - q.x*wz;
-  const rz =   q.w*wz + q.x*wy - q.y*wx;
-  q.w += rw*halfdt; q.x += rx*halfdt; q.y += ry*halfdt; q.z += rz*halfdt;
+  // --- 9. Quaternion integration (unchanged) ---
+  const wx = w.x, wy = w.y, wz = w.z, halfdt = 0.5 * dt;
+  const q = car.quaternion;
+  const rw = -q.x * wx - q.y * wy - q.z * wz;
+  const rx =  q.w * wx + q.y * wz - q.z * wy;
+  const ry =  q.w * wy + q.z * wx - q.x * wz;
+  const rz =  q.w * wz + q.x * wy - q.y * wx;
+  q.w += rw * halfdt;
+  q.x += rx * halfdt;
+  q.y += ry * halfdt;
+  q.z += rz * halfdt;
   q.normalize();
 }
-
-/* Camera zoom/orbit */
+/* Camera zoom/orbit *//* Camera zoom/orbit */
 let orbitPhase=0;
+
 function applyZoom(){
   const f = Math.max(0.7, Math.min(1.6, zoom||1));
   const dist = CAM_BASE.z / f;
@@ -975,6 +1072,7 @@ function applyZoom(){
     camera.lookAt(0, car ? car.position.y : 0, 0);
   }
 }
+
 function orbitStep(t){
   const f = Math.max(0.7, Math.min(1.6, zoom||1));
   const R = (CAM_BASE.z / f);
@@ -986,6 +1084,7 @@ function orbitStep(t){
   camera.lookAt(0, car ? car.position.y : 0, 0);
 }
 
+/* XYZ Gizmo */
 /* XYZ Gizmo */
 const gizmoRect = document.getElementById('gizmoFrame').getBoundingClientRect();
 const gizmoScene = new THREE.Scene();
