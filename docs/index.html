@@ -1,5 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
+    <script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.164.0/build/three.module.js"
+  }
+}
+</script>
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
@@ -264,7 +271,8 @@
   <div id="darHint">Tap to toggle roll • Hold to move</div>
 
 <script type="module">
-import * as THREE from "https://unpkg.com/three@0.164.0/build/three.module.js";
+import * as THREE from "three";
+import { GLTFLoader } from "https://unpkg.com/three@0.164.0/examples/jsm/loaders/GLTFLoader.js";
 
 /* ====== Renderer / Scene / Camera ====== */
 const gl = document.getElementById('gl');
@@ -320,6 +328,37 @@ const presets = {
   octane:      { hx:85.65, hy:36.8, hz:120 },
   dominus:     { hx:77.9,  hy:29.3, hz:120 }
 };
+const gltfLoader = new GLTFLoader();
+
+function loadCarModel(presetName) {
+  const url = `models/${presetName}.glb`;   // docs/index.html → docs/models/*.glb
+  console.log("Loading GLB:", url);
+
+  gltfLoader.load(
+    url,
+    (gltf) => {
+      const model = gltf.scene;
+
+      // Optional: clean up / tweak
+      model.traverse((o) => {
+        if (o.isMesh) {
+          o.castShadow = false;
+          o.receiveShadow = false;
+        }
+      });
+
+      // You may need to tweak this scale/offset depending on your GLBs
+      model.position.set(0, -BOX.hy, 0);
+      model.scale.set(1, 1, 1);
+
+      car.add(model);
+    },
+    undefined,
+    (err) => {
+      console.error("Failed to load", url, err);
+    }
+  );
+}
 
 /* Car builder */
 let car=null, BOX=null;
@@ -328,13 +367,20 @@ let faceArrow=null, faceTip=null;
 function clearCar(){
   if(!car) return;
   scene.remove(car);
-  car.traverse(o=>{ if(o.geometry) o.geometry.dispose(); 
+  car.traverse(o=>{
+    if (o.geometry) o.geometry.dispose();
+    if (o.material) {
+      if (Array.isArray(o.material)) {
+        o.material.forEach(m => m.dispose && m.dispose());
+      } else {
+        o.material.dispose && o.material.dispose();
+      }
+    }
   });
   car = null;
 }
-
 function buildCar(boxDims, presetName="placeholder"){
-  console.log("buildCar preset:", presetName); // <-- goes here, at the top
+  console.log("buildCar preset:", presetName);
 
   clearCar();
   BOX = boxDims;
@@ -342,17 +388,24 @@ function buildCar(boxDims, presetName="placeholder"){
   car.position.y = 110;
   scene.add(car);
 
+  // hitbox body (optional)
   const body = new THREE.Mesh(
     new THREE.BoxGeometry(BOX.hx*2, BOX.hy*2, BOX.hz*2),
     MAT_BODY
   );
   car.add(body);
 
-  if (presetName === "octane")      buildOctane();
-  else if (presetName === "dominus") buildDominus();
-  else                               buildPlaceholderFancy();
+  // fancy placeholder wheels/cabin/spoiler if placeholder
+  if (presetName === "placeholder") {
+    buildPlaceholderFancy();
+  }
 
-  // Front-face colored edges
+  // GLB for octane/dominus
+  if (presetName === "octane" || presetName === "dominus") {
+    loadCarModel(presetName);   // uses models/<presetName>.glb
+  }
+
+  // colored face edges
   const vFL = new THREE.Vector3(-BOX.hx, +BOX.hy, +BOX.hz);
   const vFR = new THREE.Vector3(+BOX.hx, +BOX.hy, +BOX.hz);
   const vBR = new THREE.Vector3(+BOX.hx, -BOX.hy, +BOX.hz);
@@ -362,14 +415,6 @@ function buildCar(boxDims, presetName="placeholder"){
   addEdge(vBL, vBR, COL_DOWN);
   addEdge(vFL, vBL, COL_RIGHT);
 
-  // Nose arrow
-  const noseGeom = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,BOX.hz*0.55)]);
-  const nose = new THREE.Line(noseGeom, new THREE.LineBasicMaterial({color: COL_DOWN}));
-  car.add(nose);
-  const noseTip = new THREE.Mesh(new THREE.ConeGeometry(8,16,12), new THREE.MeshBasicMaterial({color: COL_DOWN}));
-  noseTip.rotation.x = Math.PI/2; noseTip.position.z = BOX.hz*0.55 + 10; car.add(noseTip);
-
-  // Face input arrow (front plane)
   const zFace = BOX.hz + 0.6;
   const faceGeom = new THREE.BufferGeometry().setFromPoints([
     new THREE.Vector3(0,0,zFace),
@@ -381,9 +426,9 @@ function buildCar(boxDims, presetName="placeholder"){
   faceTip = new THREE.Mesh(new THREE.ConeGeometry(6,12,12), new THREE.MeshBasicMaterial({color: 0x333333}));
   faceTip.position.set(0,0,zFace);
   car.add(faceTip);
-  faceArrow.visible = false; faceTip.visible = false;
+  faceArrow.visible = false;
+  faceTip.visible = false;
 }
-
 function addEdge(a,b,color){
   const geo = new THREE.BufferGeometry().setFromPoints([a,b]);
   const line = new THREE.Line(geo, MAT_EDGE(color));
@@ -1153,4 +1198,4 @@ applyZoom();
 requestAnimationFrame(tick);
 </script>
 </body>
-</html>
+</html>1
