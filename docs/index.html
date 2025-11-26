@@ -334,18 +334,24 @@ function clearCar(){
 }
 
 function buildCar(boxDims, presetName="placeholder"){
+  console.log("buildCar preset:", presetName);  // ← add this line
+
   clearCar();
   BOX = boxDims;
   car = new THREE.Group();
   car.position.y = 110;
   scene.add(car);
 
-  const body = new THREE.Mesh(new THREE.BoxGeometry(BOX.hx*2, BOX.hy*2, BOX.hz*2), MAT_BODY);
+  const body = new THREE.Mesh(
+    new THREE.BoxGeometry(BOX.hx*2, BOX.hy*2, BOX.hz*2),
+    MAT_BODY
+  );
   car.add(body);
 
-  if(presetName==="octane") buildOctane();
-  else if(presetName==="dominus") buildDominus();
-  else buildPlaceholderFancy();
+  if (presetName === "octane")      buildOctane();
+  else if (presetName === "dominus") buildDominus();
+  else                               buildPlaceholderFancy();
+}
 
   // Front-face colored edges
   const vFL = new THREE.Vector3(-BOX.hx, +BOX.hy, +BOX.hz);
