@@ -331,7 +331,7 @@ const presets = {
 const gltfLoader = new GLTFLoader();
 
 function loadCarModel(presetName) {
-  const url = `models/${presetName}.glb`;   // docs/index.html → docs/models/*.glb
+  const url = `models/${presetName}.glb`;
   console.log("Loading GLB:", url);
 
   gltfLoader.load(
@@ -339,7 +339,6 @@ function loadCarModel(presetName) {
     (gltf) => {
       const model = gltf.scene;
 
-      // Optional: clean up / tweak
       model.traverse((o) => {
         if (o.isMesh) {
           o.castShadow = false;
@@ -347,9 +346,13 @@ function loadCarModel(presetName) {
         }
       });
 
-      // You may need to tweak this scale/offset depending on your GLBs
+      // Center / height
       model.position.set(0, -BOX.hy, 0);
-      model.scale.set(1, 1, 1);
+
+      // Rotate so nose points along +Z instead of +X
+      model.rotation.y = -Math.PI / 2;   // try this first
+      // if nose ends up pointing away from you or wrong side, swap to:
+      // model.rotation.y = Math.PI / 2;
 
       car.add(model);
     },
@@ -359,6 +362,7 @@ function loadCarModel(presetName) {
     }
   );
 }
+
 
 /* Car builder */
 let car=null, BOX=null;
@@ -388,31 +392,32 @@ function buildCar(boxDims, presetName="placeholder"){
   car.position.y = 110;
   scene.add(car);
 
-  // Only show hitbox body for placeholder
   if (presetName === "placeholder") {
+    // Hitbox body + fancy fake car
     const body = new THREE.Mesh(
       new THREE.BoxGeometry(BOX.hx*2, BOX.hy*2, BOX.hz*2),
       MAT_BODY
     );
     car.add(body);
     buildPlaceholderFancy();
+
+    // colored face edges ONLY for placeholder
+    const vFL = new THREE.Vector3(-BOX.hx, +BOX.hy, +BOX.hz);
+    const vFR = new THREE.Vector3(+BOX.hx, +BOX.hy, +BOX.hz);
+    const vBR = new THREE.Vector3(+BOX.hx, -BOX.hy, +BOX.hz);
+    const vBL = new THREE.Vector3(-BOX.hx, -BOX.hy, +BOX.hz);
+    addEdge(vFR, vFL, COL_UP);
+    addEdge(vBR, vFR, COL_LEFT);
+    addEdge(vBL, vBR, COL_DOWN);
+    addEdge(vFL, vBL, COL_RIGHT);
   }
 
-  // GLB for octane/dominus (no hitbox body)
+  // GLB for octane/dominus (no hitbox body, no edges)
   if (presetName === "octane" || presetName === "dominus") {
     loadCarModel(presetName);
   }
 
-  // colored face edges
-  const vFL = new THREE.Vector3(-BOX.hx, +BOX.hy, +BOX.hz);
-  const vFR = new THREE.Vector3(+BOX.hx, +BOX.hy, +BOX.hz);
-  const vBR = new THREE.Vector3(+BOX.hx, -BOX.hy, +BOX.hz);
-  const vBL = new THREE.Vector3(-BOX.hx, -BOX.hy, +BOX.hz);
-  addEdge(vFR, vFL, COL_UP);
-  addEdge(vBR, vFR, COL_LEFT);
-  addEdge(vBL, vBR, COL_DOWN);
-  addEdge(vFL, vBL, COL_RIGHT);
-
+  // arrow setup stays the same
   const zFace = BOX.hz + 0.6;
   const faceGeom = new THREE.BufferGeometry().setFromPoints([
     new THREE.Vector3(0,0,zFace),
