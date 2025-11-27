@@ -388,21 +388,19 @@ function buildCar(boxDims, presetName="placeholder"){
   car.position.y = 110;
   scene.add(car);
 
-  // hitbox body (optional)
-  const body = new THREE.Mesh(
-    new THREE.BoxGeometry(BOX.hx*2, BOX.hy*2, BOX.hz*2),
-    MAT_BODY
-  );
-  car.add(body);
-
-  // fancy placeholder wheels/cabin/spoiler if placeholder
+  // Only show hitbox body for placeholder
   if (presetName === "placeholder") {
+    const body = new THREE.Mesh(
+      new THREE.BoxGeometry(BOX.hx*2, BOX.hy*2, BOX.hz*2),
+      MAT_BODY
+    );
+    car.add(body);
     buildPlaceholderFancy();
   }
 
-  // GLB for octane/dominus
+  // GLB for octane/dominus (no hitbox body)
   if (presetName === "octane" || presetName === "dominus") {
-    loadCarModel(presetName);   // uses models/<presetName>.glb
+    loadCarModel(presetName);
   }
 
   // colored face edges
