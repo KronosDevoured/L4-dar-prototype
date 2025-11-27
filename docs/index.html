@@ -405,13 +405,12 @@ function buildCar(boxDims, presetName="placeholder"){
 }
 
 let currentCarModel = null;  // NEW, near top of car builder section
-carScaleRange.addEventListener('input', () => {
-  carScale = clampCarScale(parseFloat(carScaleRange.value) || 1.0);
-  syncTags();
-  if (currentCarModel) {
-    currentCarModel.scale.set(carScale, carScale, carScale);
-  }
+carScaleRange.addEventListener("input", () => {
+  carScale = Math.max(0.01, Math.min(2.0, parseFloat(carScaleRange.value) || 1.0));
+  carScaleTag.textContent = carScale.toFixed(2);
+  rebuildCarModel();
 });
+;
 
 
   clearCar();
@@ -707,7 +706,8 @@ let maxAccelPitch=parseFloat(accelPitch.value),
     freeRollPeriod=parseFloat(spinSlider.value),
     zoom=parseFloat(zoomSlider.value),
     arrowScale=parseFloat(arrowSlider.value);
-    carScale=parseFloat(carScaleRange.value) || 1.0;   // NEW
+    let carScale = parseFloat(carScaleRange.value) || 1.0;
+
 
 function syncTags(){
   accelPitchTag.textContent=maxAccelPitch.toFixed(0);
