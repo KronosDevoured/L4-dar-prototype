@@ -348,6 +348,10 @@ function loadCarModel(presetName) {
 
       // Center / height
       model.position.set(0, -BOX.hy, 0);
+        
+// Scale the GLB
+model.scale.set(CAR_SCALE, CAR_SCALE, CAR_SCALE);
+        const CAR_SCALE = 1.4;   // or whatever multiplier you want
 
       // Rotate so nose points along +Z instead of +X
       model.rotation.y = -Math.PI / 2;   // try this first
