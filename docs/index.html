@@ -343,7 +343,6 @@ const presets = {
   dominus:     { hx:77.9,  hy:29.3, hz:120 }
 };
 
-const CAR_SCALE = 1.4;        // <--- put it here, once
 const gltfLoader = new GLTFLoader();
 
 function loadCarModel(presetName) {
@@ -379,8 +378,13 @@ function loadCarModel(presetName) {
 }
     
 /* Car builder */
-let car=null, BOX=null;
-let faceArrow=null, faceTip=null;
+let car = null, BOX = null;
+let faceArrow = null, faceTip = null;
+let currentCarModel = null;   // GLB reference for scaling
+
+function clampCarScale(v) {
+  return Math.min(2.0, Math.max(0.01, v));
+}
 
 function clearCar(){
   if(!car) return;
@@ -396,23 +400,11 @@ function clearCar(){
     }
   });
   car = null;
-    currentCarModel = null;   // reset visual model ref
+  currentCarModel = null;   // reset the GLB handle
 }
 function buildCar(boxDims, presetName="placeholder"){
   console.log("buildCar preset:", presetName);
-    function clampCarScale(v){
-  return Math.min(2.0, Math.max(0.01, v));
-}
-
-let currentCarModel = null;  // NEW, near top of car builder section
-carScaleRange.addEventListener("input", () => {
-  carScale = Math.max(0.01, Math.min(2.0, parseFloat(carScaleRange.value) || 1.0));
-  carScaleTag.textContent = carScale.toFixed(2);
-  rebuildCarModel();
-});
-;
-
-
+    
   clearCar();
   BOX = boxDims;
   car = new THREE.Group();
@@ -710,38 +702,20 @@ let maxAccelPitch=parseFloat(accelPitch.value),
 
 
 function syncTags(){
-  accelPitchTag.textContent=maxAccelPitch.toFixed(0);
-accelYawTag.textContent=maxAccelYaw.toFixed(0);
-accelRollTag.textContent=maxAccelRoll.toFixed(0);
-  curveTag.textContent=inputPow.toFixed(2);
-  dampTag.textContent=damp.toFixed(2);
-  brakeTag.textContent=brakeOnRelease.toFixed(1);
-  wmaxTag.textContent=wMax.toFixed(1);
-  wmaxPitchTag.textContent=wMaxPitch.toFixed(1);
-  wmaxYawTag.textContent=wMaxYaw.toFixed(1);
-  rollVal.textContent = (freeRollPeriod > 0) ? `${freeRollPeriod.toFixed(2)} s/rot` : 'off';
-  stickVal.textContent = String(Math.round(JOY_BASE_R));
-  zoomVal.textContent = `${(zoom||1).toFixed(2)}×`;
-  arrowVal.textContent = `${(arrowScale||1).toFixed(2)}×`;
-      // NEW:
-  carScaleTag.textContent = carScale.toFixed(2);
-    carScaleTag.addEventListener('click', () => {
-  const val = prompt("Car visual scale (0.01–2.00):", carScale.toFixed(2));
-  if (val === null) return;
-
-  let num = parseFloat(val);
-  if (Number.isNaN(num)) return;
-
-  num = clampCarScale(num);
-  carScale = num;
-
-  carScaleRange.value = num.toFixed(2);
-  syncTags();
-
-  if (currentCarModel) {
-    currentCarModel.scale.set(carScale, carScale, carScale);
-  }
-});
+  accelPitchTag.textContent = maxAccelPitch.toFixed(0);
+  accelYawTag.textContent   = maxAccelYaw.toFixed(0);
+  accelRollTag.textContent  = maxAccelRoll.toFixed(0);
+  curveTag.textContent      = inputPow.toFixed(2);
+  dampTag.textContent       = damp.toFixed(2);
+  brakeTag.textContent      = brakeOnRelease.toFixed(1);
+  wmaxTag.textContent       = wMax.toFixed(1);
+  wmaxPitchTag.textContent  = wMaxPitch.toFixed(1);
+  wmaxYawTag.textContent    = wMaxYaw.toFixed(1);
+  rollVal.textContent       = (freeRollPeriod > 0) ? `${freeRollPeriod.toFixed(2)} s/rot` : 'off';
+  stickVal.textContent      = String(Math.round(JOY_BASE_R));
+  zoomVal.textContent       = `${(zoom||1).toFixed(2)}×`;
+  arrowVal.textContent      = `${(arrowScale||1).toFixed(2)}×`;
+  carScaleTag.textContent   = carScale.toFixed(2);
 }
     
 syncTags();
@@ -763,6 +737,35 @@ presetSel .addEventListener('change',()=>{
   const name = presetSel.value;
   buildCar(presets[name], name);
   car.quaternion.identity(); w.set(0,0,0);
+});
+    
+    // Car scale slider
+carScaleRange.addEventListener("input", () => {
+  carScale = clampCarScale(parseFloat(carScaleRange.value) || 1.0);
+  carScaleTag.textContent = carScale.toFixed(2);
+
+  if (currentCarModel) {
+    currentCarModel.scale.set(carScale, carScale, carScale);
+  }
+});
+
+// Click tag → prompt numeric input
+carScaleTag.addEventListener('click', () => {
+  const val = prompt("Car visual scale (0.01–2.00):", carScale.toFixed(2));
+  if (val === null) return;
+
+  let num = parseFloat(val);
+  if (Number.isNaN(num)) return;
+
+  num = clampCarScale(num);
+  carScale = num;
+
+  carScaleRange.value = num.toFixed(2);
+  carScaleTag.textContent = num.toFixed(2);
+
+  if (currentCarModel) {
+    currentCarModel.scale.set(carScale, carScale, carScale);
+  }
 });
 
 /* Pointer handlers */
