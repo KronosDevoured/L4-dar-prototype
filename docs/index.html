@@ -294,6 +294,7 @@
   <div id="darHint">Tap to toggle roll • Hold to move</div>
 
 <script type="module">
+// Version: 2025-11-29-v2 (localStorage persistence fix)
 import * as THREE from "three";
 import { GLTFLoader } from "https://unpkg.com/three@0.164.0/examples/jsm/loaders/GLTFLoader.js";
 
@@ -741,6 +742,87 @@ menuBtn.addEventListener('click',()=> chromeShown ? closeMenu() : openMenu());
 menuCloseBtn.addEventListener('click', closeMenu);
 menuOverlay.addEventListener('click',(e)=>{ if(e.target===menuOverlay) closeMenu(); });
 
+/* Sliders / select */
+const accelPitch=document.getElementById('accelPitch'), accelPitchTag=document.getElementById('accelPitchTag');
+const accelYaw=document.getElementById('accelYaw'), accelYawTag=document.getElementById('accelYawTag');
+const accelRoll=document.getElementById('accelRoll'), accelRollTag=document.getElementById('accelRollTag');
+const curveRange=document.getElementById('curveRange'), curveTag=document.getElementById('curveTag');
+const dampRange=document.getElementById('dampRange'),   dampTag=document.getElementById('dampTag');
+const brakeRange=document.getElementById('brakeRange'), brakeTag=document.getElementById('brakeTag');
+const wmaxRange=document.getElementById('wmaxRange'),   wmaxTag=document.getElementById('wmaxTag');
+const wmaxPitchRange=document.getElementById('wmaxPitch'), wmaxPitchTag=document.getElementById('wmaxPitchTag');
+const wmaxYawRange=document.getElementById('wmaxYaw'), wmaxYawTag=document.getElementById('wmaxYawTag');
+const tornadoAngleRange=document.getElementById('tornadoAngle'), tornadoAngleTag=document.getElementById('tornadoAngleTag');
+const circleTiltRange=document.getElementById('circleTilt'), circleTiltTag=document.getElementById('circleTiltTag');
+const spinSlider=document.getElementById('spinSlider'), rollVal=document.getElementById('rollVal');
+const sizeSlider=document.getElementById('stickSizeSlider'), stickVal=document.getElementById('stickVal');
+const zoomSlider=document.getElementById('zoomSlider'), zoomVal=document.getElementById('zoomVal');
+const arrowSlider=document.getElementById('arrowSlider'), arrowVal=document.getElementById('arrowVal');
+const presetSel=document.getElementById('presetSel');
+
+// Load saved settings from localStorage or use defaults
+function loadSettings() {
+  const saved = localStorage.getItem('darSettings');
+  if (saved) {
+    try {
+      return JSON.parse(saved);
+    } catch (e) {
+      return {};
+    }
+  }
+  return {};
+}
+
+function saveSettings() {
+  const settings = {
+    maxAccelPitch, maxAccelYaw, maxAccelRoll,
+    inputPow, damp, brakeOnRelease,
+    wMax, wMaxPitch, wMaxYaw,
+    maxTornadoAngle, circleTiltAngle,
+    freeRollPeriod, zoom, arrowScale,
+    isDarkMode, airRoll
+  };
+  localStorage.setItem('darSettings', JSON.stringify(settings));
+}
+
+const savedSettings = loadSettings();
+
+// Restore theme mode
+if (savedSettings.isDarkMode !== undefined) {
+  isDarkMode = savedSettings.isDarkMode;
+}
+
+let maxAccelPitch=savedSettings.maxAccelPitch ?? parseFloat(accelPitch.value),
+    maxAccelYaw=savedSettings.maxAccelYaw ?? parseFloat(accelYaw.value),
+    maxAccelRoll=savedSettings.maxAccelRoll ?? parseFloat(accelRoll.value),
+    inputPow=savedSettings.inputPow ?? parseFloat(curveRange.value),
+    damp=savedSettings.damp ?? parseFloat(dampRange.value),
+    brakeOnRelease=savedSettings.brakeOnRelease ?? parseFloat(brakeRange.value),
+    wMax=savedSettings.wMax ?? parseFloat(wmaxRange.value),
+    wMaxPitch=savedSettings.wMaxPitch ?? parseFloat(wmaxPitchRange.value),
+    wMaxYaw=savedSettings.wMaxYaw ?? parseFloat(wmaxYawRange.value),
+    maxTornadoAngle=savedSettings.maxTornadoAngle ?? parseFloat(tornadoAngleRange.value),
+    circleTiltAngle=savedSettings.circleTiltAngle ?? parseFloat(circleTiltRange.value),
+    freeRollPeriod=savedSettings.freeRollPeriod ?? parseFloat(spinSlider.value),
+    zoom=savedSettings.zoom ?? parseFloat(zoomSlider.value),
+    arrowScale=savedSettings.arrowScale ?? parseFloat(arrowSlider.value);
+
+// Apply loaded values to sliders
+accelPitch.value = maxAccelPitch;
+accelYaw.value = maxAccelYaw;
+accelRoll.value = maxAccelRoll;
+curveRange.value = inputPow;
+dampRange.value = damp;
+brakeRange.value = brakeOnRelease;
+wmaxRange.value = wMax;
+wmaxPitchRange.value = wMaxPitch;
+wmaxYawRange.value = wMaxYaw;
+tornadoAngleRange.value = maxTornadoAngle;
+circleTiltRange.value = circleTiltAngle;
+spinSlider.value = freeRollPeriod;
+zoomSlider.value = zoom;
+arrowSlider.value = arrowScale;
+
 /* Buttons / presets */
 let airRoll = savedSettings.airRoll ?? -1; // default to Air Roll Left, or load saved
 function setRoll(dir){
@@ -815,82 +897,6 @@ document.getElementById('themeToggle').addEventListener('click',()=>{
   btn.textContent = isDarkMode ? 'Night Mode' : 'Day Mode';
   saveSettings();
 });
-
-/* Sliders / select */
-const accelPitch=document.getElementById('accelPitch'), accelPitchTag=document.getElementById('accelPitchTag');
-const accelYaw=document.getElementById('accelYaw'), accelYawTag=document.getElementById('accelYawTag');
-const accelRoll=document.getElementById('accelRoll'), accelRollTag=document.getElementById('accelRollTag');
-const curveRange=document.getElementById('curveRange'), curveTag=document.getElementById('curveTag');
-const dampRange=document.getElementById('dampRange'),   dampTag=document.getElementById('dampTag');
-const brakeRange=document.getElementById('brakeRange'), brakeTag=document.getElementById('brakeTag');
-const wmaxRange=document.getElementById('wmaxRange'),   wmaxTag=document.getElementById('wmaxTag');
-const wmaxPitchRange=document.getElementById('wmaxPitch'), wmaxPitchTag=document.getElementById('wmaxPitchTag');
-const wmaxYawRange=document.getElementById('wmaxYaw'), wmaxYawTag=document.getElementById('wmaxYawTag');
-const tornadoAngleRange=document.getElementById('tornadoAngle'), tornadoAngleTag=document.getElementById('tornadoAngleTag');
-const circleTiltRange=document.getElementById('circleTilt'), circleTiltTag=document.getElementById('circleTiltTag');
-const spinSlider=document.getElementById('spinSlider'), rollVal=document.getElementById('rollVal');
-const sizeSlider=document.getElementById('stickSizeSlider'), stickVal=document.getElementById('stickVal');
-const zoomSlider=document.getElementById('zoomSlider'), zoomVal=document.getElementById('zoomVal');
-const arrowSlider=document.getElementById('arrowSlider'), arrowVal=document.getElementById('arrowVal');
-const presetSel=document.getElementById('presetSel');
-
-// Load saved settings from localStorage or use defaults
-function loadSettings() {
-  const saved = localStorage.getItem('darSettings');
-  if (saved) {
-    try {
-      return JSON.parse(saved);
-    } catch (e) {
-      return {};
-    }
-  }
-  return {};
-}
-
-function saveSettings() {
-  const settings = {
-    maxAccelPitch, maxAccelYaw, maxAccelRoll,
-    inputPow, damp, brakeOnRelease,
-    wMax, wMaxPitch, wMaxYaw,
-    maxTornadoAngle, circleTiltAngle,
-    freeRollPeriod, zoom, arrowScale,
-    isDarkMode, airRoll
-  };
-  localStorage.setItem('darSettings', JSON.stringify(settings));
-}
-
-const savedSettings = loadSettings();
-
-let maxAccelPitch=savedSettings.maxAccelPitch ?? parseFloat(accelPitch.value),
-    maxAccelYaw=savedSettings.maxAccelYaw ?? parseFloat(accelYaw.value),
-    maxAccelRoll=savedSettings.maxAccelRoll ?? parseFloat(accelRoll.value),
-    inputPow=savedSettings.inputPow ?? parseFloat(curveRange.value),
-    damp=savedSettings.damp ?? parseFloat(dampRange.value),
-    brakeOnRelease=savedSettings.brakeOnRelease ?? parseFloat(brakeRange.value),
-    wMax=savedSettings.wMax ?? parseFloat(wmaxRange.value),
-    wMaxPitch=savedSettings.wMaxPitch ?? parseFloat(wmaxPitchRange.value),
-    wMaxYaw=savedSettings.wMaxYaw ?? parseFloat(wmaxYawRange.value),
-    maxTornadoAngle=savedSettings.maxTornadoAngle ?? parseFloat(tornadoAngleRange.value),
-    circleTiltAngle=savedSettings.circleTiltAngle ?? parseFloat(circleTiltRange.value),
-    freeRollPeriod=savedSettings.freeRollPeriod ?? parseFloat(spinSlider.value),
-    zoom=savedSettings.zoom ?? parseFloat(zoomSlider.value),
-    arrowScale=savedSettings.arrowScale ?? parseFloat(arrowSlider.value);
-
-// Apply loaded values to sliders
-accelPitch.value = maxAccelPitch;
-accelYaw.value = maxAccelYaw;
-accelRoll.value = maxAccelRoll;
-curveRange.value = inputPow;
-dampRange.value = damp;
-brakeRange.value = brakeOnRelease;
-wmaxRange.value = wMax;
-wmaxPitchRange.value = wMaxPitch;
-wmaxYawRange.value = wMaxYaw;
-tornadoAngleRange.value = maxTornadoAngle;
-circleTiltRange.value = circleTiltAngle;
-spinSlider.value = freeRollPeriod;
-zoomSlider.value = zoom;
-arrowSlider.value = arrowScale;
 
 function syncTags(){
   accelPitchTag.textContent=maxAccelPitch.toFixed(0);
@@ -1519,20 +1525,18 @@ addEventListener('resize', resize);
 
 buildCar(presets.octane, "octane");
 
-// Restore saved theme
-if (savedSettings.isDarkMode !== undefined) {
-  isDarkMode = savedSettings.isDarkMode;
-  const btn = document.getElementById('themeToggle');
-  btn.classList.toggle('active', isDarkMode);
-  btn.textContent = isDarkMode ? 'Night Mode' : 'Day Mode';
-}
-
 // Restore saved air roll
 setRoll(airRoll);
 
 positionHints();
 applyZoom();
 applyTheme(isDarkMode); // Initialize theme
+
+// Restore theme toggle button state
+const themeBtn = document.getElementById('themeToggle');
+themeBtn.classList.toggle('active', isDarkMode);
+themeBtn.textContent = isDarkMode ? 'Night Mode' : 'Day Mode';
+
 requestAnimationFrame(tick);
 </script>
 </body>
