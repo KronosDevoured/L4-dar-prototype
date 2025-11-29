@@ -196,6 +196,12 @@
     <input id="wmaxYaw" type="range" min="4.0" max="24.0" step="0.5" value="9.0"/>
     <span class="tag" id="wmaxYawTag">9.0</span>
   </div>
+
+  <div class="row sl">
+    <label for="tornadoAngle">Tornado Cone Angle</label>
+    <input id="tornadoAngle" type="range" min="0.10" max="1.00" step="0.05" value="0.40"/>
+    <span class="tag" id="tornadoAngleTag">0.40</span>
+  </div>
 </div>
 <!-- Car -->
 <div class="card">
@@ -208,24 +214,14 @@
       <option value="dominus">Dominus proportions</option>
     </select>
   </div>
-
-  <!-- Car scale slider -->
-  <div class="row sl">
-    <label for="carScaleRange">Car Scale</label>
-    <input
-      id="carScaleRange"
-      type="range"
-      min="0.01"
-      max="2.00"
-      step="0.01"
-      value="1.40"
-    />
-    <span class="tag" id="carScaleTag">1.40</span>
-  </div>
 </div>
         <!-- View / HUD -->
         <div class="card">
           <h3>View & HUD</h3>
+
+          <div class="row">
+            <button id="themeToggle" class="btn active" type="button">Night Mode</button>
+          </div>
 
           <div class="row sl">
             <label for="zoomSlider">Zoom</label>
@@ -304,11 +300,12 @@ camera.position.set(0, CAM_BASE.y, CAM_BASE.z);
 scene.add(camera);
 
 /* Lights */
-scene.add(new THREE.AmbientLight(0xffffff, 0.8));
-const dir = new THREE.DirectionalLight(0xffffff, 1.15);
-dir.position.set(-350, 700, 900);
-dir.castShadow = false;
-scene.add(dir);
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+scene.add(ambientLight);
+const directionalLight = new THREE.DirectionalLight(0xffffff, 1.15);
+directionalLight.position.set(-350, 700, 900);
+directionalLight.castShadow = false;
+scene.add(directionalLight);
 
 /* Grid */
 const grid = new THREE.Group();
@@ -336,13 +333,70 @@ const MAT_TIRE_F= new THREE.MeshLambertMaterial({color: 0x8a93a0});
 const MAT_TIRE_B= new THREE.MeshLambertMaterial({color: 0x808896});
 const MAT_HUB   = new THREE.MeshBasicMaterial({color: 0x5a6270});
 
+/* Theme configuration */
+let isDarkMode = true;
+const THEMES = {
+  dark: {
+    body: '#ffffff',
+    fog: 0xeef1f6,
+    fogNear: 900,
+    fogFar: 2200,
+    ambient: 0xffffff,
+    ambientIntensity: 0.8,
+    directional: 0xffffff,
+    directionalIntensity: 1.15,
+    gridMain: 0xd7dde6,
+    gridSub: 0xE5E9F1,
+    gridOpacity: 0.65,
+    gridY: -160
+  },
+  light: {
+    body: '#1a1d24',
+    fog: 0x2a3040,
+    fogNear: 1000,
+    fogFar: 2500,
+    ambient: 0xffffff,
+    ambientIntensity: 1.2,
+    directional: 0xffffff,
+    directionalIntensity: 0.8,
+    gridMain: 0x3a4050,
+    gridSub: 0x2d3542,
+    gridOpacity: 0.85,
+    gridY: -160
+  }
+};
+
+function applyTheme(dark) {
+  const theme = dark ? THEMES.dark : THEMES.light;
+
+  // Update body background
+  document.body.style.background = dark
+    ? 'linear-gradient(180deg,#f6f7fb 0%,#eef1f6 45%,#e9edf3 100%)'
+    : 'linear-gradient(180deg,#1a1d24 0%,#252a35 45%,#2a3040 100%)';
+
+  // Update fog
+  scene.fog.color.setHex(theme.fog);
+  scene.fog.near = theme.fogNear;
+  scene.fog.far = theme.fogFar;
+
+  // Update lights
+  ambientLight.intensity = theme.ambientIntensity;
+  directionalLight.intensity = theme.directionalIntensity;
+
+  // Update grid
+  gridMain.material.color.setHex(theme.gridMain);
+  gridMain.material.opacity = theme.gridOpacity;
+
+  // Update renderer background
+  renderer.setClearColor(theme.fog);
+}
+
 /* Presets */
 const presets = {
   placeholder: { hx:70, hy:28, hz:120 },
   octane:      { hx:85.65, hy:36.8, hz:120 },
   dominus:     { hx:77.9,  hy:29.3, hz:120 }
 };
-
 const gltfLoader = new GLTFLoader();
 
 function loadCarModel(presetName) {
@@ -353,7 +407,6 @@ function loadCarModel(presetName) {
     url,
     (gltf) => {
       const model = gltf.scene;
-      currentCarModel = model;      // NEW
 
       model.traverse((o) => {
         if (o.isMesh) {
@@ -362,11 +415,17 @@ function loadCarModel(presetName) {
         }
       });
 
+      // Center / height
       model.position.set(0, -BOX.hy, 0);
-      model.scale.set(carScale, carScale, carScale);   // use current slider value
+        
+// Scale the GLB
+model.scale.set(CAR_SCALE, CAR_SCALE, CAR_SCALE);
+        const CAR_SCALE = 1.4;   // or whatever multiplier you want
 
-      // keep your nose alignment
-      model.rotation.y = -Math.PI / 2;
+      // Rotate so nose points along +Z instead of +X
+      model.rotation.y = -Math.PI / 2;   // try this first
+      // if nose ends up pointing away from you or wrong side, swap to:
+      // model.rotation.y = Math.PI / 2;
 
       car.add(model);
     },
@@ -376,15 +435,11 @@ function loadCarModel(presetName) {
     }
   );
 }
-    
-/* Car builder */
-let car = null, BOX = null;
-let faceArrow = null, faceTip = null;
-let currentCarModel = null;   // GLB reference for scaling
 
-function clampCarScale(v) {
-  return Math.min(2.0, Math.max(0.01, v));
-}
+
+/* Car builder */
+let car=null, BOX=null;
+let faceArrow=null, faceTip=null;
 
 function clearCar(){
   if(!car) return;
@@ -400,11 +455,10 @@ function clearCar(){
     }
   });
   car = null;
-  currentCarModel = null;   // reset the GLB handle
 }
 function buildCar(boxDims, presetName="placeholder"){
   console.log("buildCar preset:", presetName);
-    
+
   clearCar();
   BOX = boxDims;
   car = new THREE.Group();
@@ -667,6 +721,15 @@ document.getElementById('orbit').addEventListener('click',()=>{
   orbitOn=!orbitOn; document.getElementById('orbit').classList.toggle('active',orbitOn);
 });
 
+/* Theme toggle */
+document.getElementById('themeToggle').addEventListener('click',()=>{
+  isDarkMode = !isDarkMode;
+  applyTheme(isDarkMode);
+  const btn = document.getElementById('themeToggle');
+  btn.classList.toggle('active', isDarkMode);
+  btn.textContent = isDarkMode ? 'Night Mode' : 'Day Mode';
+});
+
 /* Sliders / select */
 const accelPitch=document.getElementById('accelPitch'), accelPitchTag=document.getElementById('accelPitchTag');
 const accelYaw=document.getElementById('accelYaw'), accelYawTag=document.getElementById('accelYawTag');
@@ -677,14 +740,12 @@ const brakeRange=document.getElementById('brakeRange'), brakeTag=document.getEle
 const wmaxRange=document.getElementById('wmaxRange'),   wmaxTag=document.getElementById('wmaxTag');
 const wmaxPitchRange=document.getElementById('wmaxPitch'), wmaxPitchTag=document.getElementById('wmaxPitchTag');
 const wmaxYawRange=document.getElementById('wmaxYaw'), wmaxYawTag=document.getElementById('wmaxYawTag');
+const tornadoAngleRange=document.getElementById('tornadoAngle'), tornadoAngleTag=document.getElementById('tornadoAngleTag');
 const spinSlider=document.getElementById('spinSlider'), rollVal=document.getElementById('rollVal');
 const sizeSlider=document.getElementById('stickSizeSlider'), stickVal=document.getElementById('stickVal');
 const zoomSlider=document.getElementById('zoomSlider'), zoomVal=document.getElementById('zoomVal');
 const arrowSlider=document.getElementById('arrowSlider'), arrowVal=document.getElementById('arrowVal');
 const presetSel=document.getElementById('presetSel');
-    // NEW: car scale controls
-const carScaleRange = document.getElementById('carScaleRange');
-const carScaleTag   = document.getElementById('carScaleTag');
 
 let maxAccelPitch=parseFloat(accelPitch.value),
     maxAccelYaw=parseFloat(accelYaw.value),
@@ -695,29 +756,27 @@ let maxAccelPitch=parseFloat(accelPitch.value),
     wMax=parseFloat(wmaxRange.value),
     wMaxPitch=parseFloat(wmaxPitchRange.value),
     wMaxYaw=parseFloat(wmaxYawRange.value),
+    maxTornadoAngle=parseFloat(tornadoAngleRange.value),
     freeRollPeriod=parseFloat(spinSlider.value),
     zoom=parseFloat(zoomSlider.value),
     arrowScale=parseFloat(arrowSlider.value);
-    let carScale = parseFloat(carScaleRange.value) || 1.0;
-
 
 function syncTags(){
-  accelPitchTag.textContent = maxAccelPitch.toFixed(0);
-  accelYawTag.textContent   = maxAccelYaw.toFixed(0);
-  accelRollTag.textContent  = maxAccelRoll.toFixed(0);
-  curveTag.textContent      = inputPow.toFixed(2);
-  dampTag.textContent       = damp.toFixed(2);
-  brakeTag.textContent      = brakeOnRelease.toFixed(1);
-  wmaxTag.textContent       = wMax.toFixed(1);
-  wmaxPitchTag.textContent  = wMaxPitch.toFixed(1);
-  wmaxYawTag.textContent    = wMaxYaw.toFixed(1);
-  rollVal.textContent       = (freeRollPeriod > 0) ? `${freeRollPeriod.toFixed(2)} s/rot` : 'off';
-  stickVal.textContent      = String(Math.round(JOY_BASE_R));
-  zoomVal.textContent       = `${(zoom||1).toFixed(2)}×`;
-  arrowVal.textContent      = `${(arrowScale||1).toFixed(2)}×`;
-  carScaleTag.textContent   = carScale.toFixed(2);
+  accelPitchTag.textContent=maxAccelPitch.toFixed(0);
+accelYawTag.textContent=maxAccelYaw.toFixed(0);
+accelRollTag.textContent=maxAccelRoll.toFixed(0);
+  curveTag.textContent=inputPow.toFixed(2);
+  dampTag.textContent=damp.toFixed(2);
+  brakeTag.textContent=brakeOnRelease.toFixed(1);
+  wmaxTag.textContent=wMax.toFixed(1);
+  wmaxPitchTag.textContent=wMaxPitch.toFixed(1);
+  wmaxYawTag.textContent=wMaxYaw.toFixed(1);
+  tornadoAngleTag.textContent=maxTornadoAngle.toFixed(2);
+  rollVal.textContent = (freeRollPeriod > 0) ? `${freeRollPeriod.toFixed(2)} s/rot` : 'off';
+  stickVal.textContent = String(Math.round(JOY_BASE_R));
+  zoomVal.textContent = `${(zoom||1).toFixed(2)}×`;
+  arrowVal.textContent = `${(arrowScale||1).toFixed(2)}×`;
 }
-    
 syncTags();
 
 accelPitch.addEventListener('input',()=>{maxAccelPitch=parseFloat(accelPitch.value)||400; syncTags();});
@@ -729,6 +788,7 @@ brakeRange.addEventListener('input',()=>{brakeOnRelease=parseFloat(brakeRange.va
 wmaxRange .addEventListener('input',()=>{wMax=parseFloat(wmaxRange.value)||6.0; syncTags();});
 wmaxPitchRange.addEventListener('input',()=>{wMaxPitch=parseFloat(wmaxPitchRange.value)||8.5; syncTags();});
 wmaxYawRange.addEventListener('input',()=>{wMaxYaw=parseFloat(wmaxYawRange.value)||9.0; syncTags();});
+tornadoAngleRange.addEventListener('input',()=>{maxTornadoAngle=parseFloat(tornadoAngleRange.value)||0.40; syncTags();});
 spinSlider.addEventListener('input',()=>{freeRollPeriod=parseFloat(spinSlider.value)||0; syncTags();});
 sizeSlider.addEventListener('input',()=>{JOY_BASE_R=parseInt(stickSizeSlider.value,10)||100; JOY_KNOB_R=Math.round(JOY_BASE_R*0.32); clampJoyCenter(); positionHints(); syncTags();});
 zoomSlider.addEventListener('input',()=>{zoom=parseFloat(zoomSlider.value)||1.0; applyZoom(); syncTags();});
@@ -737,35 +797,6 @@ presetSel .addEventListener('change',()=>{
   const name = presetSel.value;
   buildCar(presets[name], name);
   car.quaternion.identity(); w.set(0,0,0);
-});
-    
-    // Car scale slider
-carScaleRange.addEventListener("input", () => {
-  carScale = clampCarScale(parseFloat(carScaleRange.value) || 1.0);
-  carScaleTag.textContent = carScale.toFixed(2);
-
-  if (currentCarModel) {
-    currentCarModel.scale.set(carScale, carScale, carScale);
-  }
-});
-
-// Click tag → prompt numeric input
-carScaleTag.addEventListener('click', () => {
-  const val = prompt("Car visual scale (0.01–2.00):", carScale.toFixed(2));
-  if (val === null) return;
-
-  let num = parseFloat(val);
-  if (Number.isNaN(num)) return;
-
-  num = clampCarScale(num);
-  carScale = num;
-
-  carScaleRange.value = num.toFixed(2);
-  carScaleTag.textContent = num.toFixed(2);
-
-  if (currentCarModel) {
-    currentCarModel.scale.set(carScale, carScale, carScale);
-  }
 });
 
 /* Pointer handlers */
@@ -1114,7 +1145,6 @@ function integrate(dt) {
   if (darOn && freeRollPeriod > 0) {
     targetRollSpeed = airRoll * (2 * Math.PI) / freeRollPeriod;
 
-    const maxTornadoAngle = 0.40;
     const minTornadoAngle = 0.10;
     const tornadoFactor = minTornadoAngle + eff * (maxTornadoAngle - minTornadoAngle);
 
@@ -1253,6 +1283,7 @@ buildCar(presets.octane, "octane");
 setRoll(-1);           // default Air Roll Left
 positionHints();
 applyZoom();
+applyTheme(isDarkMode); // Initialize theme
 requestAnimationFrame(tick);
 </script>
 </body>
