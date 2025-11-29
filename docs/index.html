@@ -745,16 +745,32 @@ document.getElementById('restart').addEventListener('click',()=>{
 });
 let orbitOn=false, orbitDir=1;
 document.getElementById('orbitCW').addEventListener('click',()=>{
-  orbitOn = true;
-  orbitDir = 1;
-  document.getElementById('orbitCW').classList.add('active');
-  document.getElementById('orbitCCW').classList.remove('active');
+  const btn = document.getElementById('orbitCW');
+  if (orbitOn && orbitDir === 1) {
+    // Turn off if already orbiting CW
+    orbitOn = false;
+    btn.classList.remove('active');
+  } else {
+    // Turn on CW orbit
+    orbitOn = true;
+    orbitDir = 1;
+    btn.classList.add('active');
+    document.getElementById('orbitCCW').classList.remove('active');
+  }
 });
 document.getElementById('orbitCCW').addEventListener('click',()=>{
-  orbitOn = true;
-  orbitDir = -1;
-  document.getElementById('orbitCCW').classList.add('active');
-  document.getElementById('orbitCW').classList.remove('active');
+  const btn = document.getElementById('orbitCCW');
+  if (orbitOn && orbitDir === -1) {
+    // Turn off if already orbiting CCW
+    orbitOn = false;
+    btn.classList.remove('active');
+  } else {
+    // Turn on CCW orbit
+    orbitOn = true;
+    orbitDir = -1;
+    btn.classList.add('active');
+    document.getElementById('orbitCW').classList.remove('active');
+  }
 });
 
 /* Theme toggle */
