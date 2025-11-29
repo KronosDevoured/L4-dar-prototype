@@ -203,6 +203,12 @@
     <input id="tornadoAngle" type="range" min="0.10" max="1.00" step="0.05" value="0.40"/>
     <span class="tag" id="tornadoAngleTag">0.40</span>
   </div>
+
+  <div class="row sl">
+    <label for="circleTilt">Circle Tilt Angle</label>
+    <input id="circleTilt" type="range" min="0" max="45" step="1" value="25"/>
+    <span class="tag" id="circleTiltTag">25°</span>
+  </div>
 </div>
 <!-- Car -->
 <div class="card">
@@ -819,6 +825,7 @@ const wmaxRange=document.getElementById('wmaxRange'),   wmaxTag=document.getElem
 const wmaxPitchRange=document.getElementById('wmaxPitch'), wmaxPitchTag=document.getElementById('wmaxPitchTag');
 const wmaxYawRange=document.getElementById('wmaxYaw'), wmaxYawTag=document.getElementById('wmaxYawTag');
 const tornadoAngleRange=document.getElementById('tornadoAngle'), tornadoAngleTag=document.getElementById('tornadoAngleTag');
+const circleTiltRange=document.getElementById('circleTilt'), circleTiltTag=document.getElementById('circleTiltTag');
 const spinSlider=document.getElementById('spinSlider'), rollVal=document.getElementById('rollVal');
 const sizeSlider=document.getElementById('stickSizeSlider'), stickVal=document.getElementById('stickVal');
 const zoomSlider=document.getElementById('zoomSlider'), zoomVal=document.getElementById('zoomVal');
@@ -835,6 +842,7 @@ let maxAccelPitch=parseFloat(accelPitch.value),
     wMaxPitch=parseFloat(wmaxPitchRange.value),
     wMaxYaw=parseFloat(wmaxYawRange.value),
     maxTornadoAngle=parseFloat(tornadoAngleRange.value),
+    circleTiltAngle=parseFloat(circleTiltRange.value),
     freeRollPeriod=parseFloat(spinSlider.value),
     zoom=parseFloat(zoomSlider.value),
     arrowScale=parseFloat(arrowSlider.value);
@@ -850,6 +858,7 @@ accelRollTag.textContent=maxAccelRoll.toFixed(0);
   wmaxPitchTag.textContent=wMaxPitch.toFixed(1);
   wmaxYawTag.textContent=wMaxYaw.toFixed(1);
   tornadoAngleTag.textContent=maxTornadoAngle.toFixed(2);
+  circleTiltTag.textContent=`${circleTiltAngle.toFixed(0)}°`;
   rollVal.textContent = (freeRollPeriod > 0) ? `${freeRollPeriod.toFixed(2)} s/rot` : 'off';
   stickVal.textContent = String(Math.round(JOY_BASE_R));
   zoomVal.textContent = `${(zoom||1).toFixed(2)}×`;
@@ -867,6 +876,7 @@ wmaxRange .addEventListener('input',()=>{wMax=parseFloat(wmaxRange.value)||6.0; 
 wmaxPitchRange.addEventListener('input',()=>{wMaxPitch=parseFloat(wmaxPitchRange.value)||8.5; syncTags();});
 wmaxYawRange.addEventListener('input',()=>{wMaxYaw=parseFloat(wmaxYawRange.value)||9.0; syncTags();});
 tornadoAngleRange.addEventListener('input',()=>{maxTornadoAngle=parseFloat(tornadoAngleRange.value)||0.40; syncTags();});
+circleTiltRange.addEventListener('input',()=>{circleTiltAngle=parseFloat(circleTiltRange.value)||25; syncTags();});
 spinSlider.addEventListener('input',()=>{freeRollPeriod=parseFloat(spinSlider.value)||0; syncTags();});
 sizeSlider.addEventListener('input',()=>{JOY_BASE_R=parseInt(stickSizeSlider.value,10)||100; JOY_KNOB_R=Math.round(JOY_BASE_R*0.32); clampJoyCenter(); positionHints(); syncTags();});
 zoomSlider.addEventListener('input',()=>{zoom=parseFloat(zoomSlider.value)||1.0; applyZoom(); syncTags();});
@@ -1296,6 +1306,20 @@ function integrate(dt) {
 
       tornadoCircle.scale.set(circleRadius, circleRadius, 1);
       tornadoCircle.position.set(centerX, centerY, zFace);
+
+      // Apply tilt rotation toward the car
+      // The circle rotates around an axis perpendicular to the arrow direction
+      const tiltRad = (circleTiltAngle * Math.PI) / 180;
+
+      // Reset rotation first
+      tornadoCircle.rotation.set(0, 0, 0);
+
+      // Rotate around the axis perpendicular to the arrow (makes circle tilt toward car)
+      // The axis of rotation is in the XY plane, perpendicular to the perpAngle direction
+      tornadoCircle.rotateOnAxis(
+        new THREE.Vector3(-Math.cos(perpAngle), -Math.sin(perpAngle), 0).normalize(),
+        tiltRad
+      );
     }
   }
 
