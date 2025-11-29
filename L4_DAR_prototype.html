@@ -1524,14 +1524,6 @@ addEventListener('resize', resize);
 
 buildCar(presets.octane, "octane");
 
-// Restore saved theme
-if (savedSettings.isDarkMode !== undefined) {
-  isDarkMode = savedSettings.isDarkMode;
-  const btn = document.getElementById('themeToggle');
-  btn.classList.toggle('active', isDarkMode);
-  btn.textContent = isDarkMode ? 'Night Mode' : 'Day Mode';
-}
-
 // Restore saved air roll
 setRoll(airRoll);
 
