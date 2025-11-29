@@ -823,11 +823,11 @@ arrowSlider.value = arrowScale;
 
 /* Buttons / presets */
 let airRoll = savedSettings.airRoll ?? -1; // default to Air Roll Left, or load saved
-function setRoll(dir){
+function setRoll(dir, skipSave = false){
   airRoll=dir;
   document.getElementById('rollL').classList.toggle('active',dir>0);
   document.getElementById('rollR').classList.toggle('active',dir<0);
-  saveSettings();
+  if (!skipSave) saveSettings();
 }
 function toggleRoll(dir){
   if(airRoll === dir){
@@ -1523,8 +1523,8 @@ addEventListener('resize', resize);
 
 buildCar(presets.octane, "octane");
 
-// Restore saved air roll
-setRoll(airRoll);
+// Restore saved air roll (skipSave = true to avoid overwriting localStorage on load)
+setRoll(airRoll, true);
 
 positionHints();
 applyZoom();
