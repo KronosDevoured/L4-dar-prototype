@@ -351,20 +351,6 @@ const MAT_HUB   = new THREE.MeshBasicMaterial({color: 0x5a6270});
 let isDarkMode; // Will be initialized from localStorage
 const THEMES = {
   dark: {
-    body: '#ffffff',
-    fog: 0xeef1f6,
-    fogNear: 900,
-    fogFar: 2200,
-    ambient: 0xffffff,
-    ambientIntensity: 0.8,
-    directional: 0xffffff,
-    directionalIntensity: 1.15,
-    gridMain: 0xd7dde6,
-    gridSub: 0xE5E9F1,
-    gridOpacity: 0.65,
-    gridY: -160
-  },
-  light: {
     body: '#1a1d24',
     fog: 0x2a3040,
     fogNear: 1000,
@@ -377,6 +363,20 @@ const THEMES = {
     gridSub: 0x2d3542,
     gridOpacity: 0.85,
     gridY: -160
+  },
+  light: {
+    body: '#ffffff',
+    fog: 0xeef1f6,
+    fogNear: 900,
+    fogFar: 2200,
+    ambient: 0xffffff,
+    ambientIntensity: 0.8,
+    directional: 0xffffff,
+    directionalIntensity: 1.15,
+    gridMain: 0xd7dde6,
+    gridSub: 0xE5E9F1,
+    gridOpacity: 0.65,
+    gridY: -160
   }
 };
 
@@ -385,8 +385,8 @@ function applyTheme(dark) {
 
   // Update body background
   document.body.style.background = dark
-    ? 'linear-gradient(180deg,#f6f7fb 0%,#eef1f6 45%,#e9edf3 100%)'
-    : 'linear-gradient(180deg,#1a1d24 0%,#252a35 45%,#2a3040 100%)';
+    ? 'linear-gradient(180deg,#1a1d24 0%,#252a35 45%,#2a3040 100%)'
+    : 'linear-gradient(180deg,#f6f7fb 0%,#eef1f6 45%,#e9edf3 100%)';
 
   // Update fog
   scene.fog.color.setHex(theme.fog);
