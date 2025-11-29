@@ -348,7 +348,7 @@ const MAT_TIRE_B= new THREE.MeshLambertMaterial({color: 0x808896});
 const MAT_HUB   = new THREE.MeshBasicMaterial({color: 0x5a6270});
 
 /* Theme configuration */
-let isDarkMode = true;
+let isDarkMode; // Will be initialized from localStorage
 const THEMES = {
   dark: {
     body: '#ffffff',
@@ -787,10 +787,8 @@ function saveSettings() {
 
 const savedSettings = loadSettings();
 
-// Restore theme mode
-if (savedSettings.isDarkMode !== undefined) {
-  isDarkMode = savedSettings.isDarkMode;
-}
+// Restore theme mode (default to true = dark mode)
+isDarkMode = savedSettings.isDarkMode ?? true;
 
 let maxAccelPitch=savedSettings.maxAccelPitch ?? parseFloat(accelPitch.value),
     maxAccelYaw=savedSettings.maxAccelYaw ?? parseFloat(accelYaw.value),
