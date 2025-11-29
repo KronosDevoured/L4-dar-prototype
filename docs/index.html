@@ -1316,9 +1316,10 @@ function integrate(dt) {
 
       // Rotate around the axis perpendicular to the arrow (makes circle tilt toward car)
       // The axis of rotation is in the XY plane, perpendicular to the perpAngle direction
+      // Negative tiltRad to tilt toward car instead of away
       tornadoCircle.rotateOnAxis(
         new THREE.Vector3(-Math.cos(perpAngle), -Math.sin(perpAngle), 0).normalize(),
-        tiltRad
+        -tiltRad
       );
     }
   }
