@@ -124,7 +124,8 @@
             <button id="rollL" class="btn" type="button">Air Roll Right</button>
             <button id="rollR" class="btn active" type="button">Air Roll Left</button>
             <button id="restart" class="btn" type="button">Restart</button>
-            <button id="orbit" class="btn" type="button">Orbit</button>
+            <button id="orbitCW" class="btn" type="button">Orbit CW</button>
+            <button id="orbitCCW" class="btn" type="button">Orbit CCW</button>
           </div>
 
           <div class="row sl">
@@ -417,15 +418,13 @@ function loadCarModel(presetName) {
 
       // Center / height
       model.position.set(0, -BOX.hy, 0);
-        
-// Scale the GLB
-model.scale.set(CAR_SCALE, CAR_SCALE, CAR_SCALE);
-        const CAR_SCALE = 1.4;   // or whatever multiplier you want
+
+      // Scale the GLB
+      const CAR_SCALE = 1.4;
+      model.scale.set(CAR_SCALE, CAR_SCALE, CAR_SCALE);
 
       // Rotate so nose points along +Z instead of +X
-      model.rotation.y = -Math.PI / 2;   // try this first
-      // if nose ends up pointing away from you or wrong side, swap to:
-      // model.rotation.y = Math.PI / 2;
+      model.rotation.y = -Math.PI / 2;
 
       car.add(model);
     },
@@ -708,17 +707,27 @@ document.getElementById('restart').addEventListener('click',()=>{
   if (car) car.quaternion.identity();
   w.set(0,0,0);
   orbitOn = false;
-  const orbitBtn = document.getElementById('orbit');
-  if (orbitBtn) orbitBtn.classList.remove('active');
+  orbitDir = 1;
+  document.getElementById('orbitCW').classList.remove('active');
+  document.getElementById('orbitCCW').classList.remove('active');
   orbitPhase = 0;
   camera.position.set(0, 220, 650);
   camera.lookAt(0,0,0);
   if (faceArrow) faceArrow.visible = false;
   if (faceTip)   faceTip.visible   = false;
 });
-let orbitOn=false;
-document.getElementById('orbit').addEventListener('click',()=>{
-  orbitOn=!orbitOn; document.getElementById('orbit').classList.toggle('active',orbitOn);
+let orbitOn=false, orbitDir=1;
+document.getElementById('orbitCW').addEventListener('click',()=>{
+  orbitOn = true;
+  orbitDir = 1;
+  document.getElementById('orbitCW').classList.add('active');
+  document.getElementById('orbitCCW').classList.remove('active');
+});
+document.getElementById('orbitCCW').addEventListener('click',()=>{
+  orbitOn = true;
+  orbitDir = -1;
+  document.getElementById('orbitCCW').classList.add('active');
+  document.getElementById('orbitCW').classList.remove('active');
 });
 
 /* Theme toggle */
@@ -969,8 +978,9 @@ function execBinding(action){
       if (car) car.quaternion.identity();
       w.set(0,0,0);
       orbitOn = false;
-      const orbitBtn = document.getElementById('orbit');
-      if (orbitBtn) orbitBtn.classList.remove('active');
+      orbitDir = 1;
+      document.getElementById('orbitCW').classList.remove('active');
+      document.getElementById('orbitCCW').classList.remove('active');
       orbitPhase = 0;
       camera.position.set(0, 220, 650);
       camera.lookAt(0,0,0);
@@ -980,7 +990,14 @@ function execBinding(action){
     }
     case 'orbitToggle':
       orbitOn = !orbitOn;
-      document.getElementById('orbit').classList.toggle('active', orbitOn);
+      orbitDir = orbitOn ? 1 : 1;
+      if (orbitOn) {
+        document.getElementById('orbitCW').classList.add('active');
+        document.getElementById('orbitCCW').classList.remove('active');
+      } else {
+        document.getElementById('orbitCW').classList.remove('active');
+        document.getElementById('orbitCCW').classList.remove('active');
+      }
       break;
     default: break;
   }
@@ -1216,7 +1233,7 @@ function orbitStep(t){
   const f = Math.max(0.7, Math.min(1.6, zoom||1));
   const R = (CAM_BASE.z / f);
   const h = (CAM_BASE.y / f);
-  const sp=0.35;
+  const sp = 0.35 * orbitDir;
   const x = Math.sin(t*sp)*R;
   const z = Math.cos(t*sp)*R;
   camera.position.set(x, h, z);
