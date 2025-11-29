@@ -264,9 +264,15 @@
               <option value="rollLeft">Air Roll Left</option>
               <option value="rollRight">Air Roll Right</option>
               <option value="restart">Restart</option>
-              <option value="orbitToggle">Toggle Orbit</option>
+              <option value="orbitCW">Orbit Clockwise</option>
+              <option value="orbitCCW">Orbit Counter-Clockwise</option>
+              <option value="toggleTheme">Toggle Day/Night Mode</option>
+              <option value="openMenu">Open/Close Menu</option>
             </select>
             <span class="tag" id="gpBindLabel">—</span>
+          </div>
+          <div class="row">
+            <button id="gpResetDefaults" class="btn" type="button">Reset to Defaults</button>
           </div>
           <div class="row" style="font-size:.86rem;opacity:.85;line-height:1.35;">
             Tip: Left stick moves the on-screen stick. Remap any action, then press a button or push an axis to bind.
@@ -875,27 +881,36 @@ let gpPrevActionPressed = {};
 const GP_DEADZONE = 0.15;
 
 let gpBindings = {
-  toggleDAR:  { kind:'button', index: 1 },
-  rollLeft:   { kind:'button', index: 4 },
-  rollRight:  { kind:'button', index: 5 },
-  restart:    { kind:'button', index: 9 },
-  orbitToggle:{ kind:'button', index: 2 }
+  toggleDAR:   { kind:'button', index: 1 },
+  rollLeft:    { kind:'button', index: 4 },
+  rollRight:   { kind:'button', index: 5 },
+  restart:     { kind:'button', index: 9 },
+  orbitCW:     { kind:'button', index: 2 },
+  orbitCCW:    { kind:'button', index: 3 },
+  toggleTheme: { kind:'button', index: 8 },
+  openMenu:    { kind:'button', index: 6 }
 };
 
 const GP_PRESETS = {
   ps5: {
-    toggleDAR:  { kind:'button', index: 1 },
-    rollLeft:   { kind:'button', index: 4 },
-    rollRight:  { kind:'button', index: 5 },
-    restart:    { kind:'button', index: 9 },
-    orbitToggle:{ kind:'button', index: 2 }
+    toggleDAR:   { kind:'button', index: 1 },  // Circle
+    rollLeft:    { kind:'button', index: 4 },  // L1
+    rollRight:   { kind:'button', index: 5 },  // R1
+    restart:     { kind:'button', index: 9 },  // Options
+    orbitCW:     { kind:'button', index: 2 },  // Cross
+    orbitCCW:    { kind:'button', index: 3 },  // Square
+    toggleTheme: { kind:'button', index: 8 },  // Share
+    openMenu:    { kind:'button', index: 6 }   // L2
   },
   xinput: {
-    toggleDAR:  { kind:'button', index: 1 },
-    rollLeft:   { kind:'button', index: 4 },
-    rollRight:  { kind:'button', index: 5 },
-    restart:    { kind:'button', index: 9 },
-    orbitToggle:{ kind:'button', index: 2 }
+    toggleDAR:   { kind:'button', index: 1 },  // B
+    rollLeft:    { kind:'button', index: 4 },  // LB
+    rollRight:   { kind:'button', index: 5 },  // RB
+    restart:     { kind:'button', index: 9 },  // Start
+    orbitCW:     { kind:'button', index: 2 },  // A
+    orbitCCW:    { kind:'button', index: 3 },  // X
+    toggleTheme: { kind:'button', index: 8 },  // Back
+    openMenu:    { kind:'button', index: 6 }   // LT
   }
 };
 
@@ -925,6 +940,15 @@ gpActionSel.addEventListener('change', updateBindLabel);
 gpRemapBtn.addEventListener('click',()=>{
   gpRemapping = true;
   gpBindLabel.textContent = 'Press button / move axis…';
+});
+document.getElementById('gpResetDefaults').addEventListener('click',()=>{
+  setBindingPreset(gpPresetSel.value);
+  gpStatusTag.textContent = 'Bindings reset to defaults';
+  setTimeout(() => {
+    const { pad } = readPads();
+    if (pad) gpStatusTag.textContent = `Connected: ${pad.id}`;
+    else gpStatusTag.textContent = gpEnabled ? 'Enabled (waiting for gamepad)' : 'No gamepad';
+  }, 2000);
 });
 
 setBindingPreset('ps5');
@@ -998,6 +1022,29 @@ function execBinding(action){
         document.getElementById('orbitCW').classList.remove('active');
         document.getElementById('orbitCCW').classList.remove('active');
       }
+      break;
+    case 'orbitCW':
+      orbitOn = true;
+      orbitDir = 1;
+      document.getElementById('orbitCW').classList.add('active');
+      document.getElementById('orbitCCW').classList.remove('active');
+      break;
+    case 'orbitCCW':
+      orbitOn = true;
+      orbitDir = -1;
+      document.getElementById('orbitCCW').classList.add('active');
+      document.getElementById('orbitCW').classList.remove('active');
+      break;
+    case 'toggleTheme':
+      isDarkMode = !isDarkMode;
+      applyTheme(isDarkMode);
+      const themeBtn = document.getElementById('themeToggle');
+      themeBtn.classList.toggle('active', isDarkMode);
+      themeBtn.textContent = isDarkMode ? 'Night Mode' : 'Day Mode';
+      break;
+    case 'openMenu':
+      if (chromeShown) closeMenu();
+      else openMenu();
       break;
     default: break;
   }
