@@ -465,7 +465,7 @@ function loadCarModel(presetName) {
 
 /* Car builder */
 let car=null, BOX=null;
-let faceArrow=null, faceTip=null;
+let faceArrow=null, faceTip=null, tornadoCircle=null;
 
 function clearCar(){
   if(!car) return;
@@ -530,6 +530,21 @@ function buildCar(boxDims, presetName="placeholder"){
   car.add(faceTip);
   faceArrow.visible = false;
   faceTip.visible = false;
+
+  // Tornado circle visualizer
+  const circleGeom = new THREE.CircleGeometry(1, 64);
+  circleGeom.vertices = circleGeom.attributes.position.array;
+  const circleMat = new THREE.LineBasicMaterial({color: 0x00ff00, transparent: true, opacity: 0.6, linewidth: 2});
+  const circlePoints = [];
+  for (let i = 0; i <= 64; i++) {
+    const angle = (i / 64) * Math.PI * 2;
+    circlePoints.push(new THREE.Vector3(Math.cos(angle), Math.sin(angle), 0));
+  }
+  const circleLineGeom = new THREE.BufferGeometry().setFromPoints(circlePoints);
+  tornadoCircle = new THREE.Line(circleLineGeom, circleMat);
+  tornadoCircle.position.set(0, 0, zFace);
+  car.add(tornadoCircle);
+  tornadoCircle.visible = false;
 }
 function addEdge(a,b,color){
   const geo = new THREE.BufferGeometry().setFromPoints([a,b]);
@@ -1229,6 +1244,25 @@ function integrate(dt) {
       faceTip.rotation.set(0, 0, ang);
       const s = 0.95 * (arrowScale || 1);
       faceTip.scale.set(s, s, 1);
+    }
+  }
+
+  // --- 2b. Tornado circle visualizer (shows DAR cone path) ---
+  if (tornadoCircle) {
+    const showCircle = darOn && freeRollPeriod > 0 && eff > 0.02;
+    tornadoCircle.visible = showCircle;
+
+    if (showCircle) {
+      const zFace = BOX.hz + 0.6;
+      const minTornadoAngle = 0.10;
+      const tornadoFactor = minTornadoAngle + eff * (maxTornadoAngle - minTornadoAngle);
+
+      // Circle radius is proportional to stick deflection and tornado cone angle
+      const baseRadius = Math.min(BOX.hx, BOX.hy) * 0.95;
+      const circleRadius = baseRadius * eff * tornadoFactor * (arrowScale || 1);
+
+      tornadoCircle.scale.set(circleRadius, circleRadius, 1);
+      tornadoCircle.position.set(0, 0, zFace);
     }
   }
 
