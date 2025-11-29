@@ -742,6 +742,17 @@ function setRoll(dir){
   document.getElementById('rollL').classList.toggle('active',dir>0);
   document.getElementById('rollR').classList.toggle('active',dir<0);
 }
+function toggleRoll(dir){
+  if(airRoll === dir){
+    // Already in this direction, toggle off (set to 0)
+    airRoll = 0;
+    document.getElementById('rollL').classList.remove('active');
+    document.getElementById('rollR').classList.remove('active');
+  } else {
+    // Switch to this direction
+    setRoll(dir);
+  }
+}
 document.getElementById('rollL').addEventListener('click',()=>setRoll(+1));
 document.getElementById('rollR').addEventListener('click',()=>setRoll(-1));
 
@@ -1045,10 +1056,10 @@ function execBinding(action){
       darOn = !darOn;
       break;
     case 'rollLeft':
-      setRoll(-1);
+      toggleRoll(-1);
       break;
     case 'rollRight':
-      setRoll(+1);
+      toggleRoll(+1);
       break;
     case 'restart': {
       if (car) car.quaternion.identity();
@@ -1076,16 +1087,28 @@ function execBinding(action){
       }
       break;
     case 'orbitCW':
-      orbitOn = true;
-      orbitDir = 1;
-      document.getElementById('orbitCW').classList.add('active');
-      document.getElementById('orbitCCW').classList.remove('active');
+      // Toggle orbit CW
+      if (orbitOn && orbitDir === 1) {
+        orbitOn = false;
+        document.getElementById('orbitCW').classList.remove('active');
+      } else {
+        orbitOn = true;
+        orbitDir = 1;
+        document.getElementById('orbitCW').classList.add('active');
+        document.getElementById('orbitCCW').classList.remove('active');
+      }
       break;
     case 'orbitCCW':
-      orbitOn = true;
-      orbitDir = -1;
-      document.getElementById('orbitCCW').classList.add('active');
-      document.getElementById('orbitCW').classList.remove('active');
+      // Toggle orbit CCW
+      if (orbitOn && orbitDir === -1) {
+        orbitOn = false;
+        document.getElementById('orbitCCW').classList.remove('active');
+      } else {
+        orbitOn = true;
+        orbitDir = -1;
+        document.getElementById('orbitCCW').classList.add('active');
+        document.getElementById('orbitCW').classList.remove('active');
+      }
       break;
     case 'toggleTheme':
       isDarkMode = !isDarkMode;
@@ -1261,8 +1284,18 @@ function integrate(dt) {
       const baseRadius = Math.min(BOX.hx, BOX.hy) * 0.95;
       const circleRadius = baseRadius * eff * tornadoFactor * (arrowScale || 1);
 
+      // The circle should be offset perpendicular to the arrow direction
+      // Air Roll Left (airRoll = -1): offset +90 degrees (counter-clockwise)
+      // Air Roll Right (airRoll = +1): offset -90 degrees (clockwise)
+      const arrowAngle = Math.atan2(ux, uy); // angle of the arrow in XY plane
+      const perpAngle = arrowAngle + (airRoll * Math.PI / 2); // offset 90 degrees based on roll direction
+
+      // Position circle center perpendicular to arrow, distance = circleRadius
+      const centerX = Math.sin(perpAngle) * circleRadius;
+      const centerY = -Math.cos(perpAngle) * circleRadius;
+
       tornadoCircle.scale.set(circleRadius, circleRadius, 1);
-      tornadoCircle.position.set(0, 0, zFace);
+      tornadoCircle.position.set(centerX, centerY, zFace);
     }
   }
 
