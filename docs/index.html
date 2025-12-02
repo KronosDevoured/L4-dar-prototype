@@ -858,10 +858,11 @@ function toggleRoll(dir){
   if(airRoll === dir){
     // Already in this direction, toggle off (set to 0)
     setRoll(0);
-  } else {
-    // Switch to this direction
+  } else if(airRoll === 0){
+    // Currently off, turn on this direction
     setRoll(dir);
   }
+  // else: different direction is already active, do nothing
 }
 document.getElementById('rollL').addEventListener('click',()=>setRoll(+1));
 document.getElementById('rollR').addEventListener('click',()=>setRoll(-1));
