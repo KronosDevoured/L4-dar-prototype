@@ -1444,16 +1444,16 @@ function integrate(dt) {
       const minTornadoAngle = 0.10;
       const tornadoFactor = minTornadoAngle + eff * (maxTornadoAngle - minTornadoAngle);
 
-      // Track nose position in car-local XY plane to measure actual trajectory
-      const noseLocalPos = new THREE.Vector3(0, 0, zFace);
-      car.localToWorld(noseLocalPos);
-      const carPos = new THREE.Vector3();
-      car.getWorldPosition(carPos);
+      // Track nose position in car-local coordinate system
+      // The nose in local coords is at (0, 0, zFace)
+      // We need to track how it moves in the XY plane as the car rotates
+      const noseDir = new THREE.Vector3(0, 0, 1); // forward direction
+      noseDir.applyQuaternion(car.quaternion);
 
-      // Store relative position (nose position relative to car center in XY plane)
-      const relX = noseLocalPos.x - carPos.x;
-      const relY = noseLocalPos.y - carPos.y;
-      noseTrajectory.push({ x: relX, y: relY });
+      // Project onto XY plane and scale by distance to get actual offset
+      const noseOffsetX = noseDir.x * zFace;
+      const noseOffsetY = noseDir.y * zFace;
+      noseTrajectory.push({ x: noseOffsetX, y: noseOffsetY });
 
       // Keep only recent samples
       if (noseTrajectory.length > TRAJECTORY_SAMPLE_SIZE) {
