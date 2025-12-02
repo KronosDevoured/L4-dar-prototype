@@ -1195,7 +1195,7 @@ function isPressedForBinding(pad, binding){
     return !!(b && (b.value||0) > 0.5);
   }
   if(binding.kind==='axis'){
-    const v = pad.axes[b.axis] || 0;
+    const v = pad.axes[binding.axis] || 0;
     return binding.dir>0 ? (v>0.6) : (v<-0.6);
   }
   return false;
