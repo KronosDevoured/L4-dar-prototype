@@ -938,6 +938,15 @@ let ringModeLives = 5;
 let ringModeRingCount = 0;
 let ringCameraSpeed = 0.1;
 
+// Ring Mode Physics
+let ringModeVelocity = new THREE.Vector2(0, 0); // XY velocity only
+let ringModePosition = new THREE.Vector2(0, 0); // Car position in 2D plane
+const RING_MAX_SPEED = 2300; // Rocket League equivalent max speed
+const RING_BOOST_ACCEL = RING_MAX_SPEED / 4.5; // Reach max speed in 4.5 seconds
+const RING_GRAVITY = -800; // Constant downward gravity
+const RING_GRID_BOUNDS = 500; // Movement boundary
+let ringModeBoostActive = false;
+
 document.getElementById('ringMode').addEventListener('click', () => {
   ringModeActive = !ringModeActive;
   const btn = document.getElementById('ringMode');
@@ -948,12 +957,19 @@ document.getElementById('ringMode').addEventListener('click', () => {
     ringModeScore = 0;
     ringModeLives = 5;
     ringModeRingCount = 0;
-    if (car) car.quaternion.identity();
+    ringModeVelocity.set(0, 0);
+    ringModePosition.set(0, 0);
+    if (car) {
+      car.quaternion.identity();
+      car.position.set(0, 0, 0); // Lock car to origin in Ring Mode
+    }
     w.set(0,0,0);
     orbitOn = false;
   } else {
     // Exit Ring Mode
-    // Clean up rings, reset physics
+    ringModeVelocity.set(0, 0);
+    ringModePosition.set(0, 0);
+    if (car) car.position.set(0, 0, 0);
   }
 });
 
@@ -1557,6 +1573,66 @@ function integrate(dt) {
 
     ux = -jx / (mag || 1); // right = +ux
     uy = jy  / (mag || 1); // up = +uy
+  }
+
+  // === RING MODE PHYSICS ===
+  if (ringModeActive) {
+    // In Ring Mode: 2D plane movement with boost and gravity
+    // Boost is always active when stick is pushed
+    ringModeBoostActive = eff > 0.02;
+
+    // Calculate boost direction from stick input
+    const boostDirX = ux;
+    const boostDirY = uy;
+
+    // Apply forces
+    let accelX = 0;
+    let accelY = RING_GRAVITY; // Always apply gravity
+
+    if (ringModeBoostActive) {
+      // Add boost acceleration in stick direction
+      accelX += boostDirX * RING_BOOST_ACCEL;
+      accelY += boostDirY * RING_BOOST_ACCEL;
+    }
+
+    // Integrate velocity
+    ringModeVelocity.x += accelX * dt;
+    ringModeVelocity.y += accelY * dt;
+
+    // Clamp to max speed
+    const speed = ringModeVelocity.length();
+    if (speed > RING_MAX_SPEED) {
+      ringModeVelocity.multiplyScalar(RING_MAX_SPEED / speed);
+    }
+
+    // Integrate position
+    ringModePosition.x += ringModeVelocity.x * dt;
+    ringModePosition.y += ringModeVelocity.y * dt;
+
+    // Clamp to bounds
+    ringModePosition.x = THREE.MathUtils.clamp(ringModePosition.x, -RING_GRID_BOUNDS, RING_GRID_BOUNDS);
+    ringModePosition.y = THREE.MathUtils.clamp(ringModePosition.y, -RING_GRID_BOUNDS, RING_GRID_BOUNDS);
+
+    // Check out of bounds (player went too far)
+    if (Math.abs(ringModePosition.x) >= RING_GRID_BOUNDS ||
+        Math.abs(ringModePosition.y) >= RING_GRID_BOUNDS) {
+      // Out of bounds - trigger restart
+      ringModeVelocity.set(0, 0);
+      ringModePosition.set(0, 0);
+      ringModeScore = 0;
+      ringModeLives = 5;
+      ringModeRingCount = 0;
+    }
+
+    // Update car visual position (XY only, Z stays at 0)
+    if (car) {
+      car.position.x = ringModePosition.x;
+      car.position.y = ringModePosition.y;
+      car.position.z = 0; // Locked to 2D plane
+    }
+
+    // Skip normal physics in Ring Mode
+    return;
   }
 
   // --- 2. Front-face arrow (same behavior as before, just using ux,uy,eff) ---
