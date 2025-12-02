@@ -1461,6 +1461,12 @@ function integrate(dt) {
       tornadoCircle.scale.set(circleRadius, circleRadius, 1);
       tornadoCircle.position.set(centerX, centerY, zFace);
 
+      // Update circle color based on stick direction (same as arrow)
+      const col = (Math.abs(ux) > Math.abs(uy))
+        ? (ux >= 0 ? COL_LEFT : COL_RIGHT)
+        : (uy >= 0 ? COL_DOWN : COL_UP);
+      tornadoCircle.material.color.setHex(col);
+
       // Apply tilt rotation toward the car
       // Normalize tilt based on circle size to maintain consistent visual appearance
       // Smaller circles (closer to car) need less tilt to appear the same due to perspective
