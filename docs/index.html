@@ -62,7 +62,13 @@
   .row{display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; margin:.45rem 0; width:100%;}
   .btn{border:1px solid #3a3d45;padding:.45rem .7rem;border-radius:999px;background:#181a20;color:#e8e8ea;font-weight:600;letter-spacing:.2px;cursor:pointer}
   .btn.active{background:#0066ff;border-color:#4c8dff}
-  .tag{background:#181a20;border:1px solid #3a3d45;padding:.25rem .5rem;border-radius:999px;font-size:.82rem;white-space:nowrap}
+  .tag{
+    background:#181a20;border:1px solid #3a3d45;padding:.25rem .5rem;
+    border-radius:999px;font-size:.82rem;white-space:nowrap;
+    cursor:text;user-select:text;
+  }
+  .tag:hover{border-color:#4c8dff}
+  .tag:focus{outline:2px solid #4c8dff;background:#1f2229}
 
   .sl{
     display:flex; align-items:center; gap:.6rem; flex-wrap:nowrap;
@@ -930,6 +936,55 @@ accelRollTag.textContent=maxAccelRoll.toFixed(0);
 }
 syncTags();
 
+// Make all tag elements editable
+function setupEditableTags() {
+  const tagMappings = [
+    {tag: accelPitchTag, slider: accelPitch, setter: (v) => maxAccelPitch = Math.max(0, Math.min(1200, parseFloat(v) || 400))},
+    {tag: accelYawTag, slider: accelYaw, setter: (v) => maxAccelYaw = Math.max(0, Math.min(1200, parseFloat(v) || 400))},
+    {tag: accelRollTag, slider: accelRoll, setter: (v) => maxAccelRoll = Math.max(0, Math.min(1200, parseFloat(v) || 400))},
+    {tag: curveTag, slider: curveRange, setter: (v) => inputPow = Math.max(1, Math.min(4, parseFloat(v) || 1.0))},
+    {tag: dampTag, slider: dampRange, setter: (v) => damp = Math.max(0, Math.min(1.2, parseFloat(v) || 1.2))},
+    {tag: brakeTag, slider: brakeRange, setter: (v) => brakeOnRelease = Math.max(0, Math.min(6, parseFloat(v) || 6))},
+    {tag: wmaxTag, slider: wmaxRange, setter: (v) => wMax = Math.max(6, Math.min(24, parseFloat(v) || 6))},
+    {tag: wmaxPitchTag, slider: wmaxPitchRange, setter: (v) => wMaxPitch = Math.max(6, Math.min(24, parseFloat(v) || 8.5))},
+    {tag: wmaxYawTag, slider: wmaxYawRange, setter: (v) => wMaxYaw = Math.max(6, Math.min(24, parseFloat(v) || 9))},
+    {tag: tornadoAngleTag, slider: tornadoAngleRange, setter: (v) => maxTornadoAngle = Math.max(0, Math.min(1, parseFloat(v) || 0.4))},
+    {tag: circleTiltTag, slider: circleTiltRange, setter: (v) => circleTiltAngle = Math.max(0, Math.min(45, parseFloat(v) || 34))},
+    {tag: zoomVal, slider: zoomSlider, setter: (v) => { zoom = Math.max(0.7, Math.min(1.6, parseFloat(v) || 1)); applyZoom(); }},
+    {tag: arrowVal, slider: arrowSlider, setter: (v) => arrowScale = Math.max(0.6, Math.min(4, parseFloat(v) || 4))},
+    {tag: brightnessVal, slider: brightnessSlider, setter: (v) => {
+      const val = Math.max(0.5, Math.min(3, parseFloat(v) || 1));
+      if (isDarkMode) brightnessDark = val; else brightnessLight = val;
+      applyTheme(isDarkMode);
+    }}
+  ];
+
+  tagMappings.forEach(mapping => {
+    mapping.tag.contentEditable = true;
+    mapping.tag.style.cursor = 'text';
+
+    mapping.tag.addEventListener('click', (e) => {
+      e.target.select?.() || document.execCommand('selectAll', false, null);
+    });
+
+    mapping.tag.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        e.target.blur();
+      }
+    });
+
+    mapping.tag.addEventListener('blur', (e) => {
+      const rawValue = e.target.textContent.replace(/[^\d.-]/g, '');
+      mapping.setter(rawValue);
+      mapping.slider.value = parseFloat(rawValue) || 0;
+      syncTags();
+      saveSettings();
+    });
+  });
+}
+setupEditableTags();
+
 accelPitch.addEventListener('input',()=>{maxAccelPitch=parseFloat(accelPitch.value)||400; syncTags(); saveSettings();});
 accelYaw.addEventListener('input',()=>{maxAccelYaw=parseFloat(accelYaw.value)||400; syncTags(); saveSettings();});
 accelRoll.addEventListener('input',()=>{maxAccelRoll=parseFloat(accelRoll.value)||400; syncTags(); saveSettings();});
@@ -1379,7 +1434,10 @@ function integrate(dt) {
       const centerX = Math.sin(perpAngle) * circleRadius;
       const centerY = -Math.cos(perpAngle) * circleRadius;
 
-      tornadoCircle.scale.set(circleRadius, circleRadius, 1);
+      // Scale circle slightly larger (1.05x) to reduce wobble
+      // The wobble occurs because the circle center moves in a circle, so we need
+      // the visual circle to be slightly larger than the offset distance
+      tornadoCircle.scale.set(circleRadius * 1.05, circleRadius * 1.05, 1);
       tornadoCircle.position.set(centerX, centerY, zFace);
 
       // Apply tilt rotation toward the car
