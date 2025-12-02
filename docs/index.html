@@ -149,6 +149,7 @@
             <button id="rollL" class="btn" type="button">Air Roll Right</button>
             <button id="rollR" class="btn active" type="button">Air Roll Left</button>
             <button id="rollFree" class="btn" type="button">Air Roll (Free)</button>
+            <button id="ringMode" class="btn" type="button">Ring Mode</button>
             <button id="restart" class="btn" type="button">Restart</button>
             <button id="orbitCW" class="btn" type="button">Orbit CW</button>
             <button id="orbitCCW" class="btn" type="button">Orbit CCW</button>
@@ -284,6 +285,21 @@
             <label for="brightnessSlider">Car Brightness</label>
             <input id="brightnessSlider" type="range" min="0.5" max="3.0" step="0.1" value="1.0" />
             <span class="tag" id="brightnessVal">1.00×</span>
+          </div>
+        </div>
+
+        <!-- Ring Mode Settings -->
+        <div class="card">
+          <h3>Ring Mode</h3>
+
+          <div class="row sl">
+            <label for="ringCameraSpeed">Camera Transition Speed</label>
+            <input id="ringCameraSpeed" type="range" min="0.01" max="0.5" step="0.01" value="0.1" />
+            <span class="tag" id="ringCameraSpeedVal">0.10</span>
+          </div>
+
+          <div class="tip">
+            <b>Ring Mode:</b> Navigate through rings using boost. Lower camera speed = slower, smoother transitions to next ring.
           </div>
         </div>
 
@@ -915,6 +931,39 @@ document.getElementById('toggleMode').addEventListener('click', () => {
   saveSettings();
 });
 
+/* Ring Mode */
+let ringModeActive = false;
+let ringModeScore = 0;
+let ringModeLives = 5;
+let ringModeRingCount = 0;
+let ringCameraSpeed = 0.1;
+
+document.getElementById('ringMode').addEventListener('click', () => {
+  ringModeActive = !ringModeActive;
+  const btn = document.getElementById('ringMode');
+  btn.classList.toggle('active', ringModeActive);
+
+  if(ringModeActive){
+    // Initialize Ring Mode
+    ringModeScore = 0;
+    ringModeLives = 5;
+    ringModeRingCount = 0;
+    if (car) car.quaternion.identity();
+    w.set(0,0,0);
+    orbitOn = false;
+  } else {
+    // Exit Ring Mode
+    // Clean up rings, reset physics
+  }
+});
+
+const ringCameraSpeedSlider = document.getElementById('ringCameraSpeed');
+const ringCameraSpeedVal = document.getElementById('ringCameraSpeedVal');
+ringCameraSpeedSlider.addEventListener('input', () => {
+  ringCameraSpeed = parseFloat(ringCameraSpeedSlider.value);
+  ringCameraSpeedVal.textContent = ringCameraSpeed.toFixed(2);
+});
+
 document.getElementById('restart').addEventListener('click',()=>{
   if (car) car.quaternion.identity();
   w.set(0,0,0);
@@ -927,6 +976,13 @@ document.getElementById('restart').addEventListener('click',()=>{
   camera.lookAt(0,0,0);
   if (faceArrow) faceArrow.visible = false;
   if (faceTip)   faceTip.visible   = false;
+
+  // Reset Ring Mode if active
+  if(ringModeActive){
+    ringModeScore = 0;
+    ringModeLives = 5;
+    ringModeRingCount = 0;
+  }
 });
 let orbitOn=false, orbitDir=1;
 document.getElementById('orbitCW').addEventListener('click',()=>{
