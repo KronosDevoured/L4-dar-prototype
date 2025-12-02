@@ -871,7 +871,8 @@ arrowSlider.value = arrowScale;
 /* Air Roll System */
 // Air roll values: -1 = left, 0 = off, +1 = right, 2 = free
 let airRoll = savedSettings.airRoll ?? -1; // default to Air Roll Left
-let airRollIsToggle = savedSettings.airRollIsToggle ?? (!gpEnabled); // default: toggle for keyboard, hold for gamepad
+// Default: toggle for keyboard (gpEnabled=false), hold for gamepad (gpEnabled=true)
+let airRollIsToggle = savedSettings.airRollIsToggle ?? (savedSettings.gpEnabled === false);
 
 function setRoll(dir, skipSave = false){
   airRoll = dir;
