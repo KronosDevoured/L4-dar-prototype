@@ -872,11 +872,14 @@ arrowSlider.value = arrowScale;
 /* Air Roll System */
 // Air roll values: -1 = left, 0 = off, +1 = right, 2 = free
 let airRoll = savedSettings.airRoll ?? -1; // default to Air Roll Left
+let lastActiveAirRoll = airRoll !== 0 ? airRoll : -1; // Remember last active for DAR toggle
 // Default: toggle for keyboard (gpEnabled=false), hold for gamepad (gpEnabled=true)
 let airRollIsToggle = savedSettings.airRollIsToggle ?? (savedSettings.gpEnabled === false);
 
 function setRoll(dir, skipSave = false){
   airRoll = dir;
+  // Remember last active air roll for DAR toggle (but not 0)
+  if(dir !== 0) lastActiveAirRoll = dir;
   document.getElementById('rollL').classList.toggle('active', dir === 1);
   document.getElementById('rollR').classList.toggle('active', dir === -1);
   document.getElementById('rollFree').classList.toggle('active', dir === 2);
@@ -1133,8 +1136,8 @@ function endPtr(e){
     if(heldMs < RELOCATE_HOLD_MS){
       // Toggle the currently selected air roll on/off
       if(airRoll === 0){
-        // If no air roll active, activate the last selected one (or default to -1)
-        setRoll(savedSettings.airRoll ?? -1);
+        // If no air roll active, activate the last active one
+        setRoll(lastActiveAirRoll);
       } else {
         // If air roll active, deactivate it
         setRoll(0);
@@ -1283,8 +1286,8 @@ function execBinding(action){
     case 'toggleDAR':
       // Toggle the currently selected air roll on/off
       if(airRoll === 0){
-        // If no air roll active, activate the last selected one (or default to -1)
-        setRoll(savedSettings.airRoll ?? -1);
+        // If no air roll active, activate the last active one
+        setRoll(lastActiveAirRoll);
       } else {
         // If air roll active, deactivate it
         setRoll(0);
