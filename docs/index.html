@@ -206,7 +206,7 @@
 
   <div class="row sl">
     <label for="circleTilt">Circle Tilt Angle</label>
-    <input id="circleTilt" type="range" min="0" max="45" step="1" value="38"/>
+    <input id="circleTilt" type="range" min="0" max="45" step="1" value="34"/>
     <span class="tag" id="circleTiltTag">38°</span>
   </div>
 </div>
@@ -246,6 +246,12 @@
             <label for="arrowSlider">Arrow Size</label>
             <input id="arrowSlider" type="range" min="0.60" max="4.00" step="0.01" value="4.00" />
             <span class="tag" id="arrowVal">4.00×</span>
+          </div>
+
+          <div class="row sl">
+            <label for="brightnessSlider">Car Brightness</label>
+            <input id="brightnessSlider" type="range" min="0.5" max="3.0" step="0.1" value="1.0" />
+            <span class="tag" id="brightnessVal">1.00×</span>
           </div>
         </div>
 
@@ -351,17 +357,17 @@ const MAT_HUB   = new THREE.MeshBasicMaterial({color: 0x5a6270});
 let isDarkMode; // Will be initialized from localStorage
 const THEMES = {
   dark: {
-    body: '#1a1d24',
-    fog: 0x2a3040,
+    body: '#000000',
+    fog: 0x000000,
     fogNear: 1000,
     fogFar: 2500,
     ambient: 0xffffff,
-    ambientIntensity: 1.2,
+    ambientIntensity: 1.5,
     directional: 0xffffff,
-    directionalIntensity: 0.8,
-    gridMain: 0x3a4050,
-    gridSub: 0x2d3542,
-    gridOpacity: 0.85,
+    directionalIntensity: 1.2,
+    gridMain: 0x1a1d24,
+    gridSub: 0x0d0f12,
+    gridOpacity: 0.4,
     gridY: -160
   },
   light: {
@@ -385,7 +391,7 @@ function applyTheme(dark) {
 
   // Update body background
   document.body.style.background = dark
-    ? 'linear-gradient(180deg,#1a1d24 0%,#252a35 45%,#2a3040 100%)'
+    ? '#000000'
     : 'linear-gradient(180deg,#f6f7fb 0%,#eef1f6 45%,#e9edf3 100%)';
 
   // Update fog
@@ -393,9 +399,10 @@ function applyTheme(dark) {
   scene.fog.near = theme.fogNear;
   scene.fog.far = theme.fogFar;
 
-  // Update lights
-  ambientLight.intensity = theme.ambientIntensity;
-  directionalLight.intensity = theme.directionalIntensity;
+  // Update lights with brightness multiplier
+  const brightness = dark ? brightnessDark : brightnessLight;
+  ambientLight.intensity = theme.ambientIntensity * brightness;
+  directionalLight.intensity = theme.directionalIntensity * brightness;
 
   // Update grid
   gridMain.material.color.setHex(theme.gridMain);
@@ -758,6 +765,7 @@ const spinSlider=document.getElementById('spinSlider'), rollVal=document.getElem
 const sizeSlider=document.getElementById('stickSizeSlider'), stickVal=document.getElementById('stickVal');
 const zoomSlider=document.getElementById('zoomSlider'), zoomVal=document.getElementById('zoomVal');
 const arrowSlider=document.getElementById('arrowSlider'), arrowVal=document.getElementById('arrowVal');
+const brightnessSlider=document.getElementById('brightnessSlider'), brightnessVal=document.getElementById('brightnessVal');
 const presetSel=document.getElementById('presetSel');
 
 // Load saved settings from localStorage or use defaults
@@ -780,7 +788,8 @@ function saveSettings() {
     wMax, wMaxPitch, wMaxYaw,
     maxTornadoAngle, circleTiltAngle,
     freeRollPeriod, zoom, arrowScale,
-    isDarkMode, airRoll
+    isDarkMode, airRoll,
+    brightnessDark, brightnessLight
   };
   localStorage.setItem('darSettings', JSON.stringify(settings));
 }
@@ -804,6 +813,10 @@ let maxAccelPitch=savedSettings.maxAccelPitch ?? parseFloat(accelPitch.value),
     freeRollPeriod=savedSettings.freeRollPeriod ?? parseFloat(spinSlider.value),
     zoom=savedSettings.zoom ?? parseFloat(zoomSlider.value),
     arrowScale=savedSettings.arrowScale ?? parseFloat(arrowSlider.value);
+
+// Brightness settings (separate for dark and light modes)
+let brightnessDark = savedSettings.brightnessDark ?? 1.0;
+let brightnessLight = savedSettings.brightnessLight ?? 1.0;
 
 // Apply loaded values to sliders
 accelPitch.value = maxAccelPitch;
@@ -832,9 +845,7 @@ function setRoll(dir, skipSave = false){
 function toggleRoll(dir){
   if(airRoll === dir){
     // Already in this direction, toggle off (set to 0)
-    airRoll = 0;
-    document.getElementById('rollL').classList.remove('active');
-    document.getElementById('rollR').classList.remove('active');
+    setRoll(0);
   } else {
     // Switch to this direction
     setRoll(dir);
@@ -893,6 +904,7 @@ document.getElementById('themeToggle').addEventListener('click',()=>{
   const btn = document.getElementById('themeToggle');
   btn.classList.toggle('active', isDarkMode);
   btn.textContent = isDarkMode ? 'Night Mode' : 'Day Mode';
+  syncTags(); // Update brightness slider to show correct value for new theme
   saveSettings();
 });
 
@@ -912,6 +924,9 @@ accelRollTag.textContent=maxAccelRoll.toFixed(0);
   stickVal.textContent = String(Math.round(JOY_BASE_R));
   zoomVal.textContent = `${(zoom||1).toFixed(2)}×`;
   arrowVal.textContent = `${(arrowScale||1).toFixed(2)}×`;
+  const currentBrightness = isDarkMode ? brightnessDark : brightnessLight;
+  brightnessVal.textContent = `${currentBrightness.toFixed(2)}×`;
+  brightnessSlider.value = currentBrightness;
 }
 syncTags();
 
@@ -930,6 +945,17 @@ spinSlider.addEventListener('input',()=>{freeRollPeriod=parseFloat(spinSlider.va
 sizeSlider.addEventListener('input',()=>{JOY_BASE_R=parseInt(stickSizeSlider.value,10)||100; JOY_KNOB_R=Math.round(JOY_BASE_R*0.32); clampJoyCenter(); positionHints(); syncTags();});
 zoomSlider.addEventListener('input',()=>{zoom=parseFloat(zoomSlider.value)||1.0; applyZoom(); syncTags(); saveSettings();});
 arrowSlider.addEventListener('input',()=>{arrowScale=parseFloat(arrowSlider.value)||4.0; syncTags(); saveSettings();});
+brightnessSlider.addEventListener('input',()=>{
+  const val = parseFloat(brightnessSlider.value) || 1.0;
+  if (isDarkMode) {
+    brightnessDark = val;
+  } else {
+    brightnessLight = val;
+  }
+  applyTheme(isDarkMode);
+  syncTags();
+  saveSettings();
+});
 presetSel .addEventListener('change',()=>{
   const name = presetSel.value;
   buildCar(presets[name], name);
