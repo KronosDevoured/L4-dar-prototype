@@ -324,6 +324,7 @@
               <option value="rollLeft">Air Roll Left</option>
               <option value="rollRight">Air Roll Right</option>
               <option value="rollFree">Air Roll (Free)</option>
+              <option value="boost">Boost (Ring Mode)</option>
               <option value="restart">Restart</option>
               <option value="orbitCW">Orbit Clockwise</option>
               <option value="orbitCCW">Orbit Counter-Clockwise</option>
@@ -1245,6 +1246,7 @@ const defaultGpBindings = {
   rollLeft:    { kind:'button', index: 4 },
   rollRight:   { kind:'button', index: 5 },
   rollFree:    { kind:'button', index: 7 },
+  boost:       { kind:'button', index: 0 },
   restart:     { kind:'button', index: 9 },
   orbitCW:     { kind:'button', index: 2 },
   orbitCCW:    { kind:'button', index: 3 },
@@ -1259,9 +1261,10 @@ const GP_PRESETS = {
     rollLeft:    { kind:'button', index: 4 },  // L1
     rollRight:   { kind:'button', index: 5 },  // R1
     rollFree:    { kind:'button', index: 7 },  // R2
+    boost:       { kind:'button', index: 0 },  // Cross (X)
     restart:     { kind:'button', index: 9 },  // Options
-    orbitCW:     { kind:'button', index: 2 },  // Cross
-    orbitCCW:    { kind:'button', index: 3 },  // Square
+    orbitCW:     { kind:'button', index: 2 },  // Square
+    orbitCCW:    { kind:'button', index: 3 },  // Triangle
     toggleTheme: { kind:'button', index: 8 },  // Share
     openMenu:    { kind:'button', index: 6 }   // L2
   },
@@ -1270,9 +1273,10 @@ const GP_PRESETS = {
     rollLeft:    { kind:'button', index: 4 },  // LB
     rollRight:   { kind:'button', index: 5 },  // RB
     rollFree:    { kind:'button', index: 7 },  // RT
+    boost:       { kind:'button', index: 0 },  // A
     restart:     { kind:'button', index: 9 },  // Start
-    orbitCW:     { kind:'button', index: 2 },  // A
-    orbitCCW:    { kind:'button', index: 3 },  // X
+    orbitCW:     { kind:'button', index: 2 },  // X
+    orbitCCW:    { kind:'button', index: 3 },  // Y
     toggleTheme: { kind:'button', index: 8 },  // Back
     openMenu:    { kind:'button', index: 6 }   // LT
   }
@@ -1485,10 +1489,21 @@ function updateGamepadInput(){
     joyVec.set(nx * JOY_BASE_R, ny * JOY_BASE_R);
   }
 
+  // Check boost button state (hold-based, not toggle)
+  if(gpBindings.boost){
+    ringModeBoostActive = isPressedForBinding(pad, gpBindings.boost);
+  }
+
   // Fire actions on rising edge (or handle hold mode for air rolls)
   for(const action of Object.keys(gpBindings)){
     const nowPressed = isPressedForBinding(pad, gpBindings[action]);
     const wasPressed = !!gpPrevActionPressed[action];
+
+    // Boost is handled separately (hold-based)
+    if(action === 'boost'){
+      gpPrevActionPressed[action] = nowPressed;
+      continue;
+    }
 
     // Air roll buttons have special hold/toggle behavior
     const isAirRollAction = (action === 'rollLeft' || action === 'rollRight' || action === 'rollFree');
@@ -1577,9 +1592,8 @@ function integrate(dt) {
 
   // === RING MODE PHYSICS ===
   if (ringModeActive) {
-    // In Ring Mode: 2D plane movement with boost and gravity
-    // Boost is always active when stick is pushed
-    ringModeBoostActive = eff > 0.02;
+    // In Ring Mode: 2D plane movement with boost button and gravity
+    // Note: ringModeBoostActive is set by gamepad input polling
 
     // Calculate boost direction from stick input
     const boostDirX = ux;
@@ -1589,8 +1603,8 @@ function integrate(dt) {
     let accelX = 0;
     let accelY = RING_GRAVITY; // Always apply gravity
 
-    if (ringModeBoostActive) {
-      // Add boost acceleration in stick direction
+    if (ringModeBoostActive && eff > 0.02) {
+      // Add boost acceleration in stick direction (only if stick is pushed)
       accelX += boostDirX * RING_BOOST_ACCEL;
       accelY += boostDirY * RING_BOOST_ACCEL;
     }
