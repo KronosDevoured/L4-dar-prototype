@@ -1610,7 +1610,7 @@ function integrate(dt) {
     // Air Roll (Free): horizontal stick controls roll, vertical controls pitch
     wx_des = maxPitchSpeed * eff * uy; // pitch (up/down)
     wy_des = 0;                         // no yaw
-    wz_des = wMax * eff * ux;          // roll (left/right)
+    wz_des = wMax * eff * (-ux);       // roll (left stick = roll left, right stick = roll right)
   } else {
     // Normal or Air Roll Left/Right: standard controls
     wx_des = maxPitchSpeed * eff * uy; // pitch
