@@ -1452,7 +1452,12 @@ function integrate(dt) {
       tornadoCircle.position.set(centerX, centerY, zFace);
 
       // Apply tilt rotation toward the car
-      const tiltRad = (circleTiltAngle * Math.PI) / 180;
+      // Normalize tilt based on circle size to maintain consistent visual appearance
+      // Smaller circles (closer to car) need less tilt to appear the same due to perspective
+      const theoreticalMaxRadius = baseRadius * tornadoFactor * (arrowScale || 1);
+      const sizeFactor = circleRadius / (theoreticalMaxRadius || 1);
+      const normalizedTilt = circleTiltAngle * sizeFactor;
+      const tiltRad = (normalizedTilt * Math.PI) / 180;
 
       // Reset rotation first
       tornadoCircle.rotation.set(0, 0, 0);
