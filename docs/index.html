@@ -1468,9 +1468,18 @@ function handleRemap(pad){
 }
 
 function updateGamepadInput(){
-  if(!gpEnabled) return;
+  if(!gpEnabled) {
+    // If gamepad disabled, boost is always active in Ring Mode (for keyboard/touch)
+    if(ringModeActive) ringModeBoostActive = true;
+    return;
+  }
   const { pad } = readPads();
-  if(!pad){ gpStatusTag.textContent = 'Enabled (waiting for gamepad)'; return; }
+  if(!pad){
+    gpStatusTag.textContent = 'Enabled (waiting for gamepad)';
+    // No gamepad connected, boost is always active in Ring Mode
+    if(ringModeActive) ringModeBoostActive = true;
+    return;
+  }
   gpStatusTag.textContent = `Connected: ${pad.id}`;
 
   if(gpRemapping){ handleRemap(pad); }
@@ -1492,6 +1501,9 @@ function updateGamepadInput(){
   // Check boost button state (hold-based, not toggle)
   if(gpBindings.boost){
     ringModeBoostActive = isPressedForBinding(pad, gpBindings.boost);
+  } else {
+    // If no boost binding, boost is always active in Ring Mode
+    if(ringModeActive) ringModeBoostActive = true;
   }
 
   // Fire actions on rising edge (or handle hold mode for air rolls)
