@@ -1433,9 +1433,19 @@ function integrate(dt) {
       const minTornadoAngle = 0.10;
       const tornadoFactor = minTornadoAngle + eff * (maxTornadoAngle - minTornadoAngle);
 
-      // Circle radius is proportional to stick deflection and tornado cone angle
+      // Calculate theoretical min/max bounds from stable version
       const baseRadius = Math.min(BOX.hx, BOX.hy) * 0.95;
-      const circleRadius = baseRadius * eff * tornadoFactor * (arrowScale || 1);
+      const theoreticalRadius = baseRadius * eff * tornadoFactor * (arrowScale || 1);
+      const minRadius = theoreticalRadius * 0.8; // Allow 20% smaller
+      const maxRadius = theoreticalRadius * 1.2; // Allow 20% larger
+
+      // Calculate circle radius based on actual angular velocity
+      const wPitchYaw = Math.sqrt(w.x * w.x + w.y * w.y);
+      const actualConeAngle = wPitchYaw > 0.01 ? Math.atan(wPitchYaw / Math.abs(w.z)) : 0;
+      const physicsRadius = zFace * Math.tan(actualConeAngle) * (arrowScale || 1);
+
+      // Clamp to min/max bounds
+      const circleRadius = Math.max(minRadius, Math.min(maxRadius, physicsRadius));
 
       // The circle should be offset perpendicular to the arrow direction
       // Air Roll Left (airRoll = -1): offset +90 degrees (counter-clockwise)
@@ -1447,8 +1457,8 @@ function integrate(dt) {
       const centerX = Math.sin(perpAngle) * circleRadius;
       const centerY = -Math.cos(perpAngle) * circleRadius;
 
-      // Scale circle slightly larger (1.05x) to reduce wobble
-      tornadoCircle.scale.set(circleRadius * 1.05, circleRadius * 1.05, 1);
+      // Use clamped physics-based radius
+      tornadoCircle.scale.set(circleRadius, circleRadius, 1);
       tornadoCircle.position.set(centerX, centerY, zFace);
 
       // Apply tilt rotation toward the car
