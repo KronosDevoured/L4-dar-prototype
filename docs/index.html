@@ -795,7 +795,8 @@ function saveSettings() {
     maxTornadoAngle, circleTiltAngle,
     freeRollPeriod, zoom, arrowScale,
     isDarkMode, airRoll,
-    brightnessDark, brightnessLight
+    brightnessDark, brightnessLight,
+    gpEnabled, gpBindings
   };
   localStorage.setItem('darSettings', JSON.stringify(settings));
 }
@@ -1077,13 +1078,14 @@ const gpActionSel = document.getElementById('gpAction');
 const gpRemapBtn  = document.getElementById('gpRemap');
 const gpBindLabel = document.getElementById('gpBindLabel');
 
-let gpEnabled = true;      // enabled by default
+// Restore gamepad settings from localStorage
+let gpEnabled = savedSettings.gpEnabled ?? true;      // enabled by default
 let gpIndex   = -1;
 let gpRemapping = false;
 let gpPrevActionPressed = {};
 const GP_DEADZONE = 0.15;
 
-let gpBindings = {
+const defaultGpBindings = {
   toggleDAR:   { kind:'button', index: 1 },
   rollLeft:    { kind:'button', index: 4 },
   rollRight:   { kind:'button', index: 5 },
@@ -1093,6 +1095,7 @@ let gpBindings = {
   toggleTheme: { kind:'button', index: 8 },
   openMenu:    { kind:'button', index: 6 }
 };
+let gpBindings = savedSettings.gpBindings ?? defaultGpBindings;
 
 const GP_PRESETS = {
   ps5: {
@@ -1127,6 +1130,7 @@ function setBindingPreset(name){
   const p = GP_PRESETS[name] || GP_PRESETS.ps5;
   gpBindings = JSON.parse(JSON.stringify(p));
   updateBindLabel();
+  saveSettings();
 }
 function updateBindLabel(){
   const act = gpActionSel.value;
@@ -1137,6 +1141,7 @@ gpEnableBtn.addEventListener('click',()=>{
   gpEnabled = !gpEnabled;
   gpEnableBtn.classList.toggle('active', gpEnabled);
   gpStatusTag.textContent = gpEnabled ? 'Enabled' : 'Disabled';
+  saveSettings();
 });
 gpPresetSel.addEventListener('change', ()=> setBindingPreset(gpPresetSel.value));
 gpActionSel.addEventListener('change', updateBindLabel);
@@ -1272,6 +1277,7 @@ function handleRemap(pad){
       gpBindings[gpActionSel.value] = { kind:'button', index:i };
       gpRemapping = false;
       updateBindLabel();
+      saveSettings();
       return;
     }
   }
@@ -1281,6 +1287,7 @@ function handleRemap(pad){
       gpBindings[gpActionSel.value] = { kind:'axis', axis:a, dir: (v>0? +1 : -1) };
       gpRemapping = false;
       updateBindLabel();
+      saveSettings();
       return;
     }
   }
@@ -1618,6 +1625,10 @@ applyTheme(isDarkMode); // Initialize theme
 const themeBtn = document.getElementById('themeToggle');
 themeBtn.classList.toggle('active', isDarkMode);
 themeBtn.textContent = isDarkMode ? 'Night Mode' : 'Day Mode';
+
+// Restore gamepad enabled button state
+gpEnableBtn.classList.toggle('active', gpEnabled);
+gpStatusTag.textContent = gpEnabled ? 'Enabled (waiting for gamepad)' : 'Disabled';
 
 requestAnimationFrame(tick);
 </script>
