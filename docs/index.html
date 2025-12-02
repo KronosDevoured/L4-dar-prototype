@@ -1433,9 +1433,19 @@ function integrate(dt) {
       const minTornadoAngle = 0.10;
       const tornadoFactor = minTornadoAngle + eff * (maxTornadoAngle - minTornadoAngle);
 
-      // Circle radius is proportional to stick deflection and tornado cone angle
-      const baseRadius = Math.min(BOX.hx, BOX.hy) * 0.95;
-      const circleRadius = baseRadius * eff * tornadoFactor * (arrowScale || 1);
+      // Calculate circle radius based on actual angular velocity
+      // During tornado spin, the nose traces a circle due to the car's rotation
+      // The radius depends on how the angular velocity tilts the car
+
+      // Get the magnitude of angular velocity in pitch/yaw plane (ignore roll)
+      const wPitchYaw = Math.sqrt(w.x * w.x + w.y * w.y);
+
+      // Calculate the actual cone angle from the angular velocity
+      // When tornado spinning, the ratio of roll to pitch/yaw determines the cone angle
+      const actualConeAngle = wPitchYaw > 0.01 ? Math.atan(wPitchYaw / Math.abs(w.z)) : 0;
+
+      // The nose at distance zFace traces a circle with radius = zFace * tan(coneAngle)
+      const circleRadius = zFace * Math.tan(actualConeAngle) * (arrowScale || 1);
 
       // The circle should be offset perpendicular to the arrow direction
       // Air Roll Left (airRoll = -1): offset +90 degrees (counter-clockwise)
@@ -1447,16 +1457,14 @@ function integrate(dt) {
       const centerX = Math.sin(perpAngle) * circleRadius;
       const centerY = -Math.cos(perpAngle) * circleRadius;
 
-      // Scale circle slightly larger (1.05x) to reduce wobble
-      tornadoCircle.scale.set(circleRadius * 1.05, circleRadius * 1.05, 1);
+      // Use the calculated radius directly (no scaling needed - matches actual physics)
+      tornadoCircle.scale.set(circleRadius, circleRadius, 1);
       tornadoCircle.position.set(centerX, centerY, zFace);
 
       // Apply tilt rotation toward the car
-      // Normalize tilt based on circle size to maintain consistent visual appearance
-      // Smaller circles (closer to car) need less tilt to appear the same due to perspective
-      const theoreticalMaxRadius = baseRadius * tornadoFactor * (arrowScale || 1);
-      const sizeFactor = circleRadius / (theoreticalMaxRadius || 1);
-      const normalizedTilt = circleTiltAngle * sizeFactor;
+      // Normalize tilt based on actual cone angle
+      // The tilt should match the cone angle for visual accuracy
+      const normalizedTilt = circleTiltAngle * (actualConeAngle / (tornadoFactor || 1));
       const tiltRad = (normalizedTilt * Math.PI) / 180;
 
       // Reset rotation first
