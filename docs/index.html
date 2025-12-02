@@ -492,6 +492,11 @@ function loadCarModel(presetName) {
 let car=null, BOX=null;
 let faceArrow=null, faceTip=null, tornadoCircle=null;
 
+// Tornado circle radius tracking - measure actual nose trajectory
+let noseTrajectory = [];
+const TRAJECTORY_SAMPLE_SIZE = 30; // frames to track
+let measuredCircleRadius = null;
+
 function clearCar(){
   if(!car) return;
   scene.remove(car);
@@ -1428,14 +1433,48 @@ function integrate(dt) {
     const showCircle = darOn && freeRollPeriod > 0 && eff > 0.02;
     tornadoCircle.visible = showCircle;
 
+    if (!showCircle) {
+      // Clear trajectory when circle is hidden
+      noseTrajectory = [];
+      measuredCircleRadius = null;
+    }
+
     if (showCircle) {
       const zFace = BOX.hz + 0.6;
       const minTornadoAngle = 0.10;
       const tornadoFactor = minTornadoAngle + eff * (maxTornadoAngle - minTornadoAngle);
 
-      // Circle radius is proportional to stick deflection and tornado cone angle
-      const baseRadius = Math.min(BOX.hx, BOX.hy) * 0.95;
-      const circleRadius = baseRadius * eff * tornadoFactor * (arrowScale || 1);
+      // Track nose position in car-local XY plane to measure actual trajectory
+      const noseLocalPos = new THREE.Vector3(0, 0, zFace);
+      car.localToWorld(noseLocalPos);
+      const carPos = new THREE.Vector3();
+      car.getWorldPosition(carPos);
+
+      // Store relative position (nose position relative to car center in XY plane)
+      const relX = noseLocalPos.x - carPos.x;
+      const relY = noseLocalPos.y - carPos.y;
+      noseTrajectory.push({ x: relX, y: relY });
+
+      // Keep only recent samples
+      if (noseTrajectory.length > TRAJECTORY_SAMPLE_SIZE) {
+        noseTrajectory.shift();
+      }
+
+      // Calculate measured radius from trajectory samples
+      let circleRadius;
+      if (noseTrajectory.length >= 10) {
+        // Calculate average distance from car center to nose positions
+        let sumDist = 0;
+        for (const pos of noseTrajectory) {
+          sumDist += Math.sqrt(pos.x * pos.x + pos.y * pos.y);
+        }
+        measuredCircleRadius = sumDist / noseTrajectory.length;
+        circleRadius = measuredCircleRadius * (arrowScale || 1);
+      } else {
+        // Not enough samples yet, use theoretical calculation
+        const baseRadius = Math.min(BOX.hx, BOX.hy) * 0.95;
+        circleRadius = baseRadius * eff * tornadoFactor * (arrowScale || 1);
+      }
 
       // The circle should be offset perpendicular to the arrow direction
       // Air Roll Left (airRoll = -1): offset +90 degrees (counter-clockwise)
@@ -1447,10 +1486,8 @@ function integrate(dt) {
       const centerX = Math.sin(perpAngle) * circleRadius;
       const centerY = -Math.cos(perpAngle) * circleRadius;
 
-      // Scale circle slightly larger (1.05x) to reduce wobble
-      // The wobble occurs because the circle center moves in a circle, so we need
-      // the visual circle to be slightly larger than the offset distance
-      tornadoCircle.scale.set(circleRadius * 1.05, circleRadius * 1.05, 1);
+      // Use measured radius (no scaling needed - it matches actual trajectory)
+      tornadoCircle.scale.set(circleRadius, circleRadius, 1);
       tornadoCircle.position.set(centerX, centerY, zFace);
 
       // Apply tilt rotation toward the car
