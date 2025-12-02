@@ -390,9 +390,9 @@ const THEMES = {
     ambientIntensity: 0.8,
     directional: 0xffffff,
     directionalIntensity: 1.15,
-    gridMain: 0xd7dde6,
-    gridSub: 0xE5E9F1,
-    gridOpacity: 0.65,
+    gridMain: 0x8a95a5,
+    gridSub: 0xb5bec8,
+    gridOpacity: 0.85,
     gridY: -160
   }
 };
@@ -559,7 +559,7 @@ function buildCar(boxDims, presetName="placeholder"){
   // Tornado circle visualizer
   const circleGeom = new THREE.CircleGeometry(1, 64);
   circleGeom.vertices = circleGeom.attributes.position.array;
-  const circleMat = new THREE.LineBasicMaterial({color: 0x00ff00, transparent: true, opacity: 0.6, linewidth: 2});
+  const circleMat = new THREE.LineBasicMaterial({color: 0x00ff00, transparent: true, opacity: 0.9, linewidth: 2});
   const circlePoints = [];
   for (let i = 0; i <= 64; i++) {
     const angle = (i / 64) * Math.PI * 2;
