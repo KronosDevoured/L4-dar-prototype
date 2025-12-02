@@ -147,9 +147,15 @@
           <div class="row">
             <button id="rollL" class="btn" type="button">Air Roll Right</button>
             <button id="rollR" class="btn active" type="button">Air Roll Left</button>
+            <button id="rollFree" class="btn" type="button">Air Roll (Free)</button>
             <button id="restart" class="btn" type="button">Restart</button>
             <button id="orbitCW" class="btn" type="button">Orbit CW</button>
             <button id="orbitCCW" class="btn" type="button">Orbit CCW</button>
+          </div>
+
+          <div class="row">
+            <label>Air Roll Mode:</label>
+            <button id="toggleMode" class="btn active" type="button">Toggle</button>
           </div>
 
           <div class="row sl">
@@ -300,6 +306,7 @@
               <option value="toggleDAR">Toggle DAR</option>
               <option value="rollLeft">Air Roll Left</option>
               <option value="rollRight">Air Roll Right</option>
+              <option value="rollFree">Air Roll (Free)</option>
               <option value="restart">Restart</option>
               <option value="orbitCW">Orbit Clockwise</option>
               <option value="orbitCCW">Orbit Counter-Clockwise</option>
@@ -813,7 +820,7 @@ function saveSettings() {
     wMax, wMaxPitch, wMaxYaw,
     maxTornadoAngle, circleTiltAngle,
     freeRollPeriod, zoom, arrowScale,
-    isDarkMode, airRoll,
+    isDarkMode, airRoll, airRollIsToggle,
     brightnessDark, brightnessLight,
     gpEnabled, gpBindings,
     showArrow, showCircle
@@ -861,26 +868,45 @@ spinSlider.value = freeRollPeriod;
 zoomSlider.value = zoom;
 arrowSlider.value = arrowScale;
 
-/* Buttons / presets */
-let airRoll = savedSettings.airRoll ?? -1; // default to Air Roll Left, or load saved
+/* Air Roll System */
+// Air roll values: -1 = left, 0 = off, +1 = right, 2 = free
+let airRoll = savedSettings.airRoll ?? -1; // default to Air Roll Left
+let airRollIsToggle = savedSettings.airRollIsToggle ?? (!gpEnabled); // default: toggle for keyboard, hold for gamepad
+
 function setRoll(dir, skipSave = false){
-  airRoll=dir;
-  document.getElementById('rollL').classList.toggle('active',dir>0);
-  document.getElementById('rollR').classList.toggle('active',dir<0);
+  airRoll = dir;
+  document.getElementById('rollL').classList.toggle('active', dir === 1);
+  document.getElementById('rollR').classList.toggle('active', dir === -1);
+  document.getElementById('rollFree').classList.toggle('active', dir === 2);
   if (!skipSave) saveSettings();
 }
+
 function toggleRoll(dir){
-  if(airRoll === dir){
-    // Already in this direction, toggle off (set to 0)
-    setRoll(0);
-  } else if(airRoll === 0){
-    // Currently off, turn on this direction
+  // For toggle mode: tap to activate, tap again to deactivate
+  if(airRollIsToggle){
+    if(airRoll === dir){
+      setRoll(0); // Turn off if already active
+    } else {
+      setRoll(dir); // Switch to this mode
+    }
+  } else {
+    // For hold mode: handled by gamepad button state
     setRoll(dir);
   }
-  // else: different direction is already active, do nothing
 }
-document.getElementById('rollL').addEventListener('click',()=>setRoll(+1));
-document.getElementById('rollR').addEventListener('click',()=>setRoll(-1));
+
+document.getElementById('rollL').addEventListener('click', () => toggleRoll(1));
+document.getElementById('rollR').addEventListener('click', () => toggleRoll(-1));
+document.getElementById('rollFree').addEventListener('click', () => toggleRoll(2));
+
+// Toggle/Hold mode button
+document.getElementById('toggleMode').addEventListener('click', () => {
+  airRollIsToggle = !airRollIsToggle;
+  const btn = document.getElementById('toggleMode');
+  btn.classList.toggle('active', airRollIsToggle);
+  btn.textContent = airRollIsToggle ? 'Toggle' : 'Hold';
+  saveSettings();
+});
 
 document.getElementById('restart').addEventListener('click',()=>{
   if (car) car.quaternion.identity();
@@ -1129,6 +1155,7 @@ const defaultGpBindings = {
   toggleDAR:   { kind:'button', index: 1 },
   rollLeft:    { kind:'button', index: 4 },
   rollRight:   { kind:'button', index: 5 },
+  rollFree:    { kind:'button', index: 7 },
   restart:     { kind:'button', index: 9 },
   orbitCW:     { kind:'button', index: 2 },
   orbitCCW:    { kind:'button', index: 3 },
@@ -1142,6 +1169,7 @@ const GP_PRESETS = {
     toggleDAR:   { kind:'button', index: 1 },  // Circle
     rollLeft:    { kind:'button', index: 4 },  // L1
     rollRight:   { kind:'button', index: 5 },  // R1
+    rollFree:    { kind:'button', index: 7 },  // R2
     restart:     { kind:'button', index: 9 },  // Options
     orbitCW:     { kind:'button', index: 2 },  // Cross
     orbitCCW:    { kind:'button', index: 3 },  // Square
@@ -1152,6 +1180,7 @@ const GP_PRESETS = {
     toggleDAR:   { kind:'button', index: 1 },  // B
     rollLeft:    { kind:'button', index: 4 },  // LB
     rollRight:   { kind:'button', index: 5 },  // RB
+    rollFree:    { kind:'button', index: 7 },  // RT
     restart:     { kind:'button', index: 9 },  // Start
     orbitCW:     { kind:'button', index: 2 },  // A
     orbitCCW:    { kind:'button', index: 3 },  // X
@@ -1245,6 +1274,9 @@ function execBinding(action){
       break;
     case 'rollRight':
       toggleRoll(+1);
+      break;
+    case 'rollFree':
+      toggleRoll(2);
       break;
     case 'restart': {
       if (car) car.quaternion.identity();
@@ -1356,11 +1388,32 @@ function updateGamepadInput(){
     joyVec.set(nx * JOY_BASE_R, ny * JOY_BASE_R);
   }
 
-  // Fire actions on rising edge
+  // Fire actions on rising edge (or handle hold mode for air rolls)
   for(const action of Object.keys(gpBindings)){
     const nowPressed = isPressedForBinding(pad, gpBindings[action]);
     const wasPressed = !!gpPrevActionPressed[action];
-    if(nowPressed && !wasPressed){ execBinding(action); }
+
+    // Air roll buttons have special hold/toggle behavior
+    const isAirRollAction = (action === 'rollLeft' || action === 'rollRight' || action === 'rollFree');
+
+    if(isAirRollAction && !airRollIsToggle){
+      // Hold mode: activate on press, deactivate on release
+      if(nowPressed && !wasPressed){
+        // Just pressed - activate this air roll
+        const dir = action === 'rollLeft' ? -1 : action === 'rollRight' ? 1 : 2;
+        setRoll(dir);
+      } else if(!nowPressed && wasPressed){
+        // Just released - deactivate if this was the active one
+        const dir = action === 'rollLeft' ? -1 : action === 'rollRight' ? 1 : 2;
+        if(airRoll === dir){
+          setRoll(0);
+        }
+      }
+    } else {
+      // Normal toggle behavior for air rolls in toggle mode, or all other actions
+      if(nowPressed && !wasPressed){ execBinding(action); }
+    }
+
     gpPrevActionPressed[action] = nowPressed;
   }
 }
@@ -1533,8 +1586,12 @@ function integrate(dt) {
   let maxYawSpeed   = wMaxYaw;    // rad/s
   let targetRollSpeed = 0;        // rad/s
 
+  // Check if using Air Roll (Free) mode
+  const isAirRollFree = (airRoll === 2);
+
   // DAR tornado cone: shrink pitch/yaw authority while rolling
-  if (darOn && freeRollPeriod > 0) {
+  if (darOn && freeRollPeriod > 0 && !isAirRollFree) {
+    // Only apply tornado cone for Air Roll Left/Right (not Free)
     targetRollSpeed = airRoll * (2 * Math.PI) / freeRollPeriod;
 
     const minTornadoAngle = 0.10;
@@ -1545,9 +1602,19 @@ function integrate(dt) {
   }
 
   // stick → desired spin rates
-  const wx_des = maxPitchSpeed * eff * uy; // pitch
-  const wy_des = maxYawSpeed   * eff * ux; // yaw
-  const wz_des = targetRollSpeed;         // roll from DAR
+  let wx_des, wy_des, wz_des;
+
+  if (isAirRollFree) {
+    // Air Roll (Free): horizontal stick controls roll, vertical controls pitch
+    wx_des = maxPitchSpeed * eff * uy; // pitch (up/down)
+    wy_des = 0;                         // no yaw
+    wz_des = wMax * eff * ux;          // roll (left/right)
+  } else {
+    // Normal or Air Roll Left/Right: standard controls
+    wx_des = maxPitchSpeed * eff * uy; // pitch
+    wy_des = maxYawSpeed   * eff * ux; // yaw
+    wz_des = targetRollSpeed;          // roll from DAR
+  }
 
   // --- 5. PD control → angular acceleration per axis ---
   const ax_des = KpPitch * (wx_des - w.x) - KdPitch * w.x;
@@ -1692,6 +1759,11 @@ arrowToggleBtn.textContent = showArrow ? 'Show Arrow' : 'Hide Arrow';
 const circleToggleBtn = document.getElementById('circleToggle');
 circleToggleBtn.classList.toggle('active', showCircle);
 circleToggleBtn.textContent = showCircle ? 'Show Circle' : 'Hide Circle';
+
+// Restore toggle/hold mode button state
+const toggleModeBtn = document.getElementById('toggleMode');
+toggleModeBtn.classList.toggle('active', airRollIsToggle);
+toggleModeBtn.textContent = airRollIsToggle ? 'Toggle' : 'Hold';
 
 // Restore gamepad enabled button state
 gpEnableBtn.classList.toggle('active', gpEnabled);
