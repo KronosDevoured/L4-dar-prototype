@@ -60,6 +60,11 @@
   }
   .card h3{margin:.1rem 0 .7rem; font-size:1rem; opacity:.95}
   .row{display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; margin:.45rem 0; width:100%;}
+  .tip{
+    font-size:.86rem; opacity:.85; line-height:1.5; margin:.5rem 0;
+    padding:.5rem .7rem; background:rgba(255,255,255,.03);
+    border-left:3px solid #4c8dff; border-radius:4px;
+  }
   .btn{border:1px solid #3a3d45;padding:.45rem .7rem;border-radius:999px;background:#181a20;color:#e8e8ea;font-weight:600;letter-spacing:.2px;cursor:pointer}
   .btn.active{background:#0066ff;border-color:#4c8dff}
   .tag{
@@ -140,8 +145,8 @@
             <span class="tag" id="rollVal">1.20 s/rot</span>
           </div>
 
-          <div class="row" style="font-size:.86rem;opacity:.85;line-height:1.35;">
-            Tip: With <b>Air Roll Right</b>, rotate the stick clockwise. With <b>Air Roll Left</b>, rotate the stick counter-clockwise.
+          <div class="tip">
+            <b>Tip:</b> With Air Roll Right, rotate the stick clockwise. With Air Roll Left, rotate the stick counter-clockwise.
           </div>
         </div>
 
@@ -292,8 +297,8 @@
           <div class="row">
             <button id="gpResetDefaults" class="btn" type="button">Reset to Defaults</button>
           </div>
-          <div class="row" style="font-size:.86rem;opacity:.85;line-height:1.35;">
-            Tip: Left stick moves the on-screen stick. Remap any action, then press a button or push an axis to bind.
+          <div class="tip">
+            <b>Tip:</b> Left stick moves the on-screen stick. Remap any action, then press a button or push an axis to bind.
           </div>
         </div>
 
