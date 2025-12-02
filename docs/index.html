@@ -30,6 +30,16 @@
   #menuBtn .bar{display:block;width:20px;height:2px;background:#e8e8ea;margin:3px 0}
   #menuBtn.active{background:#0066ff;border-color:#4c8dff}
 
+  /* === THEME BUTTON (Sun/Moon) === */
+  #themeBtn{
+    position:fixed;top:.6rem;right:3.5rem;z-index:3;width:44px;height:44px;
+    border:none;background:transparent;font-size:1.8rem;cursor:pointer;
+    display:grid;place-items:center;padding:0;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,.3));
+  }
+  #themeBtn:hover{transform:scale(1.1)}
+  #themeBtn:active{transform:scale(0.95)}
+
   /* === OVERLAY MENU PANEL === */
   #menuOverlay{
     position:fixed; inset:0; z-index:4; display:none;
@@ -118,6 +128,9 @@
 
   <!-- HAMBURGER -->
   <button id="menuBtn" type="button" title="Open Menu"><span class="bar"></span><span class="bar"></span><span class="bar"></span></button>
+
+  <!-- THEME TOGGLE (Sun/Moon) -->
+  <button id="themeBtn" type="button" title="Toggle Day/Night Mode">🌙</button>
 
   <!-- OVERLAY MENU -->
   <div id="menuOverlay">
@@ -238,7 +251,8 @@
           <h3>View & HUD</h3>
 
           <div class="row">
-            <button id="themeToggle" class="btn active" type="button">Night Mode</button>
+            <button id="arrowToggle" class="btn active" type="button">Show Arrow</button>
+            <button id="circleToggle" class="btn active" type="button">Show Circle</button>
           </div>
 
           <div class="row sl">
@@ -801,7 +815,8 @@ function saveSettings() {
     freeRollPeriod, zoom, arrowScale,
     isDarkMode, airRoll,
     brightnessDark, brightnessLight,
-    gpEnabled, gpBindings
+    gpEnabled, gpBindings,
+    showArrow, showCircle
   };
   localStorage.setItem('darSettings', JSON.stringify(settings));
 }
@@ -910,14 +925,33 @@ document.getElementById('orbitCCW').addEventListener('click',()=>{
   }
 });
 
-/* Theme toggle */
-document.getElementById('themeToggle').addEventListener('click',()=>{
+/* Theme toggle (main screen button) */
+document.getElementById('themeBtn').addEventListener('click',()=>{
   isDarkMode = !isDarkMode;
   applyTheme(isDarkMode);
-  const btn = document.getElementById('themeToggle');
-  btn.classList.toggle('active', isDarkMode);
-  btn.textContent = isDarkMode ? 'Night Mode' : 'Day Mode';
+  const btn = document.getElementById('themeBtn');
+  btn.textContent = isDarkMode ? '🌙' : '☀️';
   syncTags(); // Update brightness slider to show correct value for new theme
+  saveSettings();
+});
+
+/* Arrow and Circle toggles */
+let showArrow = savedSettings.showArrow ?? true;
+let showCircle = savedSettings.showCircle ?? true;
+
+document.getElementById('arrowToggle').addEventListener('click',()=>{
+  showArrow = !showArrow;
+  const btn = document.getElementById('arrowToggle');
+  btn.classList.toggle('active', showArrow);
+  btn.textContent = showArrow ? 'Show Arrow' : 'Hide Arrow';
+  saveSettings();
+});
+
+document.getElementById('circleToggle').addEventListener('click',()=>{
+  showCircle = !showCircle;
+  const btn = document.getElementById('circleToggle');
+  btn.classList.toggle('active', showCircle);
+  btn.textContent = showCircle ? 'Show Circle' : 'Hide Circle';
   saveSettings();
 });
 
@@ -1264,9 +1298,10 @@ function execBinding(action){
     case 'toggleTheme':
       isDarkMode = !isDarkMode;
       applyTheme(isDarkMode);
-      const themeBtn = document.getElementById('themeToggle');
-      themeBtn.classList.toggle('active', isDarkMode);
-      themeBtn.textContent = isDarkMode ? 'Night Mode' : 'Day Mode';
+      const themeBtn = document.getElementById('themeBtn');
+      themeBtn.textContent = isDarkMode ? '🌙' : '☀️';
+      syncTags();
+      saveSettings();
       break;
     case 'openMenu':
       if (chromeShown) closeMenu();
@@ -1392,7 +1427,7 @@ function integrate(dt) {
 
   // --- 2. Front-face arrow (same behavior as before, just using ux,uy,eff) ---
   if (faceArrow && faceTip) {
-    const show = eff > 0.02;
+    const show = showArrow && eff > 0.02;
     faceArrow.visible = show;
     faceTip.visible   = show;
 
@@ -1425,10 +1460,10 @@ function integrate(dt) {
 
   // --- 2b. Tornado circle visualizer (shows DAR cone path) ---
   if (tornadoCircle) {
-    const showCircle = darOn && freeRollPeriod > 0 && eff > 0.02;
-    tornadoCircle.visible = showCircle;
+    const shouldShowCircle = showCircle && darOn && freeRollPeriod > 0 && eff > 0.02;
+    tornadoCircle.visible = shouldShowCircle;
 
-    if (showCircle) {
+    if (shouldShowCircle) {
       const zFace = BOX.hz + 0.6;
       const minTornadoAngle = 0.10;
       const tornadoFactor = minTornadoAngle + eff * (maxTornadoAngle - minTornadoAngle);
@@ -1645,10 +1680,18 @@ positionHints();
 applyZoom();
 applyTheme(isDarkMode); // Initialize theme
 
-// Restore theme toggle button state
-const themeBtn = document.getElementById('themeToggle');
-themeBtn.classList.toggle('active', isDarkMode);
-themeBtn.textContent = isDarkMode ? 'Night Mode' : 'Day Mode';
+// Restore theme button state (main screen)
+const themeBtn = document.getElementById('themeBtn');
+themeBtn.textContent = isDarkMode ? '🌙' : '☀️';
+
+// Restore arrow and circle toggle button states
+const arrowToggleBtn = document.getElementById('arrowToggle');
+arrowToggleBtn.classList.toggle('active', showArrow);
+arrowToggleBtn.textContent = showArrow ? 'Show Arrow' : 'Hide Arrow';
+
+const circleToggleBtn = document.getElementById('circleToggle');
+circleToggleBtn.classList.toggle('active', showCircle);
+circleToggleBtn.textContent = showCircle ? 'Show Circle' : 'Hide Circle';
 
 // Restore gamepad enabled button state
 gpEnableBtn.classList.toggle('active', gpEnabled);
