@@ -62,14 +62,29 @@
   .mp-close{border:1px solid #3a3d45;background:#181a20;color:#e8e8ea;border-radius:10px;padding:.35rem .6rem;font-weight:600}
   .mp-body{
     padding:clamp(.6rem,2vw,1rem);
-    display:grid; grid-template-columns: 1fr 1fr; gap:14px;
+    display:grid; grid-template-columns: 1fr; gap:14px;
   }
-  @media (max-width: 860px){ .mp-body{grid-template-columns: 1fr;} }
 
   .card{
     background:#15171d; border:1px solid #33373f; border-radius:12px; padding:.9rem;
   }
-  .card h3{margin:.1rem 0 .7rem; font-size:1rem; opacity:.95}
+  .card h3{
+    margin:.1rem 0 .7rem; font-size:1rem; opacity:.95; cursor:pointer; user-select:none;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .card h3:hover{opacity:1; color:#4c8dff;}
+  .card h3::after{
+    content:'▼'; font-size:.8rem; transition: transform 0.2s;
+  }
+  .card.collapsed h3::after{
+    transform: rotate(-90deg);
+  }
+  .card-content{
+    overflow:hidden; transition: max-height 0.3s ease, opacity 0.2s ease;
+  }
+  .card.collapsed .card-content{
+    max-height:0 !important; opacity:0;
+  }
   .row{display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; margin:.45rem 0; width:100%;}
   .tip{
     font-size:.86rem; opacity:.85; line-height:1.5; margin:.5rem 0;
@@ -265,7 +280,7 @@
 
           <div class="row sl">
             <label for="zoomSlider">Zoom</label>
-            <input id="zoomSlider" type="range" min="0.70" max="1.60" step="0.01" value="1.00" />
+            <input id="zoomSlider" type="range" min="0.20" max="4.00" step="0.01" value="1.00" />
             <span class="tag" id="zoomVal">1.00×</span>
           </div>
 
@@ -325,6 +340,7 @@
               <option value="rollRight">Air Roll Right</option>
               <option value="rollFree">Air Roll (Free)</option>
               <option value="boost">Boost (Ring Mode)</option>
+              <option value="pause">Pause (Ring Mode)</option>
               <option value="restart">Restart</option>
               <option value="orbitCW">Orbit Clockwise</option>
               <option value="orbitCCW">Orbit Counter-Clockwise</option>
@@ -360,6 +376,12 @@ const hud = document.getElementById('hud');
 const renderer = new THREE.WebGLRenderer({canvas: gl, antialias: true});
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
+
+// Detect if on mobile/tablet or desktop
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+  || (navigator.maxTouchPoints && navigator.maxTouchPoints > 2);
+const isDesktop = !isMobile;
+console.log('Device type:', isMobile ? 'Mobile/Tablet' : 'Desktop');
 
 const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(0xeef1f6, 900, 2200);
@@ -514,8 +536,13 @@ function loadCarModel(presetName) {
       const CAR_SCALE = 1.6;
       model.scale.set(CAR_SCALE, CAR_SCALE, CAR_SCALE);
 
-      // Rotate so nose points along +Z instead of +X
-      model.rotation.y = -Math.PI / 2;
+      // Rotate so nose points along +Z (toward camera)
+      // Dominus needs different rotation than Octane
+      if (presetName === 'dominus') {
+        model.rotation.y = 0; // No rotation - try straight
+      } else {
+        model.rotation.y = -Math.PI / 2; // -90 degrees (octane)
+      }
 
       car.add(model);
     },
@@ -710,6 +737,7 @@ let JOY_CENTER = new THREE.Vector2(126, innerHeight-170);
 let joyActive=false, joyVec = new THREE.Vector2(0,0), smJoy = new THREE.Vector2(0,0);
 const STICK_TAU_MS=8, RELOCATE_HOLD_MS=250, STICK_MIN=0.02;
 let activeId=null, relocating=false, holdTimer=null;
+let activePointers = new Map(); // Track all active pointers for multi-touch
 const COLS = {UP:'#ff5c5c', RIGHT:'#4c8dff', DOWN:'#53d769', LEFT:'#ffd166'};
 
 function drawJoystick(){
@@ -750,6 +778,12 @@ let DAR_R = 44;
 let DAR_CENTER = new THREE.Vector2(innerWidth-120, innerHeight-150);
 let darOn = false, darRelocating = false, darHoldTimer = null, darPressT=0;
 
+/* Boost button (for Ring Mode without gamepad) */
+let BOOST_R = 50;
+let BOOST_CENTER = new THREE.Vector2(innerWidth-120, innerHeight-80);
+let boostRelocating = false, boostHoldTimer = null, boostPressT=0;
+let showBoostButton = isMobile; // Only show on mobile/tablet, not desktop
+
 function drawDAR(){
   const cx=DAR_CENTER.x, cy=DAR_CENTER.y, r=DAR_R;
   HfillCircle(cx,cy,r, darOn ? 'rgba(0,102,255,0.18)' : 'rgba(24,26,32,0.75)');
@@ -758,6 +792,19 @@ function drawDAR(){
   Htri(cx,cy,a, r*0.55, darOn ? '#0e0f12' : '#e8e8ea');
   Hcircle(cx,cy,r-12, '#bdbdbd', 1.5);
 }
+
+function drawBoost(){
+  const cx=BOOST_CENTER.x, cy=BOOST_CENTER.y, r=BOOST_R;
+  HfillCircle(cx,cy,r, ringModeBoostActive ? 'rgba(255,92,92,0.25)' : 'rgba(24,26,32,0.75)');
+  Hcircle(cx,cy,r, ringModeBoostActive ? '#ff5c5c' : '#3a3d45', ringModeBoostActive ? 5 : 3);
+  // Draw "B" text
+  hctx.fillStyle = ringModeBoostActive ? '#0e0f12' : '#e8e8ea';
+  hctx.font = 'bold 24px system-ui';
+  hctx.textAlign = 'center';
+  hctx.textBaseline = 'middle';
+  hctx.fillText('B', cx, cy);
+}
+
 function inDAR(x,y){
   const dx=x-DAR_CENTER.x, dy=y-DAR_CENTER.y;
   return (dx*dx+dy*dy) <= (DAR_R*DAR_R);
@@ -766,6 +813,16 @@ function clampDARCenter(){
   const m=DAR_R+20;
   DAR_CENTER.x = Math.max(m, Math.min(innerWidth - m, DAR_CENTER.x));
   DAR_CENTER.y = Math.max(m, Math.min(innerHeight - m, DAR_CENTER.y));
+}
+
+function inBoost(x,y){
+  const dx=x-BOOST_CENTER.x, dy=y-BOOST_CENTER.y;
+  return (dx*dx+dy*dy) <= (BOOST_R*BOOST_R);
+}
+function clampBoostCenter(){
+  const m=BOOST_R+20;
+  BOOST_CENTER.x = Math.max(m, Math.min(innerWidth - m, BOOST_CENTER.x));
+  BOOST_CENTER.y = Math.max(m, Math.min(innerHeight - m, BOOST_CENTER.y));
 }
 
 /* Hints */
@@ -785,15 +842,198 @@ const menuOverlay=document.getElementById('menuOverlay');
 const menuCloseBtn=document.getElementById('menuCloseBtn');
 let chromeShown=false;
 
+// Controller menu navigation
+let menuFocusIndex = 0;
+let menuFocusableElements = [];
+let menuNavigationCooldown = 0;
+const MENU_NAV_COOLDOWN = 200; // ms between navigation inputs
+
+function updateMenuFocusableElements() {
+  // Get all interactive elements in the menu, including card headers
+  menuFocusableElements = Array.from(document.querySelectorAll(
+    '#menuPanel .card h3, #menuPanel button, #menuPanel input[type="range"], #menuPanel select'
+  )).filter(el => {
+    // Only include visible elements
+    // For elements inside collapsed cards, check if parent card is collapsed
+    const card = el.closest('.card');
+    if (card && card.classList.contains('collapsed') && el.tagName !== 'H3') {
+      return false; // Don't include elements in collapsed cards
+    }
+    return el.offsetParent !== null;
+  });
+}
+
+function findClosestElementInDirection(direction) {
+  // Simple, intuitive sequential navigation
+  // UP/LEFT = previous, DOWN/RIGHT = next
+  if (menuFocusableElements.length === 0) return menuFocusIndex;
+
+  if (direction === 'down' || direction === 'right') {
+    // Move to next element (wraps to start)
+    return (menuFocusIndex + 1) % menuFocusableElements.length;
+  } else if (direction === 'up' || direction === 'left') {
+    // Move to previous element (wraps to end)
+    return (menuFocusIndex - 1 + menuFocusableElements.length) % menuFocusableElements.length;
+  }
+
+  return menuFocusIndex;
+}
+
+function focusMenuElement(index) {
+  // Remove previous focus styling
+  menuFocusableElements.forEach(el => {
+    el.style.outline = '';
+    el.style.boxShadow = '';
+  });
+
+  if (menuFocusableElements.length === 0) return;
+
+  // Wrap index
+  menuFocusIndex = ((index % menuFocusableElements.length) + menuFocusableElements.length) % menuFocusableElements.length;
+
+  // Add focus styling to current element
+  const focusedEl = menuFocusableElements[menuFocusIndex];
+  focusedEl.style.outline = '3px solid #4c8dff';
+  focusedEl.style.boxShadow = '0 0 12px rgba(76, 141, 255, 0.6)';
+
+  // Scroll into view - use 'center' to ensure it's fully visible
+  // Use setTimeout to ensure it happens after any layout changes
+  setTimeout(() => {
+    focusedEl.scrollIntoView({
+      block: 'center',
+      inline: 'nearest',
+      behavior: 'smooth'
+    });
+  }, 10);
+}
+
+function activateMenuElement() {
+  if (menuFocusableElements.length === 0) return;
+  const el = menuFocusableElements[menuFocusIndex];
+
+  if (el.tagName === 'H3') {
+    // Toggle collapse/expand for card headers
+    el.click();
+  } else if (el.tagName === 'BUTTON') {
+    el.click();
+  } else if (el.tagName === 'INPUT' && el.type === 'range') {
+    // For sliders, we'll allow left/right to adjust them
+    // Clicking just focuses it for now
+  } else if (el.tagName === 'SELECT') {
+    // For select, X button does nothing - use left/right to change options
+  }
+}
+
+function adjustSliderValue(direction) {
+  if (menuFocusableElements.length === 0) return;
+  const el = menuFocusableElements[menuFocusIndex];
+
+  if (el.tagName === 'INPUT' && el.type === 'range') {
+    const step = parseFloat(el.step) || 1;
+    const currentValue = parseFloat(el.value);
+    const newValue = currentValue + (direction * step);
+    const min = parseFloat(el.min);
+    const max = parseFloat(el.max);
+
+    el.value = Math.max(min, Math.min(max, newValue));
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+}
+
+function adjustSelectValue(direction) {
+  if (menuFocusableElements.length === 0) return;
+  const el = menuFocusableElements[menuFocusIndex];
+
+  if (el.tagName === 'SELECT') {
+    const currentIndex = el.selectedIndex;
+    const newIndex = currentIndex + direction;
+
+    // Clamp to valid range
+    if (newIndex >= 0 && newIndex < el.options.length) {
+      el.selectedIndex = newIndex;
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  }
+}
+
+// Initialize collapsible cards
+function initCollapsibleCards() {
+  const cards = document.querySelectorAll('.card');
+  cards.forEach((card, index) => {
+    const h3 = card.querySelector('h3');
+    if (!h3) return;
+
+    // Wrap all content after h3 in a card-content div
+    if (!card.querySelector('.card-content')) {
+      const content = document.createElement('div');
+      content.className = 'card-content';
+
+      // Move all children after h3 into content div
+      const children = Array.from(card.children);
+      children.forEach(child => {
+        if (child !== h3) {
+          content.appendChild(child);
+        }
+      });
+      card.appendChild(content);
+
+      // Collapse all cards except the first one (Rotation)
+      const isRotationCard = h3.textContent.trim() === 'Rotation';
+      if (!isRotationCard) {
+        card.classList.add('collapsed');
+        content.style.maxHeight = '0';
+      } else {
+        content.style.maxHeight = content.scrollHeight + 'px';
+      }
+    }
+
+    // Add click handler to h3 (includes the arrow indicator)
+    h3.addEventListener('click', (e) => {
+      e.stopPropagation(); // Prevent event bubbling
+      const content = card.querySelector('.card-content');
+      const isCollapsed = card.classList.contains('collapsed');
+
+      if (isCollapsed) {
+        card.classList.remove('collapsed');
+        content.style.maxHeight = content.scrollHeight + 'px';
+      } else {
+        card.classList.add('collapsed');
+        content.style.maxHeight = '0';
+      }
+
+      // Update focusable elements after collapse/expand
+      setTimeout(() => {
+        updateMenuFocusableElements();
+      }, 50);
+    });
+  });
+}
+
 function openMenu(){
   chromeShown=true;
   menuBtn.classList.add('active');
   menuOverlay.style.display='block';
+
+  // Initialize collapsible cards on first open
+  initCollapsibleCards();
+
+  // Initialize menu navigation
+  updateMenuFocusableElements();
+  menuFocusIndex = 0;
+  if (menuFocusableElements.length > 0) {
+    focusMenuElement(0);
+  }
 }
 function closeMenu(){
   chromeShown=false;
   menuBtn.classList.remove('active');
   menuOverlay.style.display='none';
+
+  // Clear focus styling
+  menuFocusableElements.forEach(el => {
+    el.style.outline = '';
+    el.style.boxShadow = '';
+  });
 }
 menuBtn.addEventListener('click',()=> chromeShown ? closeMenu() : openMenu());
 menuCloseBtn.addEventListener('click', closeMenu);
@@ -823,30 +1063,65 @@ function loadSettings() {
   const saved = localStorage.getItem('darSettings');
   if (saved) {
     try {
-      return JSON.parse(saved);
+      const parsed = JSON.parse(saved);
+      console.log('Settings loaded from localStorage:', parsed);
+      return parsed;
     } catch (e) {
+      console.error('Failed to parse saved settings:', e);
       return {};
     }
   }
+  console.log('No saved settings found, using defaults');
   return {};
 }
 
 function saveSettings() {
-  const settings = {
-    maxAccelPitch, maxAccelYaw, maxAccelRoll,
-    inputPow, damp, brakeOnRelease,
-    wMax, wMaxPitch, wMaxYaw,
-    maxTornadoAngle, circleTiltAngle,
-    freeRollPeriod, zoom, arrowScale,
-    isDarkMode, airRoll, airRollIsToggle,
-    brightnessDark, brightnessLight,
-    gpEnabled, gpBindings,
-    showArrow, showCircle
-  };
-  localStorage.setItem('darSettings', JSON.stringify(settings));
+  try {
+    const settings = {
+      maxAccelPitch, maxAccelYaw, maxAccelRoll,
+      inputPow, damp, brakeOnRelease,
+      wMax, wMaxPitch, wMaxYaw,
+      maxTornadoAngle, circleTiltAngle,
+      freeRollPeriod, zoom, arrowScale,
+      isDarkMode, airRollIsToggle,
+      brightnessDark, brightnessLight,
+      gpEnabled, gpBindings,
+      showArrow, showCircle
+    };
+
+    // Only save these if the elements exist
+    const gpPresetEl = document.getElementById('gpPreset');
+    if (gpPresetEl) {
+      settings.gpPreset = gpPresetEl.value;
+    }
+
+    const presetSelEl = document.getElementById('presetSel');
+    if (presetSelEl) {
+      settings.selectedCarBody = presetSelEl.value;
+    }
+
+    const json = JSON.stringify(settings);
+    localStorage.setItem('darSettings', json);
+    console.log('Settings saved:', settings);
+    console.log('Settings JSON length:', json.length, 'chars');
+
+    // Verify it was saved
+    const verification = localStorage.getItem('darSettings');
+    if(verification === json){
+      console.log('✓ Verified: Settings successfully written to localStorage');
+    } else {
+      console.error('✗ ERROR: localStorage verification failed!');
+    }
+  } catch (e) {
+    console.error('Failed to save settings:', e);
+  }
 }
 
 const savedSettings = loadSettings();
+
+// Initialize gamepad bindings early (will be properly set later)
+let gpEnabled = savedSettings.gpEnabled ?? true;
+let gpBindings = savedSettings.gpBindings ?? null; // Will be set to defaultGpBindings later if still null
 
 // Restore theme mode (default to true = dark mode)
 isDarkMode = savedSettings.isDarkMode ?? true;
@@ -888,7 +1163,7 @@ arrowSlider.value = arrowScale;
 
 /* Air Roll System */
 // Air roll values: -1 = left, 0 = off, +1 = right, 2 = free
-let airRoll = savedSettings.airRoll ?? -1; // default to Air Roll Left
+let airRoll = savedSettings.airRoll ?? 0; // default to off
 let lastActiveAirRoll = airRoll !== 0 ? airRoll : -1; // Remember last active for DAR toggle
 // Default: toggle for keyboard (gpEnabled=false), hold for gamepad (gpEnabled=true)
 let airRollIsToggle = savedSettings.airRollIsToggle ?? (savedSettings.gpEnabled === false);
@@ -933,6 +1208,112 @@ document.getElementById('toggleMode').addEventListener('click', () => {
 });
 
 /* Ring Mode */
+/*
+ * ===== COORDINATE SYSTEM GUIDE - READ THIS BEFORE ROTATING ANYTHING =====
+ *
+ * THREE.JS WORLD COORDINATES (Standard Right-Handed System):
+ * - X axis: LEFT (-) to RIGHT (+) across the screen
+ * - Y axis: DOWN (-) to UP (+) on the screen
+ * - Z axis: AWAY from camera (-) to TOWARD camera (+) - THIS IS DEPTH
+ *
+ * CAMERA SETUP:
+ * - Camera positioned at positive Z looking toward origin (0,0,0)
+ * - From camera's view: +X = right, +Y = up, +Z = toward you, -Z = into screen
+ *
+ * ===== CRITICAL: UNDERSTANDING ROTATIONS IN THREE.JS =====
+ *
+ * When you call car.rotation.set(x, y, z), you are setting EULER ANGLES.
+ * Three.js applies rotations in XYZ ORDER (this matters!):
+ *   1. First: Rotate around X axis
+ *   2. Second: Rotate around Y axis (which has now moved due to X rotation)
+ *   3. Third: Rotate around Z axis (which has now moved due to X and Y rotations)
+ *
+ * VISUAL GUIDE - ROTATING FROM USER'S PERSPECTIVE:
+ *   - X rotation: Pitch (nose up/down like nodding "yes")
+ *   - Y rotation: Yaw (turning left/right like shaking head "no") - THIS IS DEPTH AXIS ROTATION
+ *   - Z rotation: Roll (barrel roll, tilting left/right) - THIS IS UP/DOWN AXIS ROTATION
+ *
+ * IMPORTANT: The Y axis is the DEPTH axis (toward/away from camera)
+ *            The Z axis is the UP/DOWN axis (vertical on screen)
+ *            Rotating around Y = spinning on the depth axis
+ *            Rotating around Z = spinning on the vertical axis
+ *
+ * ===== CAR MODEL DEFAULT ORIENTATION (at quaternion.identity, NO rotations) =====
+ *
+ * Default car orientation when spawned with NO rotation applied:
+ * - Wheels/Bottom:  Facing UP (+Y, toward top of screen)
+ * - Roof:           Facing DOWN (-Y, toward bottom of screen)
+ * - Nose/Front:     Facing LEFT (-X, left side of screen)
+ * - Rear/Back:      Facing RIGHT (+X, right side of screen)
+ * - Right side:     Facing CAMERA (+Z, toward you)
+ * - Left side:      Facing AWAY (-Z, away from you into screen)
+ *
+ * ===== DESIRED ORIENTATION FOR DAR TRAINING =====
+ *
+ * What we want to achieve:
+ * - Roof:           Facing CAMERA (+Z, toward user)
+ * - Wheels/Bottom:  Facing AWAY (-Z, into screen depth)
+ * - Nose/Front:     Facing UP (+Y, top of screen)
+ * - Rear/Back:      Facing DOWN (-Y, bottom of screen)
+ * - Right side:     Facing RIGHT (+X)
+ * - Left side:      Facing LEFT (-X)
+ *
+ * ===== FINAL WORKING ROTATION =====
+ *
+ * car.rotation.set(Math.PI * 1.5, 0, Math.PI)
+ * Breaking it down:
+ *   - X: +270° (Math.PI * 1.5) - Pitches nose UP, this gets us nose pointing up
+ *   - Y: 0° - No depth rotation needed
+ *   - Z: +180° (Math.PI) - Barrel roll to flip roof toward camera
+ *
+ * WHY THIS WORKS:
+ * 1. Start: Car at identity (roof down, nose left, right-side toward camera)
+ * 2. X rotation +270°: Pitches the car so nose points up (like tilting forward 3/4 turn)
+ * 3. Z rotation +180°: Barrel rolls the car to flip roof toward camera
+ *
+ * ===== CAR MODEL LOCAL SPACE (GLB file internal axes) =====
+ *
+ * The GLB model has its own coordinate system baked in:
+ * - Model +Z local: Points toward nose/front of car
+ * - Model +X local: Points toward right side of car
+ * - Model +Y local: Points toward roof of car
+ *
+ * Different car models may be exported with different default orientations:
+ * - Dominus GLB: rotation.y = 0 (nose already points in correct direction)
+ * - Octane GLB: rotation.y = -Math.PI/2 (-90°) needed to align nose correctly
+ *
+ * ===== ROTATION TESTING HISTORY (for reference) =====
+ *
+ * Attempts that DIDN'T work:
+ * - (0, 0, Math.PI): Nose facing camera instead of up
+ * - (Math.PI, 0, 0): Roof down, nose away from screen
+ * - (Math.PI, -Math.PI/2, 0): Roof down, nose left
+ * - (Math.PI/2, 0, Math.PI/2): Nose DOWN, rear UP, roof LEFT
+ * - (0, -Math.PI/2, -Math.PI/2): Roof correct, but nose LEFT instead of UP
+ * - (Math.PI/2, 0, -Math.PI/2): Various incorrect orientations
+ * - (Math.PI, 0, -Math.PI/2): Still incorrect
+ *
+ * What WORKED: (Math.PI * 1.5, 0, Math.PI) - Nose UP confirmed, roof toward camera
+ *
+ * ===== RING MODE PHYSICS =====
+ *
+ * - Car is locked at world origin (0, 0, 0) - never moves in 3D space
+ * - Visual movement simulated by translating car on 2D plane using ringModePosition
+ * - Movement occurs in X-Y plane (left/right and up/down on screen)
+ * - Rings spawn at negative Z (far from camera) and move toward positive Z (toward camera)
+ * - This creates the illusion that the car is flying through depth
+ *
+ * ===== REMEMBER THIS TO AVOID CONFUSION =====
+ *
+ * If you need to rotate the car in the future:
+ * 1. Y axis rotation = spinning around the DEPTH axis (toward/away from camera)
+ * 2. Z axis rotation = spinning around the UP/DOWN axis (vertical on screen)
+ * 3. X axis rotation = pitching nose up/down
+ * 4. Rotations are applied in X-Y-Z order, so later rotations operate on moved axes
+ * 5. Test one axis at a time in 90° increments to understand the effect
+ * 6. The current working rotation is: car.rotation.set(Math.PI * 1.5, 0, Math.PI)
+ *
+ */
 let ringModeActive = false;
 let ringModeScore = 0;
 let ringModeLives = 5;
@@ -943,10 +1324,281 @@ let ringCameraSpeed = 0.1;
 let ringModeVelocity = new THREE.Vector2(0, 0); // XY velocity only
 let ringModePosition = new THREE.Vector2(0, 0); // Car position in 2D plane
 const RING_MAX_SPEED = 2300; // Rocket League equivalent max speed
-const RING_BOOST_ACCEL = RING_MAX_SPEED / 4.5; // Reach max speed in 4.5 seconds
+const RING_BOOST_ACCEL = (RING_MAX_SPEED / 4.5) * 5.0; // 5.0x boost strength (2x stronger than before)
 const RING_GRAVITY = -800; // Constant downward gravity
-const RING_GRID_BOUNDS = 500; // Movement boundary
+const RING_GRID_BOUNDS = 1500; // Movement boundary (3x larger: 500 * 3)
 let ringModeBoostActive = false;
+let ringModeStarted = false; // Track if player has started (boosted at least once)
+let ringModePaused = false; // Track pause state
+
+// Boost flame effects
+let boostFlames = [];
+
+// Ring geometry and spawning
+let rings = []; // Active rings in the scene
+const RING_COLORS = [
+  0xff00ff, // Magenta
+  0x00ffff, // Cyan
+  0xff0080, // Hot pink
+  0x00ff00, // Green
+  0xffff00, // Yellow
+  0xff6600  // Orange
+];
+let currentColorIndex = 0;
+
+// Ring sizing (car is ~30 units wide, ~20 tall, ~45 long based on Octane)
+const CAR_WIDTH = 30;
+const CAR_HEIGHT = 20;
+const INITIAL_RING_SIZE = CAR_WIDTH * 20; // Start at 20x car width (600 units diameter) - MUCH BIGGER
+const RING_TUBE_RADIUS = 8; // Thickness of the ring torus
+
+// Ring movement and spawning
+const RING_SPAWN_DISTANCE = -800; // Spawn rings far behind camera
+const RING_DESPAWN_DISTANCE = 1000; // Remove rings well past camera (allows them to pass behind)
+const RING_BASE_SPEED = 200; // Base units per second toward camera
+const RING_BASE_SPAWN_INTERVAL = 3.0; // Base seconds between ring spawns
+let ringSpawnTimer = 0;
+
+// Create a ring with neon 80s aesthetic
+function createRing(x, y, z, size, speed) {
+  const color = RING_COLORS[currentColorIndex];
+  currentColorIndex = (currentColorIndex + 1) % RING_COLORS.length;
+
+  // Create torus geometry for the ring
+  const geometry = new THREE.TorusGeometry(size / 2, RING_TUBE_RADIUS, 16, 32);
+
+  // Neon glowing material
+  const material = new THREE.MeshStandardMaterial({
+    color: color,
+    emissive: color,
+    emissiveIntensity: 0.8,
+    metalness: 0.3,
+    roughness: 0.2
+  });
+
+  const ring = new THREE.Mesh(geometry, material);
+  ring.position.set(x, y, z);
+
+  // Add point light for glow effect
+  const light = new THREE.PointLight(color, 2, 150);
+  light.position.set(0, 0, 0);
+  ring.add(light);
+
+  scene.add(ring);
+
+  return {
+    mesh: ring,
+    size: size,
+    speed: speed,
+    passed: false,
+    missed: false
+  };
+}
+
+// Pattern generation variables
+let currentPattern = 'random';
+let patternProgress = 0; // Progress through current pattern (0-1)
+let patternLength = 15; // Number of rings in this pattern
+let patternRingCount = 0; // Rings spawned in current pattern
+const PATTERN_TYPES = ['sine_horizontal', 'sine_vertical', 'spiral', 'helix', 'figure8', 'vertical_line', 'horizontal_line', 'wave_combo', 'random'];
+
+// Pattern parameters (randomized when pattern changes)
+let patternAmplitude = 400; // Wave/spiral amplitude
+let patternFrequency = 0.5; // Oscillation frequency
+let patternPhase = 0; // Starting phase offset
+
+function selectNewPattern() {
+  currentPattern = PATTERN_TYPES[Math.floor(Math.random() * PATTERN_TYPES.length)];
+  patternRingCount = 0;
+  patternLength = 10 + Math.floor(Math.random() * 15); // 10-25 rings per pattern
+  patternAmplitude = 300 + Math.random() * 400; // 300-700 units
+  patternFrequency = 0.3 + Math.random() * 0.7; // 0.3-1.0
+  patternPhase = Math.random() * Math.PI * 2;
+  console.log(`New pattern: ${currentPattern}, length: ${patternLength}`);
+}
+
+function getPatternPosition(progress) {
+  const t = progress; // 0 to 1 through the pattern
+  let x = 0, y = 0;
+
+  switch(currentPattern) {
+    case 'sine_horizontal':
+      // Horizontal sine wave
+      x = Math.sin(t * Math.PI * 2 * patternFrequency + patternPhase) * patternAmplitude;
+      y = (Math.random() - 0.5) * 200; // Small random Y variance
+      break;
+
+    case 'sine_vertical':
+      // Vertical sine wave
+      x = (Math.random() - 0.5) * 200;
+      y = Math.sin(t * Math.PI * 2 * patternFrequency + patternPhase) * patternAmplitude;
+      break;
+
+    case 'spiral':
+      // Expanding or contracting spiral
+      const spiralRadius = patternAmplitude * (0.3 + t * 0.7);
+      const spiralAngle = t * Math.PI * 4 + patternPhase;
+      x = Math.cos(spiralAngle) * spiralRadius;
+      y = Math.sin(spiralAngle) * spiralRadius;
+      break;
+
+    case 'helix':
+      // Helix (circular with vertical oscillation)
+      const helixAngle = t * Math.PI * 3 + patternPhase;
+      x = Math.cos(helixAngle) * patternAmplitude;
+      y = Math.sin(t * Math.PI * 2 * patternFrequency) * (patternAmplitude * 0.5);
+      break;
+
+    case 'figure8':
+      // Figure-8 pattern
+      const fig8t = t * Math.PI * 2 + patternPhase;
+      x = Math.sin(fig8t) * patternAmplitude;
+      y = Math.sin(fig8t * 2) * patternAmplitude * 0.7;
+      break;
+
+    case 'vertical_line':
+      // Straight vertical line
+      x = (Math.random() - 0.5) * 100;
+      y = -patternAmplitude + (t * patternAmplitude * 2);
+      break;
+
+    case 'horizontal_line':
+      // Straight horizontal line
+      x = -patternAmplitude + (t * patternAmplitude * 2);
+      y = (Math.random() - 0.5) * 100;
+      break;
+
+    case 'wave_combo':
+      // Combined horizontal and vertical waves
+      x = Math.sin(t * Math.PI * 2 * patternFrequency + patternPhase) * patternAmplitude;
+      y = Math.cos(t * Math.PI * 2 * patternFrequency * 1.3) * (patternAmplitude * 0.6);
+      break;
+
+    case 'random':
+    default:
+      // Pure random
+      x = (Math.random() - 0.5) * RING_GRID_BOUNDS * 0.8;
+      y = (Math.random() - 0.5) * RING_GRID_BOUNDS * 0.8;
+      break;
+  }
+
+  return { x, y };
+}
+
+// Spawn a new ring
+function spawnRing() {
+  // Check if we need a new pattern
+  if (patternRingCount === 0 || patternRingCount >= patternLength) {
+    selectNewPattern();
+  }
+
+  // Get position from current pattern
+  patternProgress = patternRingCount / patternLength;
+  const pos = getPatternPosition(patternProgress);
+  const spawnX = pos.x;
+  const spawnY = pos.y;
+  const spawnZ = RING_SPAWN_DISTANCE;
+
+  patternRingCount++;
+
+  // Calculate progression based on ring count (every 10 rings)
+  const progressionLevel = Math.floor(ringModeRingCount / 10);
+
+  // Size: -5% every 10 rings (max 50% reduction)
+  const sizeReduction = progressionLevel * 0.05;
+  const ringSize = INITIAL_RING_SIZE * (1 - Math.min(sizeReduction, 0.5));
+
+  // Speed: +5% every 10 rings (max 50% increase)
+  const speedIncrease = progressionLevel * 0.05;
+  const ringSpeed = RING_BASE_SPEED * (1 + Math.min(speedIncrease, 0.5));
+
+  const ring = createRing(spawnX, spawnY, spawnZ, ringSize, ringSpeed);
+  rings.push(ring);
+}
+
+// Remove all rings from scene
+function clearAllRings() {
+  rings.forEach(r => {
+    scene.remove(r.mesh);
+    r.mesh.geometry.dispose();
+    r.mesh.material.dispose();
+  });
+  rings = [];
+}
+
+// Create boost flame effects
+function createBoostFlames() {
+  // Create two flame cones for the tailpipes
+  const flameGeometry = new THREE.ConeGeometry(8, 30, 8);
+  const flameMaterial = new THREE.MeshBasicMaterial({
+    color: 0xff6600,
+    transparent: true,
+    opacity: 0.9
+  });
+
+  for (let i = 0; i < 2; i++) {
+    const flame = new THREE.Mesh(flameGeometry, flameMaterial.clone());
+    flame.visible = false;
+
+    // Add point light for glow
+    const light = new THREE.PointLight(0xff6600, 3, 80);
+    flame.add(light);
+
+    scene.add(flame); // Add to scene instead of car
+    boostFlames.push(flame);
+  }
+}
+
+// Update boost flame effects
+function updateBoostFlames(active, forwardDir) {
+  if (boostFlames.length === 0) {
+    createBoostFlames();
+  }
+
+  if (!car) return;
+
+  boostFlames.forEach((flame, i) => {
+    flame.visible = active;
+
+    if (active) {
+      // Get car's backward direction (opposite of nose)
+      const backward = new THREE.Vector3(0, 0, -1); // Car's local backward
+      backward.applyQuaternion(car.quaternion);
+
+      // Position flames at rear of car
+      const offset = (i === 0) ? -12 : 12; // Left and right offset
+      const carPos = car.position.clone();
+      const carRight = new THREE.Vector3(1, 0, 0);
+      carRight.applyQuaternion(car.quaternion);
+
+      // Place flame behind car
+      flame.position.copy(carPos)
+        .add(backward.multiplyScalar(50)) // Behind car (backward direction)
+        .add(carRight.multiplyScalar(offset)); // Left/right offset
+
+      // Point flame in backward direction
+      flame.quaternion.copy(car.quaternion);
+      flame.rotateX(Math.PI / 2);
+
+      // Animate flame size
+      const pulse = 0.7 + Math.random() * 0.6;
+      flame.scale.set(pulse, pulse * 1.5, pulse);
+
+      // Vary opacity
+      flame.material.opacity = 0.7 + Math.random() * 0.3;
+    }
+  });
+}
+
+// Clear boost flames
+function clearBoostFlames() {
+  boostFlames.forEach(flame => {
+    if (flame.parent) flame.parent.remove(flame);
+    flame.geometry.dispose();
+    flame.material.dispose();
+  });
+  boostFlames = [];
+}
 
 document.getElementById('ringMode').addEventListener('click', () => {
   ringModeActive = !ringModeActive;
@@ -960,8 +1612,19 @@ document.getElementById('ringMode').addEventListener('click', () => {
     ringModeRingCount = 0;
     ringModeVelocity.set(0, 0);
     ringModePosition.set(0, 0);
+    ringSpawnTimer = 0;
+    currentColorIndex = 0;
+    ringModeStarted = false; // Reset started state
+    ringModePaused = false;  // Reset pause state
+    patternRingCount = 0;    // Reset pattern progress
+    clearAllRings();
+
+    // Spawn first ring immediately
+    spawnRing();
+
     if (car) {
       car.quaternion.identity();
+      car.rotation.set(Math.PI * 1.5, 0, Math.PI); // X: +270°, Y: 0°, Z: +180°
       car.position.set(0, 0, 0); // Lock car to origin in Ring Mode
     }
     w.set(0,0,0);
@@ -970,6 +1633,8 @@ document.getElementById('ringMode').addEventListener('click', () => {
     // Exit Ring Mode
     ringModeVelocity.set(0, 0);
     ringModePosition.set(0, 0);
+    clearAllRings();
+    clearBoostFlames();
     if (car) car.position.set(0, 0, 0);
   }
 });
@@ -982,7 +1647,10 @@ ringCameraSpeedSlider.addEventListener('input', () => {
 });
 
 document.getElementById('restart').addEventListener('click',()=>{
-  if (car) car.quaternion.identity();
+  if (car) {
+    car.quaternion.identity();
+    car.rotation.set(Math.PI * 1.5, 0, Math.PI); // X: +270°, Y: 0°, Z: +180°
+  }
   w.set(0,0,0);
   orbitOn = false;
   orbitDir = 1;
@@ -1097,7 +1765,7 @@ function setupEditableTags() {
     {tag: wmaxYawTag, slider: wmaxYawRange, setter: (v) => wMaxYaw = Math.max(6, Math.min(24, parseFloat(v) || 9))},
     {tag: tornadoAngleTag, slider: tornadoAngleRange, setter: (v) => maxTornadoAngle = Math.max(0, Math.min(1, parseFloat(v) || 0.4))},
     {tag: circleTiltTag, slider: circleTiltRange, setter: (v) => circleTiltAngle = Math.max(0, Math.min(45, parseFloat(v) || 34))},
-    {tag: zoomVal, slider: zoomSlider, setter: (v) => { zoom = Math.max(0.7, Math.min(1.6, parseFloat(v) || 1)); applyZoom(); }},
+    {tag: zoomVal, slider: zoomSlider, setter: (v) => { zoom = Math.max(0.2, Math.min(4.0, parseFloat(v) || 1)); applyZoom(); }},
     {tag: arrowVal, slider: arrowSlider, setter: (v) => arrowScale = Math.max(0.6, Math.min(4, parseFloat(v) || 4))},
     {tag: brightnessVal, slider: brightnessSlider, setter: (v) => {
       const val = Math.max(0.5, Math.min(3, parseFloat(v) || 1));
@@ -1161,13 +1829,40 @@ brightnessSlider.addEventListener('input',()=>{
 presetSel .addEventListener('change',()=>{
   const name = presetSel.value;
   buildCar(presets[name], name);
-  car.quaternion.identity(); w.set(0,0,0);
+  car.quaternion.identity();
+  car.rotation.set(Math.PI * 1.5, 0, Math.PI); // X: +270°, Y: 0°, Z: +180°
+  w.set(0,0,0);
+  saveSettings(); // Save selected car body
 });
 
 /* Pointer handlers */
 hud.addEventListener('pointerdown',(e)=>{
   try{hud.setPointerCapture(e.pointerId);}catch(_){}
+
+  // Track this pointer
+  activePointers.set(e.pointerId, {x: e.clientX, y: e.clientY});
+
+  // Check for two-finger gesture outside buttons (for boost relocation)
+  if(activePointers.size === 2){
+    const pointers = Array.from(activePointers.values());
+    const allOutsideButtons = pointers.every(p =>
+      (showBoostButton ? !inBoost(p.x, p.y) : true) && !inDAR(p.x, p.y) && !inJoyLoose(p.x, p.y)
+    );
+    if(allOutsideButtons){
+      boostRelocating = true;
+      e.preventDefault(); return;
+    }
+  }
+
   activeId=e.pointerId;
+
+  if(showBoostButton && inBoost(e.clientX,e.clientY)){
+    if(ringModeActive){
+      // During Ring Mode: simple hold button for boost
+      ringModeBoostActive = true;
+    }
+    e.preventDefault(); return;
+  }
 
   if(inDAR(e.clientX,e.clientY)){
     darPressT = performance.now();
@@ -1193,16 +1888,37 @@ hud.addEventListener('pointerdown',(e)=>{
   e.preventDefault();
 },{passive:false});
 hud.addEventListener('pointermove',(e)=>{
+  // Update pointer position in tracking
+  if(activePointers.has(e.pointerId)){
+    activePointers.set(e.pointerId, {x: e.clientX, y: e.clientY});
+  }
+
   if(activeId!==e.pointerId)return;
-  if(darRelocating){ DAR_CENTER.set(e.clientX,e.clientY); clampDARCenter(); positionHints(); }
+  if(boostRelocating){ BOOST_CENTER.set(e.clientX,e.clientY); clampBoostCenter(); }
+  else if(darRelocating){ DAR_CENTER.set(e.clientX,e.clientY); clampDARCenter(); positionHints(); }
   else if(relocating){ JOY_CENTER.set(e.clientX,e.clientY); clampJoyCenter(); positionHints(); }
   else if(joyActive){ joyVec = vecFromJoyPx(e.clientX,e.clientY); }
   e.preventDefault();
 },{passive:false});
 function endPtr(e){
+  // Remove pointer from tracking
+  activePointers.delete(e.pointerId);
+
+  // If we were relocating boost and lost a finger, stop relocating
+  if(boostRelocating && activePointers.size < 2){
+    boostRelocating = false;
+  }
+
   if(activeId!==e.pointerId) return;
   try{hud.releasePointerCapture(e.pointerId);}catch(_){}
   clearTimeout(holdTimer); relocating=false;
+
+  // Handle boost button release
+  if(ringModeActive){
+    if(!boostRelocating){
+      ringModeBoostActive = false;
+    }
+  }
 
   if(!darRelocating && inDAR(e.clientX,e.clientY)){
     const heldMs = performance.now() - darPressT;
@@ -1234,10 +1950,10 @@ const gpActionSel = document.getElementById('gpAction');
 const gpRemapBtn  = document.getElementById('gpRemap');
 const gpBindLabel = document.getElementById('gpBindLabel');
 
-// Restore gamepad settings from localStorage
-let gpEnabled = savedSettings.gpEnabled ?? true;      // enabled by default
+// Gamepad state variables (gpEnabled and gpBindings initialized earlier)
 let gpIndex   = -1;
 let gpRemapping = false;
+let gpRemapReady = false;  // true when all buttons/axes are released and ready to capture
 let gpPrevActionPressed = {};
 const GP_DEADZONE = 0.15;
 
@@ -1247,13 +1963,25 @@ const defaultGpBindings = {
   rollRight:   { kind:'button', index: 5 },
   rollFree:    { kind:'button', index: 7 },
   boost:       { kind:'button', index: 0 },
-  restart:     { kind:'button', index: 9 },
+  pause:       { kind:'button', index: 9 },  // Options/Start button
+  restart:     { kind:'button', index: 10 }, // Moved from 9
   orbitCW:     { kind:'button', index: 2 },
   orbitCCW:    { kind:'button', index: 3 },
   toggleTheme: { kind:'button', index: 8 },
   openMenu:    { kind:'button', index: 6 }
 };
-let gpBindings = savedSettings.gpBindings ?? defaultGpBindings;
+
+// Set default bindings if not loaded from savedSettings
+if (!gpBindings) {
+  gpBindings = defaultGpBindings;
+}
+console.log('Loaded gamepad bindings:', gpBindings);
+
+// Restore gamepad preset selection
+if (savedSettings.gpPreset) {
+  gpPresetSel.value = savedSettings.gpPreset;
+  console.log('Restored preset:', savedSettings.gpPreset);
+}
 
 const GP_PRESETS = {
   ps5: {
@@ -1262,7 +1990,8 @@ const GP_PRESETS = {
     rollRight:   { kind:'button', index: 5 },  // R1
     rollFree:    { kind:'button', index: 7 },  // R2
     boost:       { kind:'button', index: 0 },  // Cross (X)
-    restart:     { kind:'button', index: 9 },  // Options
+    pause:       { kind:'button', index: 9 },  // Options
+    restart:     { kind:'button', index: 10 }, // PS Button
     orbitCW:     { kind:'button', index: 2 },  // Square
     orbitCCW:    { kind:'button', index: 3 },  // Triangle
     toggleTheme: { kind:'button', index: 8 },  // Share
@@ -1274,7 +2003,8 @@ const GP_PRESETS = {
     rollRight:   { kind:'button', index: 5 },  // RB
     rollFree:    { kind:'button', index: 7 },  // RT
     boost:       { kind:'button', index: 0 },  // A
-    restart:     { kind:'button', index: 9 },  // Start
+    pause:       { kind:'button', index: 9 },  // Start
+    restart:     { kind:'button', index: 10 }, // Xbox button
     orbitCW:     { kind:'button', index: 2 },  // X
     orbitCCW:    { kind:'button', index: 3 },  // Y
     toggleTheme: { kind:'button', index: 8 },  // Back
@@ -1289,10 +2019,19 @@ function bindingToLabel(b){
   return `Axis ${b.axis}${d}`;
 }
 function setBindingPreset(name){
+  // Only apply preset if user explicitly confirms or if no custom bindings exist
+  if(!confirm('This will reset ALL your custom button mappings to the ' + name + ' defaults. Continue?')){
+    // User cancelled - restore the previous value
+    const currentPreset = savedSettings.gpPreset || 'ps5';
+    gpPresetSel.value = currentPreset;
+    return;
+  }
+
   const p = GP_PRESETS[name] || GP_PRESETS.ps5;
   gpBindings = JSON.parse(JSON.stringify(p));
   updateBindLabel();
   saveSettings();
+  alert('Button mappings reset to ' + name + ' defaults');
 }
 function updateBindLabel(){
   const act = gpActionSel.value;
@@ -1380,7 +2119,10 @@ function execBinding(action){
       toggleRoll(2);
       break;
     case 'restart': {
-      if (car) car.quaternion.identity();
+      if (car) {
+        car.quaternion.identity();
+        car.rotation.set(Math.PI * 1.5, 0, Math.PI); // X: +270°, Y: 0°, Z: +180°
+      }
       w.set(0,0,0);
       orbitOn = false;
       orbitDir = 1;
@@ -1391,6 +2133,18 @@ function execBinding(action){
       camera.lookAt(0,0,0);
       if (faceArrow) faceArrow.visible = false;
       if (faceTip)   faceTip.visible   = false;
+
+      // Reset Ring Mode if active
+      if (ringModeActive) {
+        ringModeVelocity.set(0, 0);
+        ringModePosition.set(0, 0);
+        ringModeScore = 0;
+        ringModeLives = 5;
+        ringModeRingCount = 0;
+        ringModeStarted = false;
+        clearAllRings();
+        console.log('Ring Mode restarted');
+      }
       break;
     }
     case 'orbitToggle':
@@ -1436,6 +2190,14 @@ function execBinding(action){
       syncTags();
       saveSettings();
       break;
+    case 'pause':
+      if (ringModeActive) {
+        ringModePaused = !ringModePaused;
+        if (ringModePaused) {
+          openMenu(); // Open menu when paused
+        }
+      }
+      break;
     case 'openMenu':
       if (chromeShown) closeMenu();
       else openMenu();
@@ -1446,43 +2208,171 @@ function execBinding(action){
 
 function handleRemap(pad){
   if(!gpRemapping || !pad) return;
+
+  // First, wait for all buttons and axes to be released
+  if(!gpRemapReady){
+    let allReleased = true;
+
+    // Check if any button is pressed
+    for(let i=0; i<pad.buttons.length; i++){
+      if(pad.buttons[i] && (pad.buttons[i].value||0) > 0.5){
+        allReleased = false;
+        break;
+      }
+    }
+
+    // Check if any axis is deflected
+    if(allReleased){
+      for(let a=0; a<pad.axes.length; a++){
+        const v = pad.axes[a] || 0;
+        if(Math.abs(v) > 0.6){
+          allReleased = false;
+          break;
+        }
+      }
+    }
+
+    if(allReleased){
+      gpRemapReady = true;
+      gpBindLabel.textContent = 'Ready! Press button / move axis…';
+    }
+    return;
+  }
+
+  // Now we're ready to capture the new binding
   for(let i=0;i<pad.buttons.length;i++){
     if(pad.buttons[i] && (pad.buttons[i].value||0) > 0.5){
-      gpBindings[gpActionSel.value] = { kind:'button', index:i };
+      const action = gpActionSel.value;
+      gpBindings[action] = { kind:'button', index:i };
+      console.log(`Remapped ${action} to button ${i}`);
+      console.log('Current gpBindings:', JSON.parse(JSON.stringify(gpBindings)));
       gpRemapping = false;
+      gpRemapReady = false;
       updateBindLabel();
       saveSettings();
+      console.log('saveSettings() called after remapping');
       return;
     }
   }
   for(let a=0;a<pad.axes.length;a++){
     const v = pad.axes[a] || 0;
     if(Math.abs(v) > 0.6){
-      gpBindings[gpActionSel.value] = { kind:'axis', axis:a, dir: (v>0? +1 : -1) };
+      const action = gpActionSel.value;
+      gpBindings[action] = { kind:'axis', axis:a, dir: (v>0? +1 : -1) };
+      console.log(`Remapped ${action} to axis ${a} dir ${v>0?'+':'-'}`);
+      console.log('Current gpBindings:', JSON.parse(JSON.stringify(gpBindings)));
       gpRemapping = false;
+      gpRemapReady = false;
       updateBindLabel();
       saveSettings();
+      console.log('saveSettings() called after remapping');
       return;
     }
   }
 }
 
 function updateGamepadInput(){
-  if(!gpEnabled) {
-    // If gamepad disabled, boost is always active in Ring Mode (for keyboard/touch)
-    if(ringModeActive) ringModeBoostActive = true;
-    return;
-  }
+  if(!gpEnabled) return;
   const { pad } = readPads();
   if(!pad){
     gpStatusTag.textContent = 'Enabled (waiting for gamepad)';
-    // No gamepad connected, boost is always active in Ring Mode
-    if(ringModeActive) ringModeBoostActive = true;
     return;
   }
   gpStatusTag.textContent = `Connected: ${pad.id}`;
 
-  if(gpRemapping){ handleRemap(pad); }
+  // If remapping, ONLY handle remapping - block everything else
+  if(gpRemapping){
+    handleRemap(pad);
+    return; // Don't process any other input while remapping
+  }
+
+  // Handle menu navigation when menu is open (but not while remapping)
+  if(chromeShown && menuFocusableElements.length > 0){
+    const currentTime = Date.now();
+
+    // D-pad and left stick navigation
+    const dpadUp = pad.buttons[12]?.pressed || false;
+    const dpadDown = pad.buttons[13]?.pressed || false;
+    const dpadLeft = pad.buttons[14]?.pressed || false;
+    const dpadRight = pad.buttons[15]?.pressed || false;
+
+    const lx = pad.axes[0] || 0;
+    const ly = pad.axes[1] || 0;
+    const stickUp = ly < -0.5;
+    const stickDown = ly > 0.5;
+    const stickLeft = lx < -0.5;
+    const stickRight = lx > 0.5;
+
+    const focusedEl = menuFocusableElements[menuFocusIndex];
+
+    // Check if enough time has passed since last navigation
+    if(currentTime - menuNavigationCooldown >= MENU_NAV_COOLDOWN){
+      const isSlider = focusedEl && focusedEl.tagName === 'INPUT' && focusedEl.type === 'range';
+      const isSelect = focusedEl && focusedEl.tagName === 'SELECT';
+
+      // Handle UP/DOWN navigation (always navigates, never adjusts values)
+      if(dpadUp || stickUp){
+        const newIndex = findClosestElementInDirection('up');
+        focusMenuElement(newIndex);
+        menuNavigationCooldown = currentTime;
+      } else if(dpadDown || stickDown){
+        const newIndex = findClosestElementInDirection('down');
+        focusMenuElement(newIndex);
+        menuNavigationCooldown = currentTime;
+      } else if(dpadLeft || stickLeft){
+        // Left: adjust slider/select if focused on one, otherwise navigate
+        if(isSlider){
+          adjustSliderValue(-1);
+        } else if(isSelect){
+          adjustSelectValue(-1);
+        } else {
+          const newIndex = findClosestElementInDirection('left');
+          focusMenuElement(newIndex);
+        }
+        menuNavigationCooldown = currentTime;
+      } else if(dpadRight || stickRight){
+        // Right: adjust slider/select if focused on one, otherwise navigate
+        if(isSlider){
+          adjustSliderValue(1);
+        } else if(isSelect){
+          adjustSelectValue(1);
+        } else {
+          const newIndex = findClosestElementInDirection('right');
+          focusMenuElement(newIndex);
+        }
+        menuNavigationCooldown = currentTime;
+      }
+    }
+
+    // X button (Cross) to activate/select (button 0)
+    const xPressed = pad.buttons[0]?.pressed || false;
+    const xWasPressed = !!gpPrevActionPressed['menu_x'];
+    if(xPressed && !xWasPressed){
+      activateMenuElement();
+    }
+    gpPrevActionPressed['menu_x'] = xPressed;
+
+    // Circle button to close menu (button 1)
+    const circlePressed = pad.buttons[1]?.pressed || false;
+    const circleWasPressed = !!gpPrevActionPressed['menu_circle'];
+    if(circlePressed && !circleWasPressed){
+      closeMenu();
+    }
+    gpPrevActionPressed['menu_circle'] = circlePressed;
+
+    // Check for openMenu binding to allow closing menu with it
+    if(gpBindings.openMenu){
+      const openMenuPressed = isPressedForBinding(pad, gpBindings.openMenu);
+      const openMenuWasPressed = !!gpPrevActionPressed['openMenu'];
+      if(openMenuPressed && !openMenuWasPressed){
+        closeMenu();
+      }
+      gpPrevActionPressed['openMenu'] = openMenuPressed;
+    }
+
+    // Don't process normal game input when menu is open
+    return;
+  }
 
   // Left stick → on-screen stick (natural Y: up=up)
   if(!joyActive && !relocating && !darRelocating){
@@ -1501,9 +2391,6 @@ function updateGamepadInput(){
   // Check boost button state (hold-based, not toggle)
   if(gpBindings.boost){
     ringModeBoostActive = isPressedForBinding(pad, gpBindings.boost);
-  } else {
-    // If no boost binding, boost is always active in Ring Mode
-    if(ringModeActive) ringModeBoostActive = true;
   }
 
   // Fire actions on rising edge (or handle hold mode for air rolls)
@@ -1577,11 +2464,17 @@ function softClampAngularVelocity(w, max) {
 }
 
 // Put these near your other physics constants:
-const KpPitch = 18.0, KdPitch = 4.0;
-const KpYaw   = 18.0, KdYaw   = 4.0;
+// Increased from 18.0 to 36.0 for much more responsive air control in Ring Mode (DAR)
+const KpPitch = 36.0, KdPitch = 4.0;
+const KpYaw   = 36.0, KdYaw   = 4.0;
 const KpRoll  = 12.0, KdRoll  = 3.0;
 
 function integrate(dt) {
+  // Skip physics when menu is open
+  if (chromeShown) {
+    return;
+  }
+
   // --- 1. Smooth joystick position ---
   const a = 1 - Math.exp(-(dt * 1000) / Math.max(1, STICK_TAU_MS));
   smJoy.lerp(joyVec, a);
@@ -1602,24 +2495,33 @@ function integrate(dt) {
     uy = jy  / (mag || 1); // up = +uy
   }
 
-  // === RING MODE PHYSICS ===
-  if (ringModeActive) {
-    // In Ring Mode: 2D plane movement with boost button and gravity
-    // Note: ringModeBoostActive is set by gamepad input polling
+  // === RING MODE: Calculate movement forces (normal rotation physics will run below) ===
+  if (ringModeActive && !ringModePaused && ringModeLives > 0) {
+    // Get car's forward direction from quaternion
+    const forward = new THREE.Vector3(0, 0, 1); // Car's local forward (flipped from -1 to 1)
+    forward.applyQuaternion(car.quaternion);
 
-    // Calculate boost direction from stick input
-    const boostDirX = ux;
-    const boostDirY = uy;
+    // Project onto XY plane for 2D movement
+    const boostDirX = forward.x;
+    const boostDirY = forward.y;
+
+    // Track if game has started (first boost press)
+    if (ringModeBoostActive && !ringModeStarted) {
+      ringModeStarted = true;
+    }
 
     // Apply forces
     let accelX = 0;
-    let accelY = RING_GRAVITY; // Always apply gravity
+    let accelY = ringModeStarted ? RING_GRAVITY : 0; // Only apply gravity after first boost
 
-    if (ringModeBoostActive && eff > 0.02) {
-      // Add boost acceleration in stick direction (only if stick is pushed)
+    if (ringModeBoostActive) {
+      // Boost in the direction car's nose is facing
       accelX += boostDirX * RING_BOOST_ACCEL;
       accelY += boostDirY * RING_BOOST_ACCEL;
     }
+
+    // Update boost flame visibility and position
+    updateBoostFlames(ringModeBoostActive, forward);
 
     // Integrate velocity
     ringModeVelocity.x += accelX * dt;
@@ -1642,23 +2544,15 @@ function integrate(dt) {
     // Check out of bounds (player went too far)
     if (Math.abs(ringModePosition.x) >= RING_GRID_BOUNDS ||
         Math.abs(ringModePosition.y) >= RING_GRID_BOUNDS) {
-      // Out of bounds - trigger restart
+      // Out of bounds - respawn at center
       ringModeVelocity.set(0, 0);
       ringModePosition.set(0, 0);
-      ringModeScore = 0;
-      ringModeLives = 5;
-      ringModeRingCount = 0;
+      ringModeStarted = false; // Wait for boost before falling
+      ringModeLives--; // Lose a life
+      console.log('Out of bounds! Lives:', ringModeLives);
     }
 
-    // Update car visual position (XY only, Z stays at 0)
-    if (car) {
-      car.position.x = ringModePosition.x;
-      car.position.y = ringModePosition.y;
-      car.position.z = 0; // Locked to 2D plane
-    }
-
-    // Skip normal physics in Ring Mode
-    return;
+    // Continue to normal physics for rotation!
   }
 
   // --- 2. Front-face arrow (same behavior as before, just using ux,uy,eff) ---
@@ -1741,12 +2635,8 @@ function integrate(dt) {
       tornadoCircle.material.color.setHex(col);
 
       // Apply tilt rotation toward the car
-      // Normalize tilt based on circle size to maintain consistent visual appearance
-      // Smaller circles (closer to car) need less tilt to appear the same due to perspective
-      const theoreticalMaxRadius = baseRadius * tornadoFactor * (arrowScale || 1);
-      const sizeFactor = circleRadius / (theoreticalMaxRadius || 1);
-      const normalizedTilt = circleTiltAngle * sizeFactor;
-      const tiltRad = (normalizedTilt * Math.PI) / 180;
+      // Use the tilt angle directly without normalization for consistent appearance across devices
+      const tiltRad = (circleTiltAngle * Math.PI) / 180;
 
       // Reset rotation first
       tornadoCircle.rotation.set(0, 0, 0);
@@ -1842,6 +2732,134 @@ function integrate(dt) {
   q.y += ry * halfdt;
   q.z += rz * halfdt;
   q.normalize();
+
+  // === RING MODE: Override car position and update rings ===
+  if (ringModeActive) {
+    // Override car position to stay on grid
+    if (car) {
+      car.position.x = ringModePosition.x;
+      car.position.y = ringModePosition.y;
+      car.position.z = 0; // Locked to 2D plane
+    }
+
+    // Find the closest ring ahead of the car (negative Z)
+    let targetRing = null;
+    let closestZ = -Infinity;
+    for (const ring of rings) {
+      if (ring.mesh.position.z < 0 && !ring.passed && !ring.missed) {
+        if (ring.mesh.position.z > closestZ) {
+          closestZ = ring.mesh.position.z;
+          targetRing = ring;
+        }
+      }
+    }
+
+    // Calculate camera offset based on ring position
+    let cameraOffsetX = 0;
+    let cameraOffsetY = CAM_BASE.y;
+
+    if (targetRing) {
+      // Calculate direction from car to ring (in XY plane only)
+      const deltaX = targetRing.mesh.position.x - ringModePosition.x;
+      const deltaY = targetRing.mesh.position.y - ringModePosition.y;
+      const distXY = Math.hypot(deltaX, deltaY);
+
+      if (distXY > 0.1) {
+        // Normalize direction
+        const dirX = deltaX / distXY;
+        const dirY = deltaY / distXY;
+
+        // Maximum camera orbit radius (how far camera can move from directly behind car)
+        const maxOrbitRadius = 200;
+
+        // Camera orbits opposite to ring direction (if ring is left, camera goes right)
+        // This keeps both car and ring in frame
+        cameraOffsetX = -dirX * maxOrbitRadius;
+        cameraOffsetY = CAM_BASE.y - dirY * 100; // Also adjust vertical position slightly
+      }
+    }
+
+    // Smoothly move camera to target offset position
+    const targetCamX = ringModePosition.x + cameraOffsetX;
+    const targetCamY = ringModePosition.y + cameraOffsetY;
+    const targetCamZ = CAM_BASE.z;
+
+    // Lerp camera position for smooth movement
+    camera.position.x += (targetCamX - camera.position.x) * ringCameraSpeed;
+    camera.position.y += (targetCamY - camera.position.y) * ringCameraSpeed;
+    camera.position.z = targetCamZ;
+
+    // Always look at the car (keeps car centered in frame)
+    camera.lookAt(ringModePosition.x, ringModePosition.y, 0);
+
+    // Move rings toward camera (only if not paused, game has started, and not game over)
+    if (!ringModePaused && ringModeStarted && ringModeLives > 0) {
+      for(let i = rings.length - 1; i >= 0; i--) {
+        const ring = rings[i];
+        const prevZ = ring.mesh.position.z;
+        ring.mesh.position.z += ring.speed * dt; // Use individual ring speed for progression
+        const newZ = ring.mesh.position.z;
+
+        // Check if car passed through the ring's plane (Z=0, where car is locked)
+        if (prevZ < 0 && newZ >= 0 && !ring.passed && !ring.missed) {
+          // Ring crossed the car's Z plane - check for collision
+          const carX = ringModePosition.x;
+          const carY = ringModePosition.y;
+          const ringX = ring.mesh.position.x;
+          const ringY = ring.mesh.position.y;
+
+          // Distance from car center to ring center in XY plane
+          const dx = carX - ringX;
+          const dy = carY - ringY;
+          const distanceToCenter = Math.sqrt(dx * dx + dy * dy);
+
+          // Ring outer and inner radii
+          const ringOuterRadius = ring.size / 2 + RING_TUBE_RADIUS;
+          const ringInnerRadius = ring.size / 2 - RING_TUBE_RADIUS;
+
+          if (distanceToCenter <= ringInnerRadius) {
+            // Clean pass - car went through the center
+            ring.passed = true;
+            ringModeScore++;
+            ringModeRingCount++;
+            console.log('Passed through ring! Score:', ringModeScore);
+            // TODO: Play ding sound
+          } else if (distanceToCenter < ringOuterRadius) {
+            // Hit the edge of the ring
+            ring.missed = true;
+            console.log('Hit ring edge! Heart damage');
+            // TODO: Apply heart damage
+          } else {
+            // Completely missed the ring
+            ring.missed = true;
+            ringModeLives--;
+            console.log('Missed ring! Lives:', ringModeLives);
+            // TODO: Check if game over
+          }
+        }
+
+        // Remove rings that have passed the camera
+        if(ring.mesh.position.z > RING_DESPAWN_DISTANCE) {
+          // Check if we missed an unpassed ring
+          if (!ring.passed && !ring.missed) {
+            ringModeLives--;
+            console.log('Ring passed without going through! Lives:', ringModeLives);
+          }
+          scene.remove(ring.mesh);
+          ring.mesh.geometry.dispose();
+          ring.mesh.material.dispose();
+          rings.splice(i, 1);
+        }
+      }
+
+      // Spawn new rings periodically
+      ringSpawnTimer += dt;
+      if(ringSpawnTimer >= RING_BASE_SPAWN_INTERVAL) {
+        spawnRing();
+        ringSpawnTimer = 0;
+      }
+    }
+  }
 }
 /* Camera zoom/orbit *//* Camera zoom/orbit */
 let orbitPhase=0;
@@ -1880,7 +2898,69 @@ gizmoScene.add(gizmoTarget);
 gizmoAxes.position.copy(gizmoTarget.position);
 
 /* Render HUD & loop */
-function renderHUD(){ Hclear(); drawJoystick(); drawDAR(); }
+function renderHUD(){
+  Hclear();
+  drawJoystick();
+  drawDAR();
+  if(ringModeActive) {
+    if(showBoostButton) drawBoost();
+    drawRingModeHUD();
+  }
+}
+
+// Draw Ring Mode HUD (score, lives, ring count)
+function drawRingModeHUD() {
+  const ctx = hctx;
+
+  // Score - top center
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 32px system-ui';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.fillText(`Score: ${ringModeScore}`, innerWidth / 2, 20);
+
+  // Ring count - below score
+  ctx.font = 'bold 24px system-ui';
+  ctx.fillText(`Rings: ${ringModeRingCount}`, innerWidth / 2, 60);
+
+  // Lives - top left with heart symbols
+  ctx.textAlign = 'left';
+  ctx.font = 'bold 28px system-ui';
+  const heartSpacing = 35;
+  for (let i = 0; i < Math.min(ringModeLives, 10); i++) {
+    ctx.fillStyle = '#ff5c5c';
+    ctx.fillText('♥', 20 + i * heartSpacing, 20);
+  }
+
+  // Game over or paused text
+  if (ringModeLives <= 0) {
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    ctx.fillRect(0, innerHeight / 2 - 60, innerWidth, 120);
+    ctx.fillStyle = '#ff5c5c';
+    ctx.font = 'bold 48px system-ui';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('GAME OVER', innerWidth / 2, innerHeight / 2 - 20);
+    ctx.font = 'bold 24px system-ui';
+    ctx.fillText(`Final Score: ${ringModeScore}`, innerWidth / 2, innerHeight / 2 + 30);
+  } else if (ringModePaused) {
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    ctx.fillRect(0, innerHeight / 2 - 40, innerWidth, 80);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 48px system-ui';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('PAUSED', innerWidth / 2, innerHeight / 2);
+  } else if (!ringModeStarted) {
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    ctx.fillRect(0, innerHeight / 2 - 40, innerWidth, 80);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 32px system-ui';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('Press Boost to Start!', innerWidth / 2, innerHeight / 2);
+  }
+}
 
 let lastT = performance.now()/1000;
 function tick(){
@@ -1919,11 +2999,24 @@ function resize(){
   renderer.setSize(innerWidth, innerHeight);
   camera.aspect = innerWidth/innerHeight;
   camera.updateProjectionMatrix();
-  sizeHud(); clampJoyCenter(); clampDARCenter(); positionHints(); applyZoom();
+  sizeHud(); clampJoyCenter(); clampDARCenter(); clampBoostCenter(); positionHints(); applyZoom();
 }
 addEventListener('resize', resize);
 
-buildCar(presets.octane, "octane");
+// Restore saved car body or default to octane
+const savedCarBody = savedSettings.selectedCarBody || 'octane';
+if (presets[savedCarBody]) {
+  buildCar(presets[savedCarBody], savedCarBody);
+  presetSel.value = savedCarBody;
+} else {
+  buildCar(presets.octane, "octane");
+}
+
+// Set initial rotation: roof facing camera, nose pointing up
+// X: +270°, Y: 0°, Z: +180°
+if (car) {
+  car.rotation.set(Math.PI * 1.5, 0, Math.PI); // X: +270°, Y: 0°, Z: +180°
+}
 
 // Restore saved air roll (skipSave = true to avoid overwriting localStorage on load)
 setRoll(airRoll, true);
