@@ -261,6 +261,12 @@
   </div>
 
   <div class="row sl">
+    <label for="wmaxRoll">Max Roll ω</label>
+    <input id="wmaxRoll" type="range" min="4.0" max="24.0" step="0.5" value="6.0"/>
+    <span class="tag" id="wmaxRollTag">6.0</span>
+  </div>
+
+  <div class="row sl">
     <label for="tornadoAngle">Tornado Cone Angle</label>
     <input id="tornadoAngle" type="range" min="0.10" max="1.00" step="0.05" value="0.40"/>
     <span class="tag" id="tornadoAngleTag">0.40</span>
@@ -1069,6 +1075,7 @@ const brakeRange=document.getElementById('brakeRange'), brakeTag=document.getEle
 const wmaxRange=document.getElementById('wmaxRange'),   wmaxTag=document.getElementById('wmaxTag');
 const wmaxPitchRange=document.getElementById('wmaxPitch'), wmaxPitchTag=document.getElementById('wmaxPitchTag');
 const wmaxYawRange=document.getElementById('wmaxYaw'), wmaxYawTag=document.getElementById('wmaxYawTag');
+const wmaxRollRange=document.getElementById('wmaxRoll'), wmaxRollTag=document.getElementById('wmaxRollTag');
 const tornadoAngleRange=document.getElementById('tornadoAngle'), tornadoAngleTag=document.getElementById('tornadoAngleTag');
 const circleTiltRange=document.getElementById('circleTilt'), circleTiltTag=document.getElementById('circleTiltTag');
 const spinSlider=document.getElementById('spinSlider'), rollVal=document.getElementById('rollVal');
@@ -1106,7 +1113,8 @@ function saveSettings() {
       isDarkMode, airRollIsToggle,
       brightnessDark, brightnessLight,
       gpEnabled, gpBindings,
-      showArrow, showCircle
+      showArrow, showCircle,
+      ringModeHighScore
     };
 
     // Only save these if the elements exist
@@ -1138,6 +1146,9 @@ function saveSettings() {
 }
 
 const savedSettings = loadSettings();
+
+// Load high score from localStorage
+ringModeHighScore = savedSettings.ringModeHighScore ?? 0;
 
 // Initialize gamepad bindings early (will be properly set later)
 let gpEnabled = savedSettings.gpEnabled ?? true;
@@ -1336,6 +1347,7 @@ document.getElementById('toggleMode').addEventListener('click', () => {
  */
 let ringModeActive = false;
 let ringModeScore = 0;
+let ringModeHighScore = 0; // Track high score across sessions
 let ringModeLives = 5;
 let ringModeRingCount = 0;
 let ringCameraSpeed = 0.1;
@@ -1343,9 +1355,9 @@ let ringCameraSpeed = 0.1;
 // Ring Mode Physics
 let ringModeVelocity = new THREE.Vector2(0, 0); // XY velocity only
 let ringModePosition = new THREE.Vector2(0, 0); // Car position in 2D plane
-const RING_MAX_SPEED = 2300; // Rocket League equivalent max speed
-const RING_BOOST_ACCEL = (RING_MAX_SPEED / 4.5) * 5.0; // 5.0x boost strength (2x stronger than before)
-const RING_GRAVITY = -800; // Constant downward gravity
+const RING_MAX_SPEED = 1400; // Max speed cap (~60 mph equivalent, more controllable)
+const RING_BOOST_ACCEL = 1200; // Boost acceleration (balanced with reduced gravity)
+const RING_GRAVITY = -600; // Constant downward gravity (reduced for slower speeds)
 const RING_GRID_BOUNDS = 1500; // Movement boundary (3x larger: 500 * 3)
 let ringModeBoostActive = false;
 let ringModeStarted = false; // Track if player has started (boosted at least once)
@@ -1373,7 +1385,7 @@ const INITIAL_RING_SIZE = CAR_WIDTH * 20; // Start at 20x car width (600 units d
 const RING_TUBE_RADIUS = 8; // Thickness of the ring torus
 
 // Ring movement and spawning
-const RING_SPAWN_DISTANCE = -800; // Spawn rings far behind camera
+const RING_SPAWN_DISTANCE = -1100; // Spawn rings far behind camera (extra ~1.5 seconds reaction time)
 const RING_DESPAWN_DISTANCE = 1000; // Remove rings well past camera (allows them to pass behind)
 const RING_BASE_SPEED = 200; // Base units per second toward camera
 const RING_BASE_SPAWN_INTERVAL = 3.0; // Base seconds between ring spawns
@@ -2032,17 +2044,17 @@ if (savedSettings.gpPreset) {
 
 const GP_PRESETS = {
   ps5: {
-    toggleDAR:   { kind:'button', index: 1 },  // Circle
-    rollLeft:    { kind:'button', index: 4 },  // L1
-    rollRight:   { kind:'button', index: 5 },  // R1
-    rollFree:    { kind:'button', index: 7 },  // R2
-    boost:       { kind:'button', index: 0 },  // Cross (X)
-    pause:       { kind:'button', index: 9 },  // Options
-    restart:     { kind:'button', index: 10 }, // PS Button
-    orbitCW:     { kind:'button', index: 2 },  // Square
-    orbitCCW:    { kind:'button', index: 3 },  // Triangle
-    toggleTheme: { kind:'button', index: 8 },  // Share
-    openMenu:    { kind:'button', index: 6 }   // L2
+    toggleDAR:   { kind:'button', index: 0 },  // Cross (X)
+    rollLeft:    { kind:'button', index: 2 },  // Square
+    rollRight:   { kind:'button', index: 1 },  // Circle
+    rollFree:    { kind:'button', index: 4 },  // L1
+    boost:       { kind:'button', index: 5 },  // R1
+    pause:       { kind:'button', index: 12 }, // D-pad Up
+    restart:     { kind:'button', index: 13 }, // D-pad Down
+    orbitCW:     { kind:'button', index: 15 }, // D-pad Right
+    orbitCCW:    { kind:'button', index: 14 }, // D-pad Left
+    toggleTheme: { kind:'button', index: 8 },  // Share/Select
+    openMenu:    { kind:'button', index: 9 }   // Options/Start
   },
   xinput: {
     toggleDAR:   { kind:'button', index: 1 },  // B
@@ -2811,13 +2823,17 @@ function integrate(dt) {
         const dirX = deltaX / distXY;
         const dirY = deltaY / distXY;
 
-        // Maximum camera orbit radius (how far camera can move from directly behind car)
-        const maxOrbitRadius = 200;
+        // Dynamic camera orbit radius based on ring distance
+        // Closer rings = less orbit, far rings = more orbit (up to 400 units)
+        const baseOrbitRadius = 200;
+        const maxOrbitRadius = 400;
+        const distanceFactor = Math.min(distXY / 500, 1.0); // Scale based on distance
+        const orbitRadius = baseOrbitRadius + (maxOrbitRadius - baseOrbitRadius) * distanceFactor;
 
         // Camera orbits opposite to ring direction (if ring is left, camera goes right)
         // This keeps both car and ring in frame
-        cameraOffsetX = -dirX * maxOrbitRadius;
-        cameraOffsetY = CAM_BASE.y - dirY * 100; // Also adjust vertical position slightly
+        cameraOffsetX = -dirX * orbitRadius;
+        cameraOffsetY = CAM_BASE.y - dirY * 150; // Also adjust vertical position slightly
       }
     }
 
@@ -2957,14 +2973,14 @@ function drawRingModeHUD() {
   // Scale text down on mobile/tablet for less distraction
   const textScale = isMobile ? 0.65 : 1.0;
 
-  // Score - top center
+  // High Score - top center
   ctx.fillStyle = '#ffffff';
   ctx.font = `bold ${Math.floor(32 * textScale)}px system-ui`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
-  ctx.fillText(`Score: ${ringModeScore}`, innerWidth / 2, 20);
+  ctx.fillText(`High Score: ${ringModeHighScore}`, innerWidth / 2, 20);
 
-  // Ring count - below score
+  // Ring count - below high score
   ctx.font = `bold ${Math.floor(24 * textScale)}px system-ui`;
   ctx.fillText(`Rings: ${ringModeRingCount}`, innerWidth / 2, 20 + (40 * textScale));
 
@@ -2979,6 +2995,12 @@ function drawRingModeHUD() {
 
   // Game over or paused text
   if (ringModeLives <= 0) {
+    // Update high score if current score beats it
+    if (ringModeScore > ringModeHighScore) {
+      ringModeHighScore = ringModeScore;
+      saveSettings(); // Save new high score to localStorage
+    }
+
     ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
     ctx.fillRect(0, innerHeight / 2 - 60, innerWidth, 120);
     ctx.fillStyle = '#ff5c5c';
