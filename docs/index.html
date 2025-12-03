@@ -1107,7 +1107,7 @@ function saveSettings() {
     const settings = {
       maxAccelPitch, maxAccelYaw, maxAccelRoll,
       inputPow, damp, brakeOnRelease,
-      wMax, wMaxPitch, wMaxYaw,
+      wMax, wMaxPitch, wMaxYaw, wMaxRoll,
       maxTornadoAngle, circleTiltAngle,
       freeRollPeriod, zoom, arrowScale,
       isDarkMode, airRollIsToggle,
@@ -1147,9 +1147,6 @@ function saveSettings() {
 
 const savedSettings = loadSettings();
 
-// Load high score from localStorage
-ringModeHighScore = savedSettings.ringModeHighScore ?? 0;
-
 // Initialize gamepad bindings early (will be properly set later)
 let gpEnabled = savedSettings.gpEnabled ?? true;
 let gpBindings = savedSettings.gpBindings ?? null; // Will be set to defaultGpBindings later if still null
@@ -1166,6 +1163,7 @@ let maxAccelPitch=savedSettings.maxAccelPitch ?? parseFloat(accelPitch.value),
     wMax=savedSettings.wMax ?? parseFloat(wmaxRange.value),
     wMaxPitch=savedSettings.wMaxPitch ?? parseFloat(wmaxPitchRange.value),
     wMaxYaw=savedSettings.wMaxYaw ?? parseFloat(wmaxYawRange.value),
+    wMaxRoll=savedSettings.wMaxRoll ?? parseFloat(wmaxRollRange.value),
     maxTornadoAngle=savedSettings.maxTornadoAngle ?? parseFloat(tornadoAngleRange.value),
     circleTiltAngle=savedSettings.circleTiltAngle ?? parseFloat(circleTiltRange.value),
     freeRollPeriod=savedSettings.freeRollPeriod ?? parseFloat(spinSlider.value),
@@ -1186,6 +1184,7 @@ brakeRange.value = brakeOnRelease;
 wmaxRange.value = wMax;
 wmaxPitchRange.value = wMaxPitch;
 wmaxYawRange.value = wMaxYaw;
+wmaxRollRange.value = wMaxRoll;
 tornadoAngleRange.value = maxTornadoAngle;
 circleTiltRange.value = circleTiltAngle;
 spinSlider.value = freeRollPeriod;
@@ -1347,7 +1346,7 @@ document.getElementById('toggleMode').addEventListener('click', () => {
  */
 let ringModeActive = false;
 let ringModeScore = 0;
-let ringModeHighScore = 0; // Track high score across sessions
+let ringModeHighScore = savedSettings.ringModeHighScore ?? 0; // Track high score across sessions
 let ringModeLives = 5;
 let ringModeRingCount = 0;
 let ringCameraSpeed = 0.1;
@@ -1365,6 +1364,10 @@ let ringModePaused = false; // Track pause state
 
 // Boost flame effects
 let boostFlames = [];
+
+// Camera smooth path tracking
+let cameraTargetX = 0; // Smooth interpolated camera target position
+let cameraTargetY = 0;
 
 // Ring geometry and spawning
 let rings = []; // Active rings in the scene
@@ -1390,9 +1393,10 @@ const RING_DESPAWN_DISTANCE = 1000; // Remove rings well past camera (allows the
 const RING_BASE_SPEED = 200; // Base units per second toward camera
 const RING_BASE_SPAWN_INTERVAL = 3.0; // Base seconds between ring spawns
 let ringSpawnTimer = 0;
+let ringSpawnIndex = 0; // Track spawn order for camera focusing
 
 // Create a ring with neon 80s aesthetic
-function createRing(x, y, z, size, speed) {
+function createRing(x, y, z, size, speed, spawnIndex) {
   const color = RING_COLORS[currentColorIndex];
   currentColorIndex = (currentColorIndex + 1) % RING_COLORS.length;
 
@@ -1423,7 +1427,8 @@ function createRing(x, y, z, size, speed) {
     size: size,
     speed: speed,
     passed: false,
-    missed: false
+    missed: false,
+    spawnIndex: spawnIndex // Track when this ring was spawned
   };
 }
 
@@ -1440,13 +1445,34 @@ let patternFrequency = 0.5; // Oscillation frequency
 let patternPhase = 0; // Starting phase offset
 
 function selectNewPattern() {
-  currentPattern = PATTERN_TYPES[Math.floor(Math.random() * PATTERN_TYPES.length)];
+  // Progressive difficulty based on rings completed
+  const difficultyLevel = Math.floor(ringModeRingCount / 5); // Increase every 5 rings
+
+  // Start with easier patterns, unlock harder ones as you progress
+  let availablePatterns = PATTERN_TYPES;
+  if (difficultyLevel < 2) {
+    // First 10 rings: easier straight/simple patterns
+    availablePatterns = ['horizontal_line', 'vertical_line', 'sine_horizontal', 'sine_vertical'];
+  } else if (difficultyLevel < 4) {
+    // Rings 10-20: introduce more complex patterns
+    availablePatterns = ['sine_horizontal', 'sine_vertical', 'wave_combo', 'helix', 'spiral'];
+  }
+  // After 20 rings: all patterns available including 'random' for cross-map leaps
+
+  currentPattern = availablePatterns[Math.floor(Math.random() * availablePatterns.length)];
   patternRingCount = 0;
-  patternLength = 10 + Math.floor(Math.random() * 15); // 10-25 rings per pattern
-  patternAmplitude = 300 + Math.random() * 400; // 300-700 units
-  patternFrequency = 0.3 + Math.random() * 0.7; // 0.3-1.0
+  patternLength = 8 + Math.floor(Math.random() * 12); // 8-20 rings per pattern
+
+  // Progressive amplitude and frequency increase
+  const baseAmplitude = 200 + (difficultyLevel * 100); // Starts at 200, increases by 100 every 5 rings
+  const amplitudeVariance = 200 + (difficultyLevel * 50); // More variance as difficulty increases
+  patternAmplitude = Math.min(baseAmplitude + Math.random() * amplitudeVariance, RING_GRID_BOUNDS * 0.9);
+
+  const baseFrequency = 0.3 + (difficultyLevel * 0.1); // Faster oscillations as difficulty increases
+  patternFrequency = Math.min(baseFrequency + Math.random() * 0.5, 2.0);
+
   patternPhase = Math.random() * Math.PI * 2;
-  console.log(`New pattern: ${currentPattern}, length: ${patternLength}`);
+  console.log(`New pattern: ${currentPattern}, length: ${patternLength}, difficulty: ${difficultyLevel}, amplitude: ${Math.round(patternAmplitude)}`);
 }
 
 function getPatternPosition(progress) {
@@ -1544,7 +1570,7 @@ function spawnRing() {
   const speedIncrease = progressionLevel * 0.05;
   const ringSpeed = RING_BASE_SPEED * (1 + Math.min(speedIncrease, 0.5));
 
-  const ring = createRing(spawnX, spawnY, spawnZ, ringSize, ringSpeed);
+  const ring = createRing(spawnX, spawnY, spawnZ, ringSize, ringSpeed, ringSpawnIndex++);
   rings.push(ring);
 }
 
@@ -1560,8 +1586,10 @@ function clearAllRings() {
 
 // Create boost flame effects
 function createBoostFlames() {
+  if (!car) return;
+
   // Create two flame cones for the tailpipes
-  const flameGeometry = new THREE.ConeGeometry(8, 30, 8);
+  const flameGeometry = new THREE.ConeGeometry(16, 60, 8); // 2x bigger (radius: 8->16, height: 30->60)
   const flameMaterial = new THREE.MeshBasicMaterial({
     color: 0xff6600,
     transparent: true,
@@ -1572,11 +1600,19 @@ function createBoostFlames() {
     const flame = new THREE.Mesh(flameGeometry, flameMaterial.clone());
     flame.visible = false;
 
+    // Position in car's local space (at rear of car)
+    const offset = (i === 0) ? -12 : 12; // Left and right offset
+    flame.position.set(offset, 0, -100); // Local position: left/right, center height, rear
+
+    // Rotate flame cone to point backward/downward (rear of car)
+    // X rotation: tip points toward rear
+    flame.rotation.set(Math.PI * 0.5, 0, 0); // 90° X rotation
+
     // Add point light for glow
     const light = new THREE.PointLight(0xff6600, 3, 80);
     flame.add(light);
 
-    scene.add(flame); // Add to scene instead of car
+    car.add(flame); // Add as child of car so it moves with the car
     boostFlames.push(flame);
   }
 }
@@ -1593,24 +1629,8 @@ function updateBoostFlames(active, forwardDir) {
     flame.visible = active;
 
     if (active) {
-      // Get car's backward direction (opposite of nose)
-      const backward = new THREE.Vector3(0, 0, -1); // Car's local backward
-      backward.applyQuaternion(car.quaternion);
-
-      // Position flames at rear of car
-      const offset = (i === 0) ? -12 : 12; // Left and right offset
-      const carPos = car.position.clone();
-      const carRight = new THREE.Vector3(1, 0, 0);
-      carRight.applyQuaternion(car.quaternion);
-
-      // Place flame behind car
-      flame.position.copy(carPos)
-        .add(backward.multiplyScalar(50)) // Behind car (backward direction)
-        .add(carRight.multiplyScalar(offset)); // Left/right offset
-
-      // Point flame in backward direction
-      flame.quaternion.copy(car.quaternion);
-      flame.rotateX(Math.PI / 2);
+      // Flames are children of car, so they move automatically with it
+      // Just animate the scale and opacity
 
       // Animate flame size
       const pulse = 0.7 + Math.random() * 0.6;
@@ -1645,11 +1665,26 @@ document.getElementById('ringMode').addEventListener('click', () => {
     ringModeVelocity.set(0, 0);
     ringModePosition.set(0, 0);
     ringSpawnTimer = 0;
+    ringSpawnIndex = 0; // Reset spawn order tracking
     currentColorIndex = 0;
     ringModeStarted = false; // Reset started state
     ringModePaused = false;  // Reset pause state
     patternRingCount = 0;    // Reset pattern progress
+    cameraTargetX = 0; // Reset smooth camera path
+    cameraTargetY = 0;
     clearAllRings();
+
+    // Preload resources (rings and boost flames) to prevent lag on first spawn
+    // Create and immediately remove a ring to compile shaders
+    const preloadRing = createRing(0, 0, -2000, INITIAL_RING_SIZE, RING_BASE_SPEED, -1);
+    scene.remove(preloadRing.mesh);
+    preloadRing.mesh.geometry.dispose();
+    preloadRing.mesh.material.dispose();
+
+    // Preload boost flames to compile shaders
+    createBoostFlames();
+    updateBoostFlames(true, null); // Activate flames briefly
+    updateBoostFlames(false, null); // Hide them
 
     // Spawn first ring immediately
     spawnRing();
@@ -1798,6 +1833,7 @@ accelRollTag.textContent=maxAccelRoll.toFixed(0);
   wmaxTag.textContent=wMax.toFixed(1);
   wmaxPitchTag.textContent=wMaxPitch.toFixed(1);
   wmaxYawTag.textContent=wMaxYaw.toFixed(1);
+  wmaxRollTag.textContent=wMaxRoll.toFixed(1);
   tornadoAngleTag.textContent=maxTornadoAngle.toFixed(2);
   circleTiltTag.textContent=`${circleTiltAngle.toFixed(0)}°`;
   rollVal.textContent = (freeRollPeriod > 0) ? `${freeRollPeriod.toFixed(2)} s/rot` : 'off';
@@ -1822,6 +1858,7 @@ function setupEditableTags() {
     {tag: wmaxTag, slider: wmaxRange, setter: (v) => wMax = Math.max(6, Math.min(24, parseFloat(v) || 6))},
     {tag: wmaxPitchTag, slider: wmaxPitchRange, setter: (v) => wMaxPitch = Math.max(6, Math.min(24, parseFloat(v) || 8.5))},
     {tag: wmaxYawTag, slider: wmaxYawRange, setter: (v) => wMaxYaw = Math.max(6, Math.min(24, parseFloat(v) || 9))},
+    {tag: wmaxRollTag, slider: wmaxRollRange, setter: (v) => wMaxRoll = Math.max(4, Math.min(24, parseFloat(v) || 6))},
     {tag: tornadoAngleTag, slider: tornadoAngleRange, setter: (v) => maxTornadoAngle = Math.max(0, Math.min(1, parseFloat(v) || 0.4))},
     {tag: circleTiltTag, slider: circleTiltRange, setter: (v) => circleTiltAngle = Math.max(0, Math.min(45, parseFloat(v) || 34))},
     {tag: zoomVal, slider: zoomSlider, setter: (v) => { zoom = Math.max(0.2, Math.min(4.0, parseFloat(v) || 1)); applyZoom(); }},
@@ -1868,6 +1905,7 @@ brakeRange.addEventListener('input',()=>{brakeOnRelease=parseFloat(brakeRange.va
 wmaxRange .addEventListener('input',()=>{wMax=parseFloat(wmaxRange.value)||6.0; syncTags(); saveSettings();});
 wmaxPitchRange.addEventListener('input',()=>{wMaxPitch=parseFloat(wmaxPitchRange.value)||8.5; syncTags(); saveSettings();});
 wmaxYawRange.addEventListener('input',()=>{wMaxYaw=parseFloat(wmaxYawRange.value)||9.0; syncTags(); saveSettings();});
+wmaxRollRange.addEventListener('input',()=>{wMaxRoll=parseFloat(wmaxRollRange.value)||6.0; syncTags(); saveSettings();});
 tornadoAngleRange.addEventListener('input',()=>{maxTornadoAngle=parseFloat(tornadoAngleRange.value)||0.40; syncTags(); saveSettings();});
 circleTiltRange.addEventListener('input',()=>{circleTiltAngle=parseFloat(circleTiltRange.value)||38; syncTags(); saveSettings();});
 spinSlider.addEventListener('input',()=>{freeRollPeriod=parseFloat(spinSlider.value)||0; syncTags(); saveSettings();});
@@ -2196,6 +2234,7 @@ function execBinding(action){
         ringModeLives = 5;
         ringModeRingCount = 0;
         ringModeStarted = false;
+        ringSpawnIndex = 0; // Reset spawn order tracking
         clearAllRings();
         console.log('Ring Mode restarted');
       }
@@ -2737,7 +2776,7 @@ function integrate(dt) {
     // Air Roll (Free): horizontal stick controls roll, vertical controls pitch
     wx_des = maxPitchSpeed * eff * uy; // pitch (up/down)
     wy_des = 0;                         // no yaw
-    wz_des = wMax * eff * (-ux);       // roll (left stick = roll left, right stick = roll right)
+    wz_des = wMaxRoll * eff * (-ux);   // roll (left stick = roll left, right stick = roll right)
   } else {
     // Normal or Air Roll Left/Right: standard controls
     wx_des = maxPitchSpeed * eff * uy; // pitch
@@ -2796,44 +2835,99 @@ function integrate(dt) {
       car.position.z = 0; // Locked to 2D plane
     }
 
-    // Find the closest ring ahead of the car (negative Z)
+    // Find the closest ring and the next ring ahead of the car (negative Z)
+    // Prioritize by spawn order (oldest unpassed ring first), then by Z-distance
     let targetRing = null;
-    let closestZ = -Infinity;
-    for (const ring of rings) {
-      if (ring.mesh.position.z < 0 && !ring.passed && !ring.missed) {
-        if (ring.mesh.position.z > closestZ) {
-          closestZ = ring.mesh.position.z;
-          targetRing = ring;
+    let nextRing = null;
+
+    // Filter to only active rings (behind camera, not passed/missed)
+    const activeRings = rings.filter(r => r.mesh.position.z < 0 && !r.passed && !r.missed);
+
+    if (activeRings.length > 0) {
+      // Sort by spawn index (oldest first), then by Z-distance (closest first)
+      activeRings.sort((a, b) => {
+        // First priority: spawn order (lower index = spawned earlier)
+        if (a.spawnIndex !== b.spawnIndex) {
+          return a.spawnIndex - b.spawnIndex;
         }
+        // Second priority: Z-distance (higher Z = closer to camera)
+        return b.mesh.position.z - a.mesh.position.z;
+      });
+
+      // Oldest unpassed ring is the target
+      targetRing = activeRings[0];
+
+      // Next oldest unpassed ring (if exists)
+      if (activeRings.length > 1) {
+        nextRing = activeRings[1];
       }
     }
 
-    // Calculate camera offset based on ring position
+    // Smooth camera path following system - interpolate between multiple rings
     let cameraOffsetX = 0;
     let cameraOffsetY = CAM_BASE.y;
 
     if (targetRing) {
-      // Calculate direction from car to ring (in XY plane only)
-      const deltaX = targetRing.mesh.position.x - ringModePosition.x;
-      const deltaY = targetRing.mesh.position.y - ringModePosition.y;
-      const distXY = Math.hypot(deltaX, deltaY);
+      // Calculate weighted average position of next 2-3 upcoming rings
+      // This creates a smooth curve through ring centers
+      let weightedX = 0;
+      let weightedY = 0;
+      let totalWeight = 0;
 
-      if (distXY > 0.1) {
-        // Normalize direction
-        const dirX = deltaX / distXY;
-        const dirY = deltaY / distXY;
+      // Get up to 3 upcoming rings for smooth path
+      const upcomingRings = activeRings.slice(0, Math.min(3, activeRings.length));
 
-        // Dynamic camera orbit radius based on ring distance
-        // Closer rings = less orbit, far rings = more orbit (up to 400 units)
-        const baseOrbitRadius = 200;
-        const maxOrbitRadius = 400;
-        const distanceFactor = Math.min(distXY / 500, 1.0); // Scale based on distance
-        const orbitRadius = baseOrbitRadius + (maxOrbitRadius - baseOrbitRadius) * distanceFactor;
+      for (let i = 0; i < upcomingRings.length; i++) {
+        const ring = upcomingRings[i];
+        const ringDepth = Math.abs(ring.mesh.position.z);
 
-        // Camera orbits opposite to ring direction (if ring is left, camera goes right)
-        // This keeps both car and ring in frame
-        cameraOffsetX = -dirX * orbitRadius;
-        cameraOffsetY = CAM_BASE.y - dirY * 150; // Also adjust vertical position slightly
+        // Weight based on depth - closer rings have more influence
+        // But far rings still contribute to keep them in frame
+        let weight = 1.0;
+        if (i === 0) {
+          weight = 3.0; // Current target ring has strongest influence
+        } else if (i === 1) {
+          weight = 1.5; // Next ring has moderate influence
+        } else {
+          weight = 0.5; // Future rings have minimal influence
+        }
+
+        // Reduce weight for very far rings to prevent camera from overshooting
+        const depthFactor = Math.min(ringDepth / 1000, 1.0);
+        weight *= (1.0 - depthFactor * 0.5);
+
+        weightedX += ring.mesh.position.x * weight;
+        weightedY += ring.mesh.position.y * weight;
+        totalWeight += weight;
+      }
+
+      // Calculate average target position (smooth path through rings)
+      if (totalWeight > 0) {
+        const pathTargetX = weightedX / totalWeight;
+        const pathTargetY = weightedY / totalWeight;
+
+        // Smoothly interpolate camera target toward path
+        const smoothing = 0.05; // Very smooth interpolation
+        cameraTargetX += (pathTargetX - cameraTargetX) * smoothing;
+        cameraTargetY += (pathTargetY - cameraTargetY) * smoothing;
+
+        // Calculate direction from car to smooth path target
+        const deltaX = cameraTargetX - ringModePosition.x;
+        const deltaY = cameraTargetY - ringModePosition.y;
+        const distXY = Math.hypot(deltaX, deltaY);
+
+        if (distXY > 0.1) {
+          // Normalize direction
+          const dirX = deltaX / distXY;
+          const dirY = deltaY / distXY;
+
+          // Minimal camera orbit - keep it simple and smooth
+          const orbitRadius = 150; // Fixed moderate orbit
+
+          // Camera aims to keep path visible
+          cameraOffsetX = -dirX * orbitRadius;
+          cameraOffsetY = CAM_BASE.y - dirY * 100;
+        }
       }
     }
 
@@ -2999,6 +3093,11 @@ function drawRingModeHUD() {
     if (ringModeScore > ringModeHighScore) {
       ringModeHighScore = ringModeScore;
       saveSettings(); // Save new high score to localStorage
+    }
+
+    // Activate orbit for cool bouncing effect on game over
+    if (!orbitOn) {
+      orbitOn = true;
     }
 
     ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
