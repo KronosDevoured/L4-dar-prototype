@@ -41,6 +41,18 @@
   #themeBtn:hover{transform:scale(1.1)}
   #themeBtn:active{transform:scale(0.95)}
 
+  /* Fullscreen button */
+  #fullscreenBtn{
+    position:fixed;top:.6rem;right:7rem;z-index:3;width:44px;height:44px;
+    border:2px solid #4c8dff;background:rgba(76,141,255,0.15);
+    font-size:2rem;cursor:pointer;border-radius:8px;
+    display:grid;place-items:center;padding:0;
+    filter: drop-shadow(0 2px 8px rgba(76,141,255,.4));
+    color:#4c8dff;
+  }
+  #fullscreenBtn:hover{transform:scale(1.1);background:rgba(76,141,255,0.25);}
+  #fullscreenBtn:active{transform:scale(0.95)}
+
   /* === OVERLAY MENU PANEL === */
   #menuOverlay{
     position:fixed; inset:0; z-index:4; display:none;
@@ -144,6 +156,9 @@
 
   <!-- HAMBURGER -->
   <button id="menuBtn" type="button" title="Open Menu"><span class="bar"></span><span class="bar"></span><span class="bar"></span></button>
+
+  <!-- FULLSCREEN TOGGLE -->
+  <button id="fullscreenBtn" type="button" title="Toggle Fullscreen">⛶</button>
 
   <!-- THEME TOGGLE (Sun/Moon) -->
   <button id="themeBtn" type="button" title="Toggle Day/Night Mode">🌙</button>
@@ -957,7 +972,12 @@ function adjustSelectValue(direction) {
 }
 
 // Initialize collapsible cards
+let cardsInitialized = false;
 function initCollapsibleCards() {
+  // Only initialize once to avoid duplicate event listeners
+  if (cardsInitialized) return;
+  cardsInitialized = true;
+
   const cards = document.querySelectorAll('.card');
   cards.forEach((card, index) => {
     const h3 = card.querySelector('h3');
@@ -1709,6 +1729,33 @@ document.getElementById('themeBtn').addEventListener('click',()=>{
   saveSettings();
 });
 
+// Fullscreen toggle
+document.getElementById('fullscreenBtn').addEventListener('click', () => {
+  if (!document.fullscreenElement) {
+    // Enter fullscreen
+    document.documentElement.requestFullscreen().catch(err => {
+      console.log(`Error attempting to enable fullscreen: ${err.message}`);
+    });
+  } else {
+    // Exit fullscreen
+    if (document.exitFullscreen) {
+      document.exitFullscreen();
+    }
+  }
+});
+
+// Update fullscreen button icon when fullscreen state changes
+document.addEventListener('fullscreenchange', () => {
+  const btn = document.getElementById('fullscreenBtn');
+  if (document.fullscreenElement) {
+    btn.textContent = '⛶'; // Fullscreen exit icon
+    btn.title = 'Exit Fullscreen';
+  } else {
+    btn.textContent = '⛶'; // Fullscreen enter icon
+    btn.title = 'Enter Fullscreen';
+  }
+});
+
 /* Arrow and Circle toggles */
 let showArrow = savedSettings.showArrow ?? true;
 let showCircle = savedSettings.showCircle ?? true;
@@ -2019,19 +2066,11 @@ function bindingToLabel(b){
   return `Axis ${b.axis}${d}`;
 }
 function setBindingPreset(name){
-  // Only apply preset if user explicitly confirms or if no custom bindings exist
-  if(!confirm('This will reset ALL your custom button mappings to the ' + name + ' defaults. Continue?')){
-    // User cancelled - restore the previous value
-    const currentPreset = savedSettings.gpPreset || 'ps5';
-    gpPresetSel.value = currentPreset;
-    return;
-  }
-
+  // Apply preset without confirmation
   const p = GP_PRESETS[name] || GP_PRESETS.ps5;
   gpBindings = JSON.parse(JSON.stringify(p));
   updateBindLabel();
   saveSettings();
-  alert('Button mappings reset to ' + name + ' defaults');
 }
 function updateBindLabel(){
   const act = gpActionSel.value;
@@ -2060,7 +2099,10 @@ document.getElementById('gpResetDefaults').addEventListener('click',()=>{
   }, 2000);
 });
 
-setBindingPreset('ps5');
+// Only set default preset if no saved bindings exist (don't reset user's custom bindings!)
+if (!savedSettings.gpBindings) {
+  setBindingPreset('ps5');
+}
 updateBindLabel();
 
 addEventListener('gamepadconnected', (e)=>{
@@ -2912,24 +2954,27 @@ function renderHUD(){
 function drawRingModeHUD() {
   const ctx = hctx;
 
+  // Scale text down on mobile/tablet for less distraction
+  const textScale = isMobile ? 0.65 : 1.0;
+
   // Score - top center
   ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 32px system-ui';
+  ctx.font = `bold ${Math.floor(32 * textScale)}px system-ui`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
   ctx.fillText(`Score: ${ringModeScore}`, innerWidth / 2, 20);
 
   // Ring count - below score
-  ctx.font = 'bold 24px system-ui';
-  ctx.fillText(`Rings: ${ringModeRingCount}`, innerWidth / 2, 60);
+  ctx.font = `bold ${Math.floor(24 * textScale)}px system-ui`;
+  ctx.fillText(`Rings: ${ringModeRingCount}`, innerWidth / 2, 20 + (40 * textScale));
 
   // Lives - top left with heart symbols
   ctx.textAlign = 'left';
-  ctx.font = 'bold 28px system-ui';
-  const heartSpacing = 35;
+  ctx.font = `bold ${Math.floor(28 * textScale)}px system-ui`;
+  const heartSpacing = 35 * textScale;
   for (let i = 0; i < Math.min(ringModeLives, 10); i++) {
     ctx.fillStyle = '#ff5c5c';
-    ctx.fillText('♥', 20 + i * heartSpacing, 20);
+    ctx.fillText('♥', 20, 20 + i * heartSpacing);
   }
 
   // Game over or paused text
