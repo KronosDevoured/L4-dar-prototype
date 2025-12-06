@@ -773,7 +773,7 @@ let activePointers = new Map(); // Track all active pointers for multi-touch
 let joyPointerId = null;    // Pointer controlling joystick
 let boostPointerId = null;  // Pointer controlling boost button
 let darPointerId = null;    // Pointer controlling DAR button
-let darButtonJustUsed = false; // Prevent keyboard interference for one frame after DAR button use
+let darButtonProtectionFrames = 0; // Prevent keyboard interference for frames after DAR button use
 const COLS = {UP:'#ff5c5c', RIGHT:'#4c8dff', DOWN:'#53d769', LEFT:'#ffd166'};
 
 function drawJoystick(){
@@ -2162,8 +2162,8 @@ function endPtr(e){
           setRoll(0);
         }
         darOn = (airRoll !== 0);
-        // Prevent keyboard from interfering on the next frame
-        darButtonJustUsed = true;
+        // Prevent keyboard from interfering for the next 3 frames
+        darButtonProtectionFrames = 3;
       }
     }
     clearTimeout(darHoldTimer);
@@ -2578,7 +2578,7 @@ function updateKeyboardInput(){
   // Check if gamepad or DAR button is controlling air roll (don't interfere if it is)
   const gpControllingAirRoll = isGamepadPressingAirRoll();
   const darButtonPressed = (darPointerId !== null);
-  const darButtonActive = darButtonPressed || darButtonJustUsed;
+  const darButtonActive = darButtonPressed || (darButtonProtectionFrames > 0);
 
   // Air Roll Left (Q)
   if(keyHeld('KeyQ')){
@@ -2602,8 +2602,8 @@ function updateKeyboardInput(){
     if(airRoll === 2) setRoll(0);
   }
 
-  // Clear the flag after one frame
-  darButtonJustUsed = false;
+  // Decrement protection counter
+  if(darButtonProtectionFrames > 0) darButtonProtectionFrames--;
 
   // Boost (Space) - for Ring Mode
   ringModeBoostActive = keyHeld('Space');
