@@ -1074,6 +1074,12 @@ function closeMenu(){
     el.style.outline = '';
     el.style.boxShadow = '';
   });
+
+  // CRITICAL: Clear gamepad button state for air roll actions to prevent
+  // stale button presses from being processed when menu closes
+  gpPrevActionPressed['rollLeft'] = false;
+  gpPrevActionPressed['rollRight'] = false;
+  gpPrevActionPressed['rollFree'] = false;
 }
 menuBtn.addEventListener('click',()=> chromeShown ? closeMenu() : openMenu());
 menuCloseBtn.addEventListener('click', closeMenu);
