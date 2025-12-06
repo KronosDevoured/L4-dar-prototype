@@ -9,7 +9,7 @@
 </script>
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>L4 — Blender-Style + XYZ Gizmo + DAR Toggle/Relocate</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg" />
 <style>
@@ -17,7 +17,7 @@
   html,body{margin:0;padding:0;height:100%;background:#ffffff;color:#0e0f12;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;overscroll-behavior:none}
   body{background:linear-gradient(180deg,#f6f7fb 0%,#eef1f6 45%,#e9edf3 100%);}
   *, *::before, *::after{box-sizing:border-box}
-  *{user-select:none;-webkit-user-select:none;-ms-user-select:none;-webkit-touch-callout:none}
+  *{-webkit-user-select:none;-ms-user-select:none;user-select:none;-webkit-touch-callout:none}
   #gl{position:fixed;inset:0;z-index:0;display:block}
   #hud{position:fixed;inset:0;z-index:1;display:block;touch-action:none}
   /* === CSS BASE END === */
@@ -56,7 +56,7 @@
   /* === OVERLAY MENU PANEL === */
   #menuOverlay{
     position:fixed; inset:0; z-index:4; display:none;
-    background:rgba(10,12,16,0.45); backdrop-filter: blur(3px);
+    background:rgba(10,12,16,0.45); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
     overflow-x:hidden;
   }
   #menuPanel{
@@ -190,12 +190,6 @@
             <button id="toggleMode" class="btn active" type="button">Toggle</button>
           </div>
 
-          <div class="row sl">
-            <label for="spinSlider">DAR Roll</label>
-            <input id="spinSlider" type="range" min="0" max="3.0" step="0.01" value="1.20"/>
-            <span class="tag" id="rollVal">1.20 s/rot</span>
-          </div>
-
           <div class="tip">
             <b>Tip:</b> With Air Roll Right, rotate the stick clockwise. With Air Roll Left, rotate the stick counter-clockwise.
           </div>
@@ -207,20 +201,20 @@
 
   <div class="row sl">
     <label for="accelPitch">Max Pitch Accel (°/s²)</label>
-    <input id="accelPitch" type="range" min="120" max="1200" step="5" value="400"/>
-    <span class="tag" id="accelPitchTag">400</span>
+    <input id="accelPitch" type="range" min="120" max="1200" step="5" value="714"/>
+    <span class="tag" id="accelPitchTag">714</span>
   </div>
 
   <div class="row sl">
     <label for="accelYaw">Max Yaw Accel (°/s²)</label>
-    <input id="accelYaw" type="range" min="120" max="1200" step="5" value="400"/>
-    <span class="tag" id="accelYawTag">400</span>
+    <input id="accelYaw" type="range" min="120" max="1200" step="5" value="521"/>
+    <span class="tag" id="accelYawTag">521</span>
   </div>
 
   <div class="row sl">
     <label for="accelRoll">Max Roll Accel (°/s²)</label>
-    <input id="accelRoll" type="range" min="120" max="1200" step="5" value="400"/>
-    <span class="tag" id="accelRollTag">400</span>
+    <input id="accelRoll" type="range" min="120" max="2400" step="5" value="2153"/>
+    <span class="tag" id="accelRollTag">2153</span>
   </div>
 
   <div class="row sl">
@@ -229,53 +223,46 @@
     <span class="tag" id="curveTag">1.00</span>
   </div>
 
-  <!-- Rest of your sliders stay the same -->
   <div class="row sl">
-    <label for="dampRange">Damp</label>
-    <input id="dampRange" type="range" min="0.0" max="1.2" step="0.05" value="1.2"/>
-    <span class="tag" id="dampTag">1.20</span>
+    <label for="dampRange">Damp (No-DAR)</label>
+    <input id="dampRange" type="range" min="0.0" max="6.0" step="0.05" value="2.96"/>
+    <span class="tag" id="dampTag">2.96</span>
+  </div>
+
+  <div class="row sl">
+    <label for="dampDARRange">Damp (DAR)</label>
+    <input id="dampDARRange" type="range" min="0.0" max="6.0" step="0.05" value="4.35"/>
+    <span class="tag" id="dampDARTag">4.35</span>
   </div>
 
   <div class="row sl">
     <label for="brakeRange">Release Brake</label>
-    <input id="brakeRange" type="range" min="0.0" max="6.0" step="0.1" value="6.0"/>
-    <span class="tag" id="brakeTag">6.0</span>
+    <input id="brakeRange" type="range" min="0.0" max="6.0" step="0.1" value="0.0"/>
+    <span class="tag" id="brakeTag">0.0</span>
   </div>
 
   <div class="row sl">
     <label for="wmaxRange">Max ω (global)</label>
-    <input id="wmaxRange" type="range" min="6.0" max="24.0" step="0.5" value="6.0"/>
-    <span class="tag" id="wmaxTag">6.0</span>
+    <input id="wmaxRange" type="range" min="4.0" max="24.0" step="0.1" value="5.5"/>
+    <span class="tag" id="wmaxTag">5.5</span>
   </div>
 
   <div class="row sl">
     <label for="wmaxPitch">Max Pitch ω</label>
-    <input id="wmaxPitch" type="range" min="4.0" max="24.0" step="0.5" value="8.5"/>
-    <span class="tag" id="wmaxPitchTag">8.5</span>
+    <input id="wmaxPitch" type="range" min="4.0" max="24.0" step="0.5" value="24.0"/>
+    <span class="tag" id="wmaxPitchTag">24.0</span>
   </div>
 
   <div class="row sl">
     <label for="wmaxYaw">Max Yaw ω</label>
-    <input id="wmaxYaw" type="range" min="4.0" max="24.0" step="0.5" value="9.0"/>
-    <span class="tag" id="wmaxYawTag">9.0</span>
+    <input id="wmaxYaw" type="range" min="4.0" max="24.0" step="0.5" value="24.0"/>
+    <span class="tag" id="wmaxYawTag">24.0</span>
   </div>
 
   <div class="row sl">
     <label for="wmaxRoll">Max Roll ω</label>
-    <input id="wmaxRoll" type="range" min="4.0" max="24.0" step="0.5" value="6.0"/>
-    <span class="tag" id="wmaxRollTag">6.0</span>
-  </div>
-
-  <div class="row sl">
-    <label for="tornadoAngle">Tornado Cone Angle</label>
-    <input id="tornadoAngle" type="range" min="0.10" max="1.00" step="0.05" value="0.40"/>
-    <span class="tag" id="tornadoAngleTag">0.40</span>
-  </div>
-
-  <div class="row sl">
-    <label for="circleTilt">Circle Tilt Angle</label>
-    <input id="circleTilt" type="range" min="0" max="45" step="1" value="34"/>
-    <span class="tag" id="circleTiltTag">38°</span>
+    <input id="wmaxRoll" type="range" min="4.0" max="24.0" step="0.5" value="24.0"/>
+    <span class="tag" id="wmaxRollTag">24.0</span>
   </div>
 </div>
 <!-- Car -->
@@ -318,6 +305,24 @@
           </div>
 
           <div class="row sl">
+            <label for="circleScale">Circle Scale</label>
+            <input id="circleScale" type="range" min="0.2" max="2.0" step="0.05" value="0.3"/>
+            <span class="tag" id="circleScaleTag">0.30×</span>
+          </div>
+
+          <div class="row sl">
+            <label for="circleTilt">Circle Tilt Angle</label>
+            <input id="circleTilt" type="range" min="0" max="45" step="1" value="34"/>
+            <span class="tag" id="circleTiltTag">38°</span>
+          </div>
+
+          <div class="row sl">
+            <label for="circleTiltModifier">Circle Tilt Modifier</label>
+            <input id="circleTiltModifier" type="range" min="-45" max="45" step="1" value="0"/>
+            <span class="tag" id="circleTiltModifierTag">0°</span>
+          </div>
+
+          <div class="row sl">
             <label for="brightnessSlider">Car Brightness</label>
             <input id="brightnessSlider" type="range" min="0.5" max="3.0" step="0.1" value="1.0" />
             <span class="tag" id="brightnessVal">1.00×</span>
@@ -355,7 +360,7 @@
           </div>
           <div class="row">
             <button id="gpRemap" class="btn" type="button">Remap Action…</button>
-            <select id="gpAction">
+            <select id="gpAction" aria-label="Select action to remap">
               <option value="toggleDAR">Toggle DAR</option>
               <option value="rollLeft">Air Roll Left</option>
               <option value="rollRight">Air Roll Right</option>
@@ -754,11 +759,16 @@ function Htri(x,y,a,r,fillStyle){hctx.save();hctx.translate(x,y);hctx.rotate(a);
 
 /* Joystick */
 let JOY_BASE_R = 100, JOY_KNOB_R = Math.round(JOY_BASE_R*0.32);
-let JOY_CENTER = new THREE.Vector2(126, innerHeight-170);
+let JOY_CENTER = new THREE.Vector2(130, innerHeight-130); // Bottom left
 let joyActive=false, joyVec = new THREE.Vector2(0,0), smJoy = new THREE.Vector2(0,0);
 const STICK_TAU_MS=8, RELOCATE_HOLD_MS=250, STICK_MIN=0.02;
 let activeId=null, relocating=false, holdTimer=null;
 let activePointers = new Map(); // Track all active pointers for multi-touch
+
+// Multi-touch state tracking (per pointer ID)
+let joyPointerId = null;    // Pointer controlling joystick
+let boostPointerId = null;  // Pointer controlling boost button
+let darPointerId = null;    // Pointer controlling DAR button
 const COLS = {UP:'#ff5c5c', RIGHT:'#4c8dff', DOWN:'#53d769', LEFT:'#ffd166'};
 
 function drawJoystick(){
@@ -796,12 +806,12 @@ function clampJoyCenter(){
 
 /* DAR button (toggle + relocate) */
 let DAR_R = 44;
-let DAR_CENTER = new THREE.Vector2(innerWidth-120, innerHeight-150);
+let DAR_CENTER = new THREE.Vector2(innerWidth-80, innerHeight-200); // Bottom right, above boost
 let darOn = false, darRelocating = false, darHoldTimer = null, darPressT=0;
 
 /* Boost button (for Ring Mode without gamepad) */
 let BOOST_R = 50;
-let BOOST_CENTER = new THREE.Vector2(innerWidth-120, innerHeight-80);
+let BOOST_CENTER = new THREE.Vector2(innerWidth-80, innerHeight-80); // Bottom right corner
 let boostRelocating = false, boostHoldTimer = null, boostPressT=0;
 let showBoostButton = isMobile; // Only show on mobile/tablet, not desktop
 
@@ -1071,14 +1081,15 @@ const accelYaw=document.getElementById('accelYaw'), accelYawTag=document.getElem
 const accelRoll=document.getElementById('accelRoll'), accelRollTag=document.getElementById('accelRollTag');
 const curveRange=document.getElementById('curveRange'), curveTag=document.getElementById('curveTag');
 const dampRange=document.getElementById('dampRange'),   dampTag=document.getElementById('dampTag');
+const dampDARRange=document.getElementById('dampDARRange'), dampDARTag=document.getElementById('dampDARTag');
 const brakeRange=document.getElementById('brakeRange'), brakeTag=document.getElementById('brakeTag');
 const wmaxRange=document.getElementById('wmaxRange'),   wmaxTag=document.getElementById('wmaxTag');
 const wmaxPitchRange=document.getElementById('wmaxPitch'), wmaxPitchTag=document.getElementById('wmaxPitchTag');
 const wmaxYawRange=document.getElementById('wmaxYaw'), wmaxYawTag=document.getElementById('wmaxYawTag');
 const wmaxRollRange=document.getElementById('wmaxRoll'), wmaxRollTag=document.getElementById('wmaxRollTag');
-const tornadoAngleRange=document.getElementById('tornadoAngle'), tornadoAngleTag=document.getElementById('tornadoAngleTag');
 const circleTiltRange=document.getElementById('circleTilt'), circleTiltTag=document.getElementById('circleTiltTag');
-const spinSlider=document.getElementById('spinSlider'), rollVal=document.getElementById('rollVal');
+const circleTiltModifierRange=document.getElementById('circleTiltModifier'), circleTiltModifierTag=document.getElementById('circleTiltModifierTag');
+const circleScaleRange=document.getElementById('circleScale'), circleScaleTag=document.getElementById('circleScaleTag');
 const sizeSlider=document.getElementById('stickSizeSlider'), stickVal=document.getElementById('stickVal');
 const zoomSlider=document.getElementById('zoomSlider'), zoomVal=document.getElementById('zoomVal');
 const arrowSlider=document.getElementById('arrowSlider'), arrowVal=document.getElementById('arrowVal');
@@ -1106,10 +1117,10 @@ function saveSettings() {
   try {
     const settings = {
       maxAccelPitch, maxAccelYaw, maxAccelRoll,
-      inputPow, damp, brakeOnRelease,
+      inputPow, damp, dampDAR, brakeOnRelease,
       wMax, wMaxPitch, wMaxYaw, wMaxRoll,
-      maxTornadoAngle, circleTiltAngle,
-      freeRollPeriod, zoom, arrowScale,
+      circleTiltAngle, circleTiltModifier, circleScale,
+      zoom, arrowScale,
       isDarkMode, airRollIsToggle,
       brightnessDark, brightnessLight,
       gpEnabled, gpBindings,
@@ -1159,14 +1170,15 @@ let maxAccelPitch=savedSettings.maxAccelPitch ?? parseFloat(accelPitch.value),
     maxAccelRoll=savedSettings.maxAccelRoll ?? parseFloat(accelRoll.value),
     inputPow=savedSettings.inputPow ?? parseFloat(curveRange.value),
     damp=savedSettings.damp ?? parseFloat(dampRange.value),
+    dampDAR=savedSettings.dampDAR ?? parseFloat(dampDARRange.value),
     brakeOnRelease=savedSettings.brakeOnRelease ?? parseFloat(brakeRange.value),
     wMax=savedSettings.wMax ?? parseFloat(wmaxRange.value),
     wMaxPitch=savedSettings.wMaxPitch ?? parseFloat(wmaxPitchRange.value),
     wMaxYaw=savedSettings.wMaxYaw ?? parseFloat(wmaxYawRange.value),
     wMaxRoll=savedSettings.wMaxRoll ?? parseFloat(wmaxRollRange.value),
-    maxTornadoAngle=savedSettings.maxTornadoAngle ?? parseFloat(tornadoAngleRange.value),
     circleTiltAngle=savedSettings.circleTiltAngle ?? parseFloat(circleTiltRange.value),
-    freeRollPeriod=savedSettings.freeRollPeriod ?? parseFloat(spinSlider.value),
+    circleTiltModifier=savedSettings.circleTiltModifier ?? parseFloat(circleTiltModifierRange.value),
+    circleScale=savedSettings.circleScale ?? parseFloat(circleScaleRange.value),
     zoom=savedSettings.zoom ?? parseFloat(zoomSlider.value),
     arrowScale=savedSettings.arrowScale ?? parseFloat(arrowSlider.value);
 
@@ -1180,14 +1192,15 @@ accelYaw.value = maxAccelYaw;
 accelRoll.value = maxAccelRoll;
 curveRange.value = inputPow;
 dampRange.value = damp;
+dampDARRange.value = dampDAR;
 brakeRange.value = brakeOnRelease;
 wmaxRange.value = wMax;
 wmaxPitchRange.value = wMaxPitch;
 wmaxYawRange.value = wMaxYaw;
 wmaxRollRange.value = wMaxRoll;
-tornadoAngleRange.value = maxTornadoAngle;
 circleTiltRange.value = circleTiltAngle;
-spinSlider.value = freeRollPeriod;
+circleTiltModifierRange.value = circleTiltModifier;
+circleScaleRange.value = circleScale;
 zoomSlider.value = zoom;
 arrowSlider.value = arrowScale;
 
@@ -1197,6 +1210,29 @@ let airRoll = savedSettings.airRoll ?? 0; // default to off
 let lastActiveAirRoll = airRoll !== 0 ? airRoll : -1; // Remember last active for DAR toggle
 // Default: toggle for keyboard (gpEnabled=false), hold for gamepad (gpEnabled=true)
 let airRollIsToggle = savedSettings.airRollIsToggle ?? (savedSettings.gpEnabled === false);
+
+/* Keyboard Input State */
+const keyState = new Map(); // Track which keys are currently held down
+const keyPrevState = new Map(); // Track previous frame state for edge detection
+
+// Keyboard event listeners
+window.addEventListener('keydown', (e) => {
+  keyState.set(e.code, true);
+});
+
+window.addEventListener('keyup', (e) => {
+  keyState.set(e.code, false);
+});
+
+// Helper: Check if key was just pressed this frame (edge detection)
+function keyJustPressed(code) {
+  return keyState.get(code) && !keyPrevState.get(code);
+}
+
+// Helper: Check if key is currently held down
+function keyHeld(code) {
+  return keyState.get(code) || false;
+}
 
 function setRoll(dir, skipSave = false){
   airRoll = dir;
@@ -1381,6 +1417,11 @@ const RING_COLORS = [
 ];
 let currentColorIndex = 0;
 
+// Preloaded ring resources (cached geometry and materials)
+let ringGeometryCache = null;
+let ringMaterialCache = new Map(); // Cache materials by color
+let ringResourcesPreloaded = false;
+
 // Ring sizing (car is ~30 units wide, ~20 tall, ~45 long based on Octane)
 const CAR_WIDTH = 30;
 const CAR_HEIGHT = 20;
@@ -1395,16 +1436,72 @@ const RING_BASE_SPAWN_INTERVAL = 3.0; // Base seconds between ring spawns
 let ringSpawnTimer = 0;
 let ringSpawnIndex = 0; // Track spawn order for camera focusing
 
-// Create a ring with neon 80s aesthetic
+// Preload ring resources to prevent lag on first spawn
+function preloadRingResources() {
+  if (ringResourcesPreloaded) return;
+
+  console.log('[Ring Mode] Preloading resources...');
+
+  // Cache shared geometry (all rings use same torus geometry)
+  ringGeometryCache = new THREE.TorusGeometry(INITIAL_RING_SIZE / 2, RING_TUBE_RADIUS, 16, 32);
+
+  // Cache materials for each color
+  RING_COLORS.forEach(color => {
+    const material = new THREE.MeshStandardMaterial({
+      color: color,
+      emissive: color,
+      emissiveIntensity: 0.8,
+      metalness: 0.3,
+      roughness: 0.2
+    });
+    ringMaterialCache.set(color, material);
+  });
+
+  // Create a dummy ring offscreen and render it to compile shaders
+  const dummyRing = new THREE.Mesh(
+    ringGeometryCache,
+    ringMaterialCache.get(RING_COLORS[0])
+  );
+  dummyRing.position.set(0, 0, -5000); // Far offscreen
+
+  // Add point light to compile light shaders too
+  const dummyLight = new THREE.PointLight(RING_COLORS[0], 2, 150);
+  dummyRing.add(dummyLight);
+
+  scene.add(dummyRing);
+
+  // Render one frame to compile shaders
+  renderer.render(scene, camera);
+
+  // Clean up dummy ring
+  scene.remove(dummyRing);
+  dummyLight.dispose();
+
+  // Preload boost flame geometry/material (compile shaders)
+  if (!car) {
+    console.warn('[Ring Mode] Car not loaded yet, skipping boost flame preload');
+  } else {
+    createBoostFlames();
+    // Briefly activate to compile shaders
+    updateBoostFlames(true, null);
+    renderer.render(scene, camera);
+    updateBoostFlames(false, null);
+  }
+
+  ringResourcesPreloaded = true;
+  console.log('[Ring Mode] Resources preloaded successfully!');
+}
+
+// Create a ring with neon 80s aesthetic (now uses cached resources)
 function createRing(x, y, z, size, speed, spawnIndex) {
   const color = RING_COLORS[currentColorIndex];
   currentColorIndex = (currentColorIndex + 1) % RING_COLORS.length;
 
-  // Create torus geometry for the ring
-  const geometry = new THREE.TorusGeometry(size / 2, RING_TUBE_RADIUS, 16, 32);
-
-  // Neon glowing material
-  const material = new THREE.MeshStandardMaterial({
+  // Use cached geometry and material (share across all rings for better performance)
+  // Note: We clone the material so each ring can be colored independently
+  const geometry = ringGeometryCache || new THREE.TorusGeometry(size / 2, RING_TUBE_RADIUS, 16, 32);
+  const cachedMaterial = ringMaterialCache.get(color);
+  const material = cachedMaterial || new THREE.MeshStandardMaterial({
     color: color,
     emissive: color,
     emissiveIntensity: 0.8,
@@ -1578,8 +1675,14 @@ function spawnRing() {
 function clearAllRings() {
   rings.forEach(r => {
     scene.remove(r.mesh);
-    r.mesh.geometry.dispose();
-    r.mesh.material.dispose();
+    // Don't dispose geometry/materials - they're cached and reused!
+    // Only dispose if not using cache (fallback case)
+    if (r.mesh.geometry !== ringGeometryCache) {
+      r.mesh.geometry.dispose();
+    }
+    if (!ringMaterialCache.has(r.mesh.material.color.getHex())) {
+      r.mesh.material.dispose();
+    }
   });
   rings = [];
 }
@@ -1674,19 +1777,7 @@ document.getElementById('ringMode').addEventListener('click', () => {
     cameraTargetY = 0;
     clearAllRings();
 
-    // Preload resources (rings and boost flames) to prevent lag on first spawn
-    // Create and immediately remove a ring to compile shaders
-    const preloadRing = createRing(0, 0, -2000, INITIAL_RING_SIZE, RING_BASE_SPEED, -1);
-    scene.remove(preloadRing.mesh);
-    preloadRing.mesh.geometry.dispose();
-    preloadRing.mesh.material.dispose();
-
-    // Preload boost flames to compile shaders
-    createBoostFlames();
-    updateBoostFlames(true, null); // Activate flames briefly
-    updateBoostFlames(false, null); // Hide them
-
-    // Spawn first ring immediately
+    // Resources already preloaded at startup, just spawn first ring
     spawnRing();
 
     if (car) {
@@ -1834,9 +1925,9 @@ accelRollTag.textContent=maxAccelRoll.toFixed(0);
   wmaxPitchTag.textContent=wMaxPitch.toFixed(1);
   wmaxYawTag.textContent=wMaxYaw.toFixed(1);
   wmaxRollTag.textContent=wMaxRoll.toFixed(1);
-  tornadoAngleTag.textContent=maxTornadoAngle.toFixed(2);
   circleTiltTag.textContent=`${circleTiltAngle.toFixed(0)}°`;
-  rollVal.textContent = (freeRollPeriod > 0) ? `${freeRollPeriod.toFixed(2)} s/rot` : 'off';
+  circleTiltModifierTag.textContent=`${circleTiltModifier.toFixed(0)}°`;
+  circleScaleTag.textContent=`${circleScale.toFixed(2)}×`;
   stickVal.textContent = String(Math.round(JOY_BASE_R));
   zoomVal.textContent = `${(zoom||1).toFixed(2)}×`;
   arrowVal.textContent = `${(arrowScale||1).toFixed(2)}×`;
@@ -1853,14 +1944,16 @@ function setupEditableTags() {
     {tag: accelYawTag, slider: accelYaw, setter: (v) => maxAccelYaw = Math.max(0, Math.min(1200, parseFloat(v) || 400))},
     {tag: accelRollTag, slider: accelRoll, setter: (v) => maxAccelRoll = Math.max(0, Math.min(1200, parseFloat(v) || 400))},
     {tag: curveTag, slider: curveRange, setter: (v) => inputPow = Math.max(1, Math.min(4, parseFloat(v) || 1.0))},
-    {tag: dampTag, slider: dampRange, setter: (v) => damp = Math.max(0, Math.min(1.2, parseFloat(v) || 1.2))},
-    {tag: brakeTag, slider: brakeRange, setter: (v) => brakeOnRelease = Math.max(0, Math.min(6, parseFloat(v) || 6))},
+    {tag: dampTag, slider: dampRange, setter: (v) => damp = Math.max(0, Math.min(6, parseFloat(v) || 2.96))},
+    {tag: dampDARTag, slider: dampDARRange, setter: (v) => dampDAR = Math.max(0, Math.min(6, parseFloat(v) || 4.35))},
+    {tag: brakeTag, slider: brakeRange, setter: (v) => brakeOnRelease = Math.max(0, Math.min(6, parseFloat(v) || 0))},
     {tag: wmaxTag, slider: wmaxRange, setter: (v) => wMax = Math.max(6, Math.min(24, parseFloat(v) || 6))},
     {tag: wmaxPitchTag, slider: wmaxPitchRange, setter: (v) => wMaxPitch = Math.max(6, Math.min(24, parseFloat(v) || 8.5))},
     {tag: wmaxYawTag, slider: wmaxYawRange, setter: (v) => wMaxYaw = Math.max(6, Math.min(24, parseFloat(v) || 9))},
     {tag: wmaxRollTag, slider: wmaxRollRange, setter: (v) => wMaxRoll = Math.max(4, Math.min(24, parseFloat(v) || 6))},
-    {tag: tornadoAngleTag, slider: tornadoAngleRange, setter: (v) => maxTornadoAngle = Math.max(0, Math.min(1, parseFloat(v) || 0.4))},
     {tag: circleTiltTag, slider: circleTiltRange, setter: (v) => circleTiltAngle = Math.max(0, Math.min(45, parseFloat(v) || 34))},
+    {tag: circleTiltModifierTag, slider: circleTiltModifierRange, setter: (v) => circleTiltModifier = Math.max(-45, Math.min(45, parseFloat(v) || 0))},
+    {tag: circleScaleTag, slider: circleScaleRange, setter: (v) => circleScale = Math.max(0.2, Math.min(2.0, parseFloat(v) || 0.3))},
     {tag: zoomVal, slider: zoomSlider, setter: (v) => { zoom = Math.max(0.2, Math.min(4.0, parseFloat(v) || 1)); applyZoom(); }},
     {tag: arrowVal, slider: arrowSlider, setter: (v) => arrowScale = Math.max(0.6, Math.min(4, parseFloat(v) || 4))},
     {tag: brightnessVal, slider: brightnessSlider, setter: (v) => {
@@ -1900,15 +1993,16 @@ accelPitch.addEventListener('input',()=>{maxAccelPitch=parseFloat(accelPitch.val
 accelYaw.addEventListener('input',()=>{maxAccelYaw=parseFloat(accelYaw.value)||400; syncTags(); saveSettings();});
 accelRoll.addEventListener('input',()=>{maxAccelRoll=parseFloat(accelRoll.value)||400; syncTags(); saveSettings();});
 curveRange.addEventListener('input',()=>{inputPow=parseFloat(curveRange.value)||1.0; syncTags(); saveSettings();});
-dampRange .addEventListener('input',()=>{damp=parseFloat(dampRange.value)||1.20; syncTags(); saveSettings();});
-brakeRange.addEventListener('input',()=>{brakeOnRelease=parseFloat(brakeRange.value)||6.0; syncTags(); saveSettings();});
+dampRange .addEventListener('input',()=>{damp=parseFloat(dampRange.value)||2.96; syncTags(); saveSettings();});
+dampDARRange .addEventListener('input',()=>{dampDAR=parseFloat(dampDARRange.value)||4.35; syncTags(); saveSettings();});
+brakeRange.addEventListener('input',()=>{brakeOnRelease=parseFloat(brakeRange.value)||0.0; syncTags(); saveSettings();});
 wmaxRange .addEventListener('input',()=>{wMax=parseFloat(wmaxRange.value)||6.0; syncTags(); saveSettings();});
 wmaxPitchRange.addEventListener('input',()=>{wMaxPitch=parseFloat(wmaxPitchRange.value)||8.5; syncTags(); saveSettings();});
 wmaxYawRange.addEventListener('input',()=>{wMaxYaw=parseFloat(wmaxYawRange.value)||9.0; syncTags(); saveSettings();});
 wmaxRollRange.addEventListener('input',()=>{wMaxRoll=parseFloat(wmaxRollRange.value)||6.0; syncTags(); saveSettings();});
-tornadoAngleRange.addEventListener('input',()=>{maxTornadoAngle=parseFloat(tornadoAngleRange.value)||0.40; syncTags(); saveSettings();});
 circleTiltRange.addEventListener('input',()=>{circleTiltAngle=parseFloat(circleTiltRange.value)||38; syncTags(); saveSettings();});
-spinSlider.addEventListener('input',()=>{freeRollPeriod=parseFloat(spinSlider.value)||0; syncTags(); saveSettings();});
+circleTiltModifierRange.addEventListener('input',()=>{circleTiltModifier=parseFloat(circleTiltModifierRange.value)||0; syncTags(); saveSettings();});
+circleScaleRange.addEventListener('input',()=>{circleScale=parseFloat(circleScaleRange.value)||0.3; syncTags(); saveSettings();});
 sizeSlider.addEventListener('input',()=>{JOY_BASE_R=parseInt(stickSizeSlider.value,10)||100; JOY_KNOB_R=Math.round(JOY_BASE_R*0.32); clampJoyCenter(); positionHints(); syncTags();});
 zoomSlider.addEventListener('input',()=>{zoom=parseFloat(zoomSlider.value)||1.0; applyZoom(); syncTags(); saveSettings();});
 arrowSlider.addEventListener('input',()=>{arrowScale=parseFloat(arrowSlider.value)||4.0; syncTags(); saveSettings();});
@@ -1951,21 +2045,21 @@ hud.addEventListener('pointerdown',(e)=>{
     }
   }
 
-  activeId=e.pointerId;
-
+  // Multi-touch: assign this pointer to a specific control
   if(showBoostButton && inBoost(e.clientX,e.clientY)){
+    boostPointerId = e.pointerId;
     if(ringModeActive){
-      // During Ring Mode: simple hold button for boost
       ringModeBoostActive = true;
     }
     e.preventDefault(); return;
   }
 
   if(inDAR(e.clientX,e.clientY)){
+    darPointerId = e.pointerId;
     darPressT = performance.now();
     clearTimeout(darHoldTimer);
     darHoldTimer = setTimeout(()=>{
-      if(activeId===e.pointerId){
+      if(darPointerId===e.pointerId){
         darRelocating = true; showHint(darHint, 2000);
       }
     }, RELOCATE_HOLD_MS);
@@ -1973,8 +2067,15 @@ hud.addEventListener('pointerdown',(e)=>{
   }
 
   if(inJoyLoose(e.clientX,e.clientY)){
-    joyActive=true; joyVec = vecFromJoyPx(e.clientX,e.clientY);
-  }else if(!chromeShown){
+    joyPointerId = e.pointerId;
+    joyActive=true;
+    joyVec = vecFromJoyPx(e.clientX,e.clientY);
+    e.preventDefault(); return;
+  }
+
+  // If not on any control, set as active for relocation
+  if(!chromeShown){
+    activeId = e.pointerId;
     clearTimeout(holdTimer);
     holdTimer = setTimeout(()=>{
       if(activeId===e.pointerId && !chromeShown){
@@ -1990,12 +2091,18 @@ hud.addEventListener('pointermove',(e)=>{
     activePointers.set(e.pointerId, {x: e.clientX, y: e.clientY});
   }
 
-  if(activeId!==e.pointerId)return;
-  if(boostRelocating){ BOOST_CENTER.set(e.clientX,e.clientY); clampBoostCenter(); }
-  else if(darRelocating){ DAR_CENTER.set(e.clientX,e.clientY); clampDARCenter(); positionHints(); }
-  else if(relocating){ JOY_CENTER.set(e.clientX,e.clientY); clampJoyCenter(); positionHints(); }
-  else if(joyActive){ joyVec = vecFromJoyPx(e.clientX,e.clientY); }
-  e.preventDefault();
+  // Handle each pointer independently based on what it's controlling
+  if(e.pointerId === joyPointerId && joyActive){
+    joyVec = vecFromJoyPx(e.clientX,e.clientY);
+    e.preventDefault();
+  }
+
+  if(e.pointerId === activeId){
+    if(boostRelocating){ BOOST_CENTER.set(e.clientX,e.clientY); clampBoostCenter(); }
+    else if(darRelocating){ DAR_CENTER.set(e.clientX,e.clientY); clampDARCenter(); positionHints(); }
+    else if(relocating){ JOY_CENTER.set(e.clientX,e.clientY); clampJoyCenter(); positionHints(); }
+    e.preventDefault();
+  }
 },{passive:false});
 function endPtr(e){
   // Remove pointer from tracking
@@ -2006,35 +2113,47 @@ function endPtr(e){
     boostRelocating = false;
   }
 
-  if(activeId!==e.pointerId) return;
   try{hud.releasePointerCapture(e.pointerId);}catch(_){}
-  clearTimeout(holdTimer); relocating=false;
 
-  // Handle boost button release
-  if(ringModeActive){
-    if(!boostRelocating){
+  // Handle each pointer release independently
+  if(e.pointerId === boostPointerId){
+    if(ringModeActive && !boostRelocating){
       ringModeBoostActive = false;
     }
+    boostPointerId = null;
   }
 
-  if(!darRelocating && inDAR(e.clientX,e.clientY)){
-    const heldMs = performance.now() - darPressT;
-    if(heldMs < RELOCATE_HOLD_MS){
-      // Toggle the currently selected air roll on/off
-      if(airRoll === 0){
-        // If no air roll active, activate the last active one
-        setRoll(lastActiveAirRoll);
-      } else {
-        // If air roll active, deactivate it
-        setRoll(0);
+  if(e.pointerId === darPointerId){
+    if(!darRelocating && inDAR(e.clientX,e.clientY)){
+      const heldMs = performance.now() - darPressT;
+      if(heldMs < RELOCATE_HOLD_MS){
+        // Toggle the currently selected air roll on/off
+        if(airRoll === 0){
+          setRoll(lastActiveAirRoll);
+        } else {
+          setRoll(0);
+        }
+        darOn = (airRoll !== 0);
       }
-      darOn = (airRoll !== 0); // Update darOn to match air roll state
     }
+    clearTimeout(darHoldTimer);
+    darRelocating = false;
+    darPointerId = null;
   }
-  clearTimeout(darHoldTimer); darRelocating=false;
 
-  if(joyActive){ joyActive = false; joyVec.set(0,0); }
-  activeId=null; e.preventDefault();
+  if(e.pointerId === joyPointerId){
+    joyActive = false;
+    joyVec.set(0,0);
+    joyPointerId = null;
+  }
+
+  if(e.pointerId === activeId){
+    clearTimeout(holdTimer);
+    relocating = false;
+    activeId = null;
+  }
+
+  e.preventDefault();
 }
 hud.addEventListener('pointerup',endPtr,{passive:false});
 hud.addEventListener('pointercancel',endPtr,{passive:false});
@@ -2364,6 +2483,80 @@ function handleRemap(pad){
   }
 }
 
+function updateKeyboardInput(){
+  // Keyboard controls: W/A/S/D = movement, Q/E = air roll, Shift = free roll, Space = boost
+  // I = menu toggle, Esc = pause (Ring Mode only)
+
+  // Handle menu toggle (I key)
+  if(keyJustPressed('KeyI')){
+    if(chromeShown){
+      closeMenu();
+    } else {
+      openMenu();
+    }
+  }
+
+  // If menu is open, don't process game input
+  if(chromeShown) return;
+
+  // Handle pause (Esc key - Ring Mode only)
+  if(keyJustPressed('Escape') && ringModeActive){
+    ringModePaused = !ringModePaused;
+    console.log('Ring Mode paused:', ringModePaused);
+  }
+
+  // Movement (WASD) - only when not dragging joystick manually
+  if(!joyActive && !relocating && !darRelocating){
+    let kx = 0, ky = 0;
+
+    if(keyHeld('KeyW')) ky -= 1; // Up
+    if(keyHeld('KeyS')) ky += 1; // Down
+    if(keyHeld('KeyA')) kx -= 1; // Left
+    if(keyHeld('KeyD')) kx += 1; // Right
+
+    // Normalize diagonal movement
+    const mag = Math.hypot(kx, ky);
+    if(mag > 0){
+      kx /= mag;
+      ky /= mag;
+      joyVec.set(kx * JOY_BASE_R, ky * JOY_BASE_R);
+    } else if(!gpEnabled || !readPads().pad){
+      // Only clear joystick if no gamepad input either
+      joyVec.set(0, 0);
+    }
+  }
+
+  // Air Roll Left (Q)
+  if(keyHeld('KeyQ')){
+    if(airRoll !== -1) setRoll(-1);
+  } else if(!keyHeld('KeyE') && !keyHeld('ShiftLeft') && !keyHeld('ShiftRight')){
+    // Only release if no other air roll keys are held
+    if(airRoll === -1) setRoll(0);
+  }
+
+  // Air Roll Right (E)
+  if(keyHeld('KeyE')){
+    if(airRoll !== 1) setRoll(1);
+  } else if(!keyHeld('KeyQ') && !keyHeld('ShiftLeft') && !keyHeld('ShiftRight')){
+    if(airRoll === 1) setRoll(0);
+  }
+
+  // Air Roll Free (Shift)
+  if(keyHeld('ShiftLeft') || keyHeld('ShiftRight')){
+    if(airRoll !== 2) setRoll(2);
+  } else if(!keyHeld('KeyQ') && !keyHeld('KeyE')){
+    if(airRoll === 2) setRoll(0);
+  }
+
+  // Boost (Space) - for Ring Mode
+  ringModeBoostActive = keyHeld('Space');
+
+  // Update previous key state for next frame
+  keyState.forEach((value, key) => {
+    keyPrevState.set(key, value);
+  });
+}
+
 function updateGamepadInput(){
   if(!gpEnabled) return;
   const { pad } = readPads();
@@ -2685,27 +2878,18 @@ function integrate(dt) {
   if (tornadoCircle) {
     // Circle only shows for Air Roll Left/Right (not Free), when DAR is active
     const isDAR = (airRoll === -1 || airRoll === 1);
-    const shouldShowCircle = showCircle && isDAR && darOn && freeRollPeriod > 0 && eff > 0.02;
+    const shouldShowCircle = showCircle && isDAR && darOn && eff > 0.02;
     tornadoCircle.visible = shouldShowCircle;
 
     if (shouldShowCircle) {
       const zFace = BOX.hz + 0.6;
-      const minTornadoAngle = 0.10;
-      const tornadoFactor = minTornadoAngle + eff * (maxTornadoAngle - minTornadoAngle);
 
-      // Calculate theoretical min/max bounds from stable version
+      // Calculate circle radius based on stick input
       const baseRadius = Math.min(BOX.hx, BOX.hy) * 0.95;
-      const theoreticalRadius = baseRadius * eff * tornadoFactor * (arrowScale || 1);
-      const minRadius = theoreticalRadius * 0.8; // Allow 20% smaller
-      const maxRadius = theoreticalRadius * 1.2; // Allow 20% larger
+      const arrowLength = baseRadius * eff * (arrowScale || 1);
 
-      // Calculate circle radius based on actual angular velocity
-      const wPitchYaw = Math.sqrt(w.x * w.x + w.y * w.y);
-      const actualConeAngle = wPitchYaw > 0.01 ? Math.atan(wPitchYaw / Math.abs(w.z)) : 0;
-      const physicsRadius = zFace * Math.tan(actualConeAngle) * (arrowScale || 1);
-
-      // Clamp to min/max bounds
-      const circleRadius = Math.max(minRadius, Math.min(maxRadius, physicsRadius));
+      // Circle scale controlled by circleScale slider
+      const circleRadius = arrowLength * (circleScale || 0.3);
 
       // The circle should be offset perpendicular to the arrow direction
       // Air Roll Left (airRoll = -1): offset +90 degrees (counter-clockwise)
@@ -2713,11 +2897,10 @@ function integrate(dt) {
       const arrowAngle = Math.atan2(ux, uy); // angle of the arrow in XY plane
       const perpAngle = arrowAngle + (airRoll * Math.PI / 2); // offset 90 degrees based on roll direction
 
-      // Position circle center perpendicular to arrow, distance = circleRadius
+      // Position circle center perpendicular to arrow, distance = circle radius
       const centerX = Math.sin(perpAngle) * circleRadius;
       const centerY = -Math.cos(perpAngle) * circleRadius;
 
-      // Use clamped physics-based radius
       tornadoCircle.scale.set(circleRadius, circleRadius, 1);
       tornadoCircle.position.set(centerX, centerY, zFace);
 
@@ -2728,14 +2911,20 @@ function integrate(dt) {
       tornadoCircle.material.color.setHex(col);
 
       // Apply tilt rotation toward the car
-      // Use the tilt angle directly without normalization for consistent appearance across devices
-      const tiltRad = (circleTiltAngle * Math.PI) / 180;
+      // Calculate modifier strength: 0 at stable points (every 45°), 1.0 at unstable points (between 45° marks)
+      // Stable points: 0°, 45°, 90°, 135°, 180°, 225°, 270°, 315°
+      // Using sin(4x) to create 8 peaks per rotation (frequency = 4)
+      const arrowAngleDeg = (arrowAngle * 180 / Math.PI + 360) % 360;
+      const modifierStrength = Math.abs(Math.sin(4 * arrowAngle)); // 0 at stable, 1 at unstable
+
+      // Apply base tilt + modifier
+      const totalTilt = circleTiltAngle + (circleTiltModifier * modifierStrength);
+      const tiltRad = (totalTilt * Math.PI) / 180;
 
       // Reset rotation first
       tornadoCircle.rotation.set(0, 0, 0);
 
       // Rotate around the axis perpendicular to the arrow (makes circle tilt toward car)
-      // The axis of rotation is in the XY plane, perpendicular to the perpAngle direction
       // Negative tiltRad to tilt toward car instead of away
       tornadoCircle.rotateOnAxis(
         new THREE.Vector3(-Math.cos(perpAngle), -Math.sin(perpAngle), 0).normalize(),
@@ -2745,9 +2934,16 @@ function integrate(dt) {
   }
 
   // --- 3. Slider conversions (deg/s² → rad/s²) ---
-  const maxAccelPitchRad = (maxAccelPitch * Math.PI) / 180;
-  const maxAccelYawRad   = (maxAccelYaw   * Math.PI) / 180;
-  const maxAccelRollRad  = (maxAccelRoll  * Math.PI) / 180;
+  let maxAccelPitchRad = (maxAccelPitch * Math.PI) / 180;
+  let maxAccelYawRad   = (maxAccelYaw   * Math.PI) / 180;
+  let maxAccelRollRad  = (maxAccelRoll  * Math.PI) / 180;
+
+  // --- 3.5. DAR acceleration multipliers (from RL measurements) ---
+  if (darOn) {
+    maxAccelPitchRad *= 0.997;  // DAR: 714→712 deg/s²
+    maxAccelYawRad *= 1.00;      // DAR: 521→522 deg/s² (no change)
+    maxAccelRollRad *= 0.98;     // DAR: 2153→2110 deg/s²
+  }
 
   // --- 4. Desired angular velocities (rate control) ---
   let maxPitchSpeed = wMaxPitch;  // rad/s, slider already in "ω"
@@ -2757,16 +2953,11 @@ function integrate(dt) {
   // Check if using Air Roll (Free) mode
   const isAirRollFree = (airRoll === 2);
 
-  // DAR tornado cone: shrink pitch/yaw authority while rolling
-  if (darOn && freeRollPeriod > 0 && !isAirRollFree) {
-    // Only apply tornado cone for Air Roll Left/Right (not Free)
-    targetRollSpeed = airRoll * (2 * Math.PI) / freeRollPeriod;
-
-    const minTornadoAngle = 0.10;
-    const tornadoFactor = minTornadoAngle + eff * (maxTornadoAngle - minTornadoAngle);
-
-    maxPitchSpeed *= tornadoFactor;
-    maxYawSpeed   *= tornadoFactor;
+  // DAR tornado spin (measured from Rocket League)
+  if (darOn && !isAirRollFree) {
+    // RL tornado spin: 0.74 seconds per rotation
+    const RL_TORNADO_PERIOD = 0.74;  // seconds
+    targetRollSpeed = airRoll * (2 * Math.PI) / RL_TORNADO_PERIOD;  // airRoll = ±1 for Left/Right
   }
 
   // stick → desired spin rates
@@ -2799,10 +2990,14 @@ function integrate(dt) {
   w.z += az * dt;
 
   // --- 7. Damping + release brake ---
-  const noStick = eff < 0.02;
-  const dampEff = (damp || 0) + ((noStick && !darOn) ? (brakeOnRelease || 0) : 0);
-  const scale = Math.exp(-dampEff * dt);
-  w.multiplyScalar(scale);
+  // CRITICAL: Damping only applies when inputs are released!
+  const noStick = eff < 0.08;
+  if (noStick) {
+    const baseDamp = darOn ? dampDAR : damp;
+    const dampEff = (baseDamp || 0) + ((!darOn) ? (brakeOnRelease || 0) : 0);
+    const scale = Math.exp(-dampEff * dt);
+    w.multiplyScalar(scale);
+  }
 
   // --- 8. Per-axis caps + global cap ---
   if (Math.abs(w.x) > wMaxPitch) w.x = Math.sign(w.x) * wMaxPitch;
@@ -3136,6 +3331,7 @@ function tick(){
 
   if(orbitOn){ orbitPhase += dt; orbitStep(orbitPhase); }
 
+  updateKeyboardInput();
   updateGamepadInput();
   integrate(dt);
 
@@ -3183,6 +3379,9 @@ if (presets[savedCarBody]) {
 if (car) {
   car.rotation.set(Math.PI * 1.5, 0, Math.PI); // X: +270°, Y: 0°, Z: +180°
 }
+
+// Preload Ring Mode resources after car is ready (prevents lag on first ring spawn)
+preloadRingResources();
 
 // Restore saved air roll (skipSave = true to avoid overwriting localStorage on load)
 setRoll(airRoll, true);
