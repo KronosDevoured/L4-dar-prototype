@@ -2116,9 +2116,17 @@ hud.addEventListener('pointermove',(e)=>{
     e.preventDefault();
   }
 
+  // DAR relocation uses darPointerId
+  if(e.pointerId === darPointerId && darRelocating){
+    DAR_CENTER.set(e.clientX,e.clientY);
+    clampDARCenter();
+    positionHints();
+    e.preventDefault();
+  }
+
+  // Joystick and boost relocation use activeId
   if(e.pointerId === activeId){
     if(boostRelocating){ BOOST_CENTER.set(e.clientX,e.clientY); clampBoostCenter(); }
-    else if(darRelocating){ DAR_CENTER.set(e.clientX,e.clientY); clampDARCenter(); positionHints(); }
     else if(relocating){ JOY_CENTER.set(e.clientX,e.clientY); clampJoyCenter(); positionHints(); }
     e.preventDefault();
   }
