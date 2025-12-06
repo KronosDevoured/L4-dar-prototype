@@ -773,6 +773,7 @@ let activePointers = new Map(); // Track all active pointers for multi-touch
 let joyPointerId = null;    // Pointer controlling joystick
 let boostPointerId = null;  // Pointer controlling boost button
 let darPointerId = null;    // Pointer controlling DAR button
+let darButtonJustUsed = false; // Prevent keyboard interference for one frame after DAR button use
 const COLS = {UP:'#ff5c5c', RIGHT:'#4c8dff', DOWN:'#53d769', LEFT:'#ffd166'};
 
 function drawJoystick(){
@@ -2161,6 +2162,8 @@ function endPtr(e){
           setRoll(0);
         }
         darOn = (airRoll !== 0);
+        // Prevent keyboard from interfering on the next frame
+        darButtonJustUsed = true;
       }
     }
     clearTimeout(darHoldTimer);
@@ -2575,11 +2578,12 @@ function updateKeyboardInput(){
   // Check if gamepad or DAR button is controlling air roll (don't interfere if it is)
   const gpControllingAirRoll = isGamepadPressingAirRoll();
   const darButtonPressed = (darPointerId !== null);
+  const darButtonActive = darButtonPressed || darButtonJustUsed;
 
   // Air Roll Left (Q)
   if(keyHeld('KeyQ')){
     if(airRoll !== -1) setRoll(-1);
-  } else if(!keyHeld('KeyE') && !keyHeld('ShiftLeft') && !keyHeld('ShiftRight') && !gpControllingAirRoll && !darButtonPressed){
+  } else if(!keyHeld('KeyE') && !keyHeld('ShiftLeft') && !keyHeld('ShiftRight') && !gpControllingAirRoll && !darButtonActive){
     // Only release if no other air roll keys are held AND gamepad/DAR button isn't controlling it
     if(airRoll === -1) setRoll(0);
   }
@@ -2587,16 +2591,19 @@ function updateKeyboardInput(){
   // Air Roll Right (E)
   if(keyHeld('KeyE')){
     if(airRoll !== 1) setRoll(1);
-  } else if(!keyHeld('KeyQ') && !keyHeld('ShiftLeft') && !keyHeld('ShiftRight') && !gpControllingAirRoll && !darButtonPressed){
+  } else if(!keyHeld('KeyQ') && !keyHeld('ShiftLeft') && !keyHeld('ShiftRight') && !gpControllingAirRoll && !darButtonActive){
     if(airRoll === 1) setRoll(0);
   }
 
   // Air Roll Free (Shift)
   if(keyHeld('ShiftLeft') || keyHeld('ShiftRight')){
     if(airRoll !== 2) setRoll(2);
-  } else if(!keyHeld('KeyQ') && !keyHeld('KeyE') && !gpControllingAirRoll && !darButtonPressed){
+  } else if(!keyHeld('KeyQ') && !keyHeld('KeyE') && !gpControllingAirRoll && !darButtonActive){
     if(airRoll === 2) setRoll(0);
   }
+
+  // Clear the flag after one frame
+  darButtonJustUsed = false;
 
   // Boost (Space) - for Ring Mode
   ringModeBoostActive = keyHeld('Space');
