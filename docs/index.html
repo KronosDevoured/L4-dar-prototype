@@ -2751,8 +2751,9 @@ function updateGamepadInput(){
         // Just pressed - activate this air roll
         const dir = action === 'rollLeft' ? -1 : action === 'rollRight' ? 1 : 2;
         setRoll(dir);
-      } else if(!nowPressed && wasPressed){
+      } else if(!nowPressed && wasPressed && darButtonProtectionFrames === 0){
         // Just released - deactivate if this was the active one
+        // BUT don't deactivate if DAR button was recently used (protection active)
         const dir = action === 'rollLeft' ? -1 : action === 'rollRight' ? 1 : 2;
         if(airRoll === dir){
           setRoll(0);
