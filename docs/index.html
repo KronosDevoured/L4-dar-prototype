@@ -2502,6 +2502,20 @@ function handleRemap(pad){
   }
 }
 
+// Helper: Check if gamepad is currently pressing any air roll buttons
+function isGamepadPressingAirRoll(){
+  if(!gpEnabled) return false;
+  const { pad } = readPads();
+  if(!pad) return false;
+
+  // Check if any air roll bindings are currently pressed
+  if(gpBindings.rollLeft && isPressedForBinding(pad, gpBindings.rollLeft)) return true;
+  if(gpBindings.rollRight && isPressedForBinding(pad, gpBindings.rollRight)) return true;
+  if(gpBindings.rollFree && isPressedForBinding(pad, gpBindings.rollFree)) return true;
+
+  return false;
+}
+
 function updateKeyboardInput(){
   // Keyboard controls: W/A/S/D = movement, Q/E = air roll, Shift = free roll, Space = boost
   // I = menu toggle, Esc = pause (Ring Mode only)
@@ -2550,25 +2564,28 @@ function updateKeyboardInput(){
     }
   }
 
+  // Check if gamepad is controlling air roll (don't interfere if it is)
+  const gpControllingAirRoll = isGamepadPressingAirRoll();
+
   // Air Roll Left (Q)
   if(keyHeld('KeyQ')){
     if(airRoll !== -1) setRoll(-1);
-  } else if(!keyHeld('KeyE') && !keyHeld('ShiftLeft') && !keyHeld('ShiftRight')){
-    // Only release if no other air roll keys are held
+  } else if(!keyHeld('KeyE') && !keyHeld('ShiftLeft') && !keyHeld('ShiftRight') && !gpControllingAirRoll){
+    // Only release if no other air roll keys are held AND gamepad isn't controlling it
     if(airRoll === -1) setRoll(0);
   }
 
   // Air Roll Right (E)
   if(keyHeld('KeyE')){
     if(airRoll !== 1) setRoll(1);
-  } else if(!keyHeld('KeyQ') && !keyHeld('ShiftLeft') && !keyHeld('ShiftRight')){
+  } else if(!keyHeld('KeyQ') && !keyHeld('ShiftLeft') && !keyHeld('ShiftRight') && !gpControllingAirRoll){
     if(airRoll === 1) setRoll(0);
   }
 
   // Air Roll Free (Shift)
   if(keyHeld('ShiftLeft') || keyHeld('ShiftRight')){
     if(airRoll !== 2) setRoll(2);
-  } else if(!keyHeld('KeyQ') && !keyHeld('KeyE')){
+  } else if(!keyHeld('KeyQ') && !keyHeld('KeyE') && !gpControllingAirRoll){
     if(airRoll === 2) setRoll(0);
   }
 
