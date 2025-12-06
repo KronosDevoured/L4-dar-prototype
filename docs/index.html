@@ -2500,7 +2500,7 @@ function updateKeyboardInput(){
   // Keyboard controls: W/A/S/D = movement, Q/E = air roll, Shift = free roll, Space = boost
   // I = menu toggle, Esc = pause (Ring Mode only)
 
-  // Handle menu toggle (I key)
+  // Handle menu toggle (I key) - must be before early return
   if(keyJustPressed('KeyI')){
     if(chromeShown){
       closeMenu();
@@ -2508,6 +2508,11 @@ function updateKeyboardInput(){
       openMenu();
     }
   }
+
+  // Update previous key state for next frame (MUST be done every frame!)
+  keyState.forEach((value, key) => {
+    keyPrevState.set(key, value);
+  });
 
   // If menu is open, don't process game input
   if(chromeShown) return;
@@ -2563,11 +2568,6 @@ function updateKeyboardInput(){
 
   // Boost (Space) - for Ring Mode
   ringModeBoostActive = keyHeld('Space');
-
-  // Update previous key state for next frame
-  keyState.forEach((value, key) => {
-    keyPrevState.set(key, value);
-  });
 }
 
 function updateGamepadInput(){
