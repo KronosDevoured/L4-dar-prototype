@@ -1242,8 +1242,8 @@ function setRoll(dir, skipSave = false){
   airRoll = dir;
   // Remember last active air roll for DAR toggle (but not 0)
   if(dir !== 0) lastActiveAirRoll = dir;
-  document.getElementById('rollL').classList.toggle('active', dir === 1);
-  document.getElementById('rollR').classList.toggle('active', dir === -1);
+  document.getElementById('rollL').classList.toggle('active', dir === -1); // Air Roll Left = -1
+  document.getElementById('rollR').classList.toggle('active', dir === 1);  // Air Roll Right = 1
   document.getElementById('rollFree').classList.toggle('active', dir === 2);
   // Sync darOn with air roll state (on if any air roll is active)
   darOn = (dir !== 0);
@@ -1264,8 +1264,8 @@ function toggleRoll(dir){
   }
 }
 
-document.getElementById('rollL').addEventListener('click', () => toggleRoll(1));
-document.getElementById('rollR').addEventListener('click', () => toggleRoll(-1));
+document.getElementById('rollL').addEventListener('click', () => toggleRoll(-1)); // Air Roll Left
+document.getElementById('rollR').addEventListener('click', () => toggleRoll(1));  // Air Roll Right
 document.getElementById('rollFree').addEventListener('click', () => toggleRoll(2));
 
 // Reset Physics to Defaults button
