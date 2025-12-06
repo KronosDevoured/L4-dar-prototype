@@ -2572,28 +2572,29 @@ function updateKeyboardInput(){
     }
   }
 
-  // Check if gamepad is controlling air roll (don't interfere if it is)
+  // Check if gamepad or DAR button is controlling air roll (don't interfere if it is)
   const gpControllingAirRoll = isGamepadPressingAirRoll();
+  const darButtonPressed = (darPointerId !== null);
 
   // Air Roll Left (Q)
   if(keyHeld('KeyQ')){
     if(airRoll !== -1) setRoll(-1);
-  } else if(!keyHeld('KeyE') && !keyHeld('ShiftLeft') && !keyHeld('ShiftRight') && !gpControllingAirRoll){
-    // Only release if no other air roll keys are held AND gamepad isn't controlling it
+  } else if(!keyHeld('KeyE') && !keyHeld('ShiftLeft') && !keyHeld('ShiftRight') && !gpControllingAirRoll && !darButtonPressed){
+    // Only release if no other air roll keys are held AND gamepad/DAR button isn't controlling it
     if(airRoll === -1) setRoll(0);
   }
 
   // Air Roll Right (E)
   if(keyHeld('KeyE')){
     if(airRoll !== 1) setRoll(1);
-  } else if(!keyHeld('KeyQ') && !keyHeld('ShiftLeft') && !keyHeld('ShiftRight') && !gpControllingAirRoll){
+  } else if(!keyHeld('KeyQ') && !keyHeld('ShiftLeft') && !keyHeld('ShiftRight') && !gpControllingAirRoll && !darButtonPressed){
     if(airRoll === 1) setRoll(0);
   }
 
   // Air Roll Free (Shift)
   if(keyHeld('ShiftLeft') || keyHeld('ShiftRight')){
     if(airRoll !== 2) setRoll(2);
-  } else if(!keyHeld('KeyQ') && !keyHeld('KeyE') && !gpControllingAirRoll){
+  } else if(!keyHeld('KeyQ') && !keyHeld('KeyE') && !gpControllingAirRoll && !darButtonPressed){
     if(airRoll === 2) setRoll(0);
   }
 
