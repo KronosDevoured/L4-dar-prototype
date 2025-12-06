@@ -763,7 +763,7 @@ function Htri(x,y,a,r,fillStyle){hctx.save();hctx.translate(x,y);hctx.rotate(a);
 
 /* Joystick */
 let JOY_BASE_R = 100, JOY_KNOB_R = Math.round(JOY_BASE_R*0.32);
-let JOY_CENTER = new THREE.Vector2(130, innerHeight-130); // Bottom left
+let JOY_CENTER = new THREE.Vector2(130, window.innerHeight-130); // Bottom left
 let joyActive=false, joyVec = new THREE.Vector2(0,0), smJoy = new THREE.Vector2(0,0);
 const STICK_TAU_MS=8, RELOCATE_HOLD_MS=250, STICK_MIN=0.02;
 let activeId=null, relocating=false, holdTimer=null;
@@ -810,12 +810,12 @@ function clampJoyCenter(){
 
 /* DAR button (toggle + relocate) */
 let DAR_R = 44;
-let DAR_CENTER = new THREE.Vector2(innerWidth-80, innerHeight-200); // Bottom right, above boost
+let DAR_CENTER = new THREE.Vector2(window.innerWidth-80, window.innerHeight-130); // Bottom right, same height as joystick
 let darOn = false, darRelocating = false, darHoldTimer = null, darPressT=0;
 
 /* Boost button (for Ring Mode without gamepad) */
 let BOOST_R = 50;
-let BOOST_CENTER = new THREE.Vector2(innerWidth-80, innerHeight-80); // Bottom right corner
+let BOOST_CENTER = new THREE.Vector2(window.innerWidth-80, window.innerHeight-250); // Bottom right, below DAR button
 let boostRelocating = false, boostHoldTimer = null, boostPressT=0;
 let showBoostButton = isMobile; // Only show on mobile/tablet, not desktop
 
