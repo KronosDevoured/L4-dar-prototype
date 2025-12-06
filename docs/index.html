@@ -773,7 +773,6 @@ let activePointers = new Map(); // Track all active pointers for multi-touch
 let joyPointerId = null;    // Pointer controlling joystick
 let boostPointerId = null;  // Pointer controlling boost button
 let darPointerId = null;    // Pointer controlling DAR button
-let darButtonProtectionFrames = 0; // Prevent keyboard interference for frames after DAR button use
 const COLS = {UP:'#ff5c5c', RIGHT:'#4c8dff', DOWN:'#53d769', LEFT:'#ffd166'};
 
 function drawJoystick(){
@@ -2077,6 +2076,15 @@ hud.addEventListener('pointerdown',(e)=>{
   if(inDAR(e.clientX,e.clientY)){
     darPointerId = e.pointerId;
     darPressT = performance.now();
+
+    // In hold mode: activate immediately on press
+    if(!airRollIsToggle){
+      if(airRoll === 0){
+        setRoll(lastActiveAirRoll);
+      }
+      darOn = true;
+    }
+
     clearTimeout(darHoldTimer);
     darHoldTimer = setTimeout(()=>{
       if(darPointerId===e.pointerId){
@@ -2155,15 +2163,21 @@ function endPtr(e){
     if(!darRelocating && inDAR(e.clientX,e.clientY)){
       const heldMs = performance.now() - darPressT;
       if(heldMs < RELOCATE_HOLD_MS){
-        // Toggle the currently selected air roll on/off
-        if(airRoll === 0){
-          setRoll(lastActiveAirRoll);
+        // In toggle mode: toggle air roll on/off
+        // In hold mode: just release (already activated on press)
+        if(airRollIsToggle){
+          // Toggle mode: tap to toggle
+          if(airRoll === 0){
+            setRoll(lastActiveAirRoll);
+          } else {
+            setRoll(0);
+          }
+          darOn = (airRoll !== 0);
         } else {
+          // Hold mode: deactivate on release
           setRoll(0);
+          darOn = false;
         }
-        darOn = (airRoll !== 0);
-        // Prevent keyboard from interfering for the next 3 frames
-        darButtonProtectionFrames = 3;
       }
     }
     clearTimeout(darHoldTimer);
@@ -2578,12 +2592,11 @@ function updateKeyboardInput(){
   // Check if gamepad or DAR button is controlling air roll (don't interfere if it is)
   const gpControllingAirRoll = isGamepadPressingAirRoll();
   const darButtonPressed = (darPointerId !== null);
-  const darButtonActive = darButtonPressed || (darButtonProtectionFrames > 0);
 
   // Air Roll Left (Q)
   if(keyHeld('KeyQ')){
     if(airRoll !== -1) setRoll(-1);
-  } else if(!keyHeld('KeyE') && !keyHeld('ShiftLeft') && !keyHeld('ShiftRight') && !gpControllingAirRoll && !darButtonActive){
+  } else if(!keyHeld('KeyE') && !keyHeld('ShiftLeft') && !keyHeld('ShiftRight') && !gpControllingAirRoll && !darButtonPressed){
     // Only release if no other air roll keys are held AND gamepad/DAR button isn't controlling it
     if(airRoll === -1) setRoll(0);
   }
@@ -2591,19 +2604,16 @@ function updateKeyboardInput(){
   // Air Roll Right (E)
   if(keyHeld('KeyE')){
     if(airRoll !== 1) setRoll(1);
-  } else if(!keyHeld('KeyQ') && !keyHeld('ShiftLeft') && !keyHeld('ShiftRight') && !gpControllingAirRoll && !darButtonActive){
+  } else if(!keyHeld('KeyQ') && !keyHeld('ShiftLeft') && !keyHeld('ShiftRight') && !gpControllingAirRoll && !darButtonPressed){
     if(airRoll === 1) setRoll(0);
   }
 
   // Air Roll Free (Shift)
   if(keyHeld('ShiftLeft') || keyHeld('ShiftRight')){
     if(airRoll !== 2) setRoll(2);
-  } else if(!keyHeld('KeyQ') && !keyHeld('KeyE') && !gpControllingAirRoll && !darButtonActive){
+  } else if(!keyHeld('KeyQ') && !keyHeld('KeyE') && !gpControllingAirRoll && !darButtonPressed){
     if(airRoll === 2) setRoll(0);
   }
-
-  // Decrement protection counter
-  if(darButtonProtectionFrames > 0) darButtonProtectionFrames--;
 
   // Boost (Space) - for Ring Mode
   ringModeBoostActive = keyHeld('Space');
@@ -2751,9 +2761,9 @@ function updateGamepadInput(){
         // Just pressed - activate this air roll
         const dir = action === 'rollLeft' ? -1 : action === 'rollRight' ? 1 : 2;
         setRoll(dir);
-      } else if(!nowPressed && wasPressed && darButtonProtectionFrames === 0){
+      } else if(!nowPressed && wasPressed && darPointerId === null){
         // Just released - deactivate if this was the active one
-        // BUT don't deactivate if DAR button was recently used (protection active)
+        // BUT don't deactivate if DAR button is currently being held
         const dir = action === 'rollLeft' ? -1 : action === 'rollRight' ? 1 : 2;
         if(airRoll === dir){
           setRoll(0);
