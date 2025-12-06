@@ -199,6 +199,10 @@
 <div class="card">
   <h3>Dynamics</h3>
 
+  <div class="row">
+    <button id="resetPhysicsDefaults" class="btn" type="button">Reset to Defaults</button>
+  </div>
+
   <div class="row sl">
     <label for="accelPitch">Max Pitch Accel (°/s²)</label>
     <input id="accelPitch" type="range" min="120" max="1200" step="5" value="714"/>
@@ -1263,6 +1267,15 @@ function toggleRoll(dir){
 document.getElementById('rollL').addEventListener('click', () => toggleRoll(1));
 document.getElementById('rollR').addEventListener('click', () => toggleRoll(-1));
 document.getElementById('rollFree').addEventListener('click', () => toggleRoll(2));
+
+// Reset Physics to Defaults button
+document.getElementById('resetPhysicsDefaults').addEventListener('click', () => {
+  // Clear localStorage to force defaults on next load
+  localStorage.removeItem('darSettings');
+
+  // Reload the page to apply defaults
+  location.reload();
+});
 
 // Toggle/Hold mode button
 document.getElementById('toggleMode').addEventListener('click', () => {
