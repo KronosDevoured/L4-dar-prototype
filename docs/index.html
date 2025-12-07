@@ -2141,6 +2141,16 @@ function getPatternPosition(progress) {
 
 // Spawn a new ring
 function spawnRing() {
+  // Check if there's already a ring too close to spawn position
+  // Prevent clustering by enforcing minimum Z-distance between rings
+  const MIN_RING_Z_SPACING = 400; // Minimum units between rings on Z-axis
+  const hasCloseRing = rings.some(r => Math.abs(r.mesh.position.z - RING_SPAWN_DISTANCE) < MIN_RING_Z_SPACING);
+
+  if (hasCloseRing) {
+    // Skip spawning this ring, try again next interval
+    return;
+  }
+
   // Check if we need a new pattern
   if (patternRingCount === 0 || patternRingCount >= patternLength) {
     selectNewPattern();
