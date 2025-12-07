@@ -470,32 +470,32 @@ export function init() {
   const musicStatusTag = document.getElementById('musicStatus');
 
   // Set initial button states
-  toggleSoundsBtn.classList.toggle('active', gameSoundsEnabled);
-  soundsStatusTag.textContent = gameSoundsEnabled ? 'Enabled' : 'Disabled';
-  toggleMusicBtn.classList.toggle('active', gameMusicEnabled);
-  musicStatusTag.textContent = gameMusicEnabled ? 'Enabled' : 'Disabled';
+  toggleSoundsBtn.classList.toggle('active', settings.gameSoundsEnabled);
+  soundsStatusTag.textContent = settings.gameSoundsEnabled ? 'Enabled' : 'Disabled';
+  toggleMusicBtn.classList.toggle('active', settings.gameMusicEnabled);
+  musicStatusTag.textContent = settings.gameMusicEnabled ? 'Enabled' : 'Disabled';
 
   toggleSoundsBtn.addEventListener('click', () => {
-    gameSoundsEnabled = !gameSoundsEnabled;
-    toggleSoundsBtn.classList.toggle('active', gameSoundsEnabled);
-    soundsStatusTag.textContent = gameSoundsEnabled ? 'Enabled' : 'Disabled';
+    settings.gameSoundsEnabled = !settings.gameSoundsEnabled;
+    toggleSoundsBtn.classList.toggle('active', settings.gameSoundsEnabled);
+    soundsStatusTag.textContent = settings.gameSoundsEnabled ? 'Enabled' : 'Disabled';
 
     // Update Audio module settings
-    Audio.setGameSoundsEnabled(gameSoundsEnabled);
+    Audio.setGameSoundsEnabled(settings.gameSoundsEnabled);
 
     saveSettings();
   });
 
   toggleMusicBtn.addEventListener('click', () => {
-    gameMusicEnabled = !gameMusicEnabled;
-    toggleMusicBtn.classList.toggle('active', gameMusicEnabled);
-    musicStatusTag.textContent = gameMusicEnabled ? 'Enabled' : 'Disabled';
+    settings.gameMusicEnabled = !settings.gameMusicEnabled;
+    toggleMusicBtn.classList.toggle('active', settings.gameMusicEnabled);
+    musicStatusTag.textContent = settings.gameMusicEnabled ? 'Enabled' : 'Disabled';
 
     // Update Audio module settings
-    Audio.setGameMusicEnabled(gameMusicEnabled);
+    Audio.setGameMusicEnabled(settings.gameMusicEnabled);
 
     // Start music if enabled and Ring Mode is active
-    if (gameMusicEnabled && RingMode.getRingModeActive() && RingMode.getRingModeStarted()) {
+    if (settings.gameMusicEnabled && RingMode.getRingModeActive() && RingMode.getRingModeStarted()) {
       Audio.startBackgroundMusic();
     }
 
@@ -584,7 +584,7 @@ export function init() {
       Audio.stopBoostRumble();
     } else {
       // Page is visible again - restart music if Ring Mode is active
-      if (RingMode.getRingModeActive() && RingMode.getRingModeStarted() && gameMusicEnabled) {
+      if (RingMode.getRingModeActive() && RingMode.getRingModeStarted() && settings.gameMusicEnabled) {
         Audio.startBackgroundMusic();
       }
     }
