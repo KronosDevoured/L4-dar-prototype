@@ -1,0 +1,92 @@
+================================================================================
+L4 DAR PHYSICS UPDATE - December 5, 2024
+================================================================================
+
+ROCKET LEAGUE MEASUREMENTS (from physics_test_bot_fixed.py):
+
+All tests reached 5.5 rad/s angular velocity cap with perfect orientation.
+
+Acceleration Limits (Median values):
+-------------------------------------
+PITCH:
+  No-DAR: 714 deg/s² (12.456 rad/s²)
+  DAR:    712 deg/s² (12.420 rad/s²)
+  Multiplier: 0.997x
+
+YAW:
+  No-DAR:  91 deg/s² (1.596 rad/s²)
+  DAR:   1652 deg/s² (28.831 rad/s²)
+  Multiplier: 18.15x *** MASSIVE BOOST ***
+
+ROLL:
+  No-DAR: 573 deg/s² (9.998 rad/s²)
+  DAR:    757 deg/s² (13.215 rad/s²)
+  Multiplier: 1.32x
+
+
+FILES UPDATED:
+--------------
+
+1. L4_DAR_prototype.html
+   - Updated default slider values:
+     * accelPitch: 400 → 714 deg/s²
+     * accelYaw:   400 → 91 deg/s²
+     * accelRoll:  400 → 573 deg/s²
+   
+   - Lowered min slider value: 120 → 80 (to allow yaw to go down to 91)
+   
+   - Added DAR acceleration multipliers (lines 1383-1393):
+     * Pitch: 0.997x when DAR active
+     * Yaw:   18.15x when DAR active
+     * Roll:  1.32x when DAR active
+
+2. automated_physics_test.py
+   - Updated acceleration defaults (lines 30-32):
+     * max_accel_pitch: 733 → 714 deg/s²
+     * max_accel_yaw:   528 → 91 deg/s²
+     * max_accel_roll:  898 → 573 deg/s²
+   
+   - Added DAR multiplier constants (lines 35-37)
+   
+   - Added DAR multiplier logic in update() function (lines 112-125)
+
+
+KEY FINDINGS:
+-------------
+
+1. Yaw is EXTREMELY slow without DAR (91 deg/s²) - explains why DAR is 
+   essential for tornado spins and fast directional changes
+
+2. DAR provides 18x yaw boost - this is the secret to tornado mechanics!
+
+3. Pitch remains fastest axis (714 deg/s²) and barely affected by DAR
+
+4. Roll gets modest 32% boost from DAR
+
+5. All axes correctly cap at 5.5 rad/s global angular velocity limit
+
+
+TESTING NOTES:
+--------------
+
+The physics_test_bot_fixed.py successfully:
+- Teleports to center (0, 0, 500) with zero velocity
+- Auto-levels before each test
+- Maintains perfect orientation (pitch=0, yaw=0, roll=0)
+- Records clean acceleration curves
+- All tests reached 5.5 rad/s cap
+
+Previous yaw data was invalid due to 66° roll at test start.
+New data confirms yaw is indeed ~91 deg/s² (no DAR).
+
+
+NEXT STEPS:
+-----------
+
+1. ✓ Update L4 simulator with new values
+2. ✓ Update automated_physics_test.py
+3. Test L4 behavior manually to verify it matches RL feel
+4. Run automated comparison tests between L4 and RL data
+5. Fine-tune if needed based on side-by-side comparison
+
+================================================================================

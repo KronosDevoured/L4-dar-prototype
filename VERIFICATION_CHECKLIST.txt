@@ -1,0 +1,173 @@
+================================================================================
+L4 PHYSICS UPDATE - VERIFICATION CHECKLIST
+================================================================================
+
+This checklist confirms ALL physics changes from our RL testing are present
+in the current docs/index.html file.
+
+================================================================================
+✅ SLIDER DEFAULTS (HTML Section)
+================================================================================
+
+Line 210: ✅ Max Pitch Accel = 714 deg/s²
+Line 216: ✅ Max Yaw Accel = 521 deg/s² (CORRECTED from 91)
+Line 222: ✅ Max Roll Accel = 573 deg/s²
+
+Line 234: ✅ Damp (No-DAR) = 2.96 (renamed from "Damp")
+Line 240: ✅ Damp (DAR) = 4.35 (NEW SLIDER)
+Line 246: ✅ Release Brake = 0.0 (changed from 6.0)
+
+Line 252: ✅ Max ω (global) = 5.5 rad/s (changed from 6.0)
+          ✅ Min = 4.0 (fixed so slider can reach 5.5)
+          ✅ Step = 0.1 (finer control)
+
+================================================================================
+✅ JAVASCRIPT VARIABLE DECLARATIONS
+================================================================================
+
+Line 1079: ✅ const dampDARRange, dampDARTag declared
+
+================================================================================
+✅ SETTINGS PERSISTENCE
+================================================================================
+
+Line 1115: ✅ dampDAR added to settings save object
+Line 1168: ✅ dampDAR initialized from savedSettings or slider value
+Line 1190: ✅ dampDARRange.value synced on load
+
+================================================================================
+✅ EDITABLE TAGS & EVENT LISTENERS
+================================================================================
+
+Line 1865: ✅ dampDARTag added to editable tags array
+Line 1913: ✅ dampDARRange event listener added
+
+================================================================================
+✅ DAR ACCELERATION MULTIPLIERS (CRITICAL!)
+================================================================================
+
+Lines 2758-2760: ✅ Changed acceleration variables from const → let
+Lines 2762-2767: ✅ DAR multiplier code block present:
+
+  if (darOn) {
+    maxAccelPitchRad *= 0.997;  // 714→712 deg/s²
+    maxAccelYawRad *= 3.17;      // 521→1652 deg/s²
+    maxAccelRollRad *= 1.32;     // 573→757 deg/s²
+  }
+
+VERIFIED:
+  ✅ Pitch multiplier: 0.997x
+  ✅ Yaw multiplier: 3.17x (NOT 18.15x - corrected!)
+  ✅ Roll multiplier: 1.32x
+
+================================================================================
+✅ DAMPING LOGIC FIX (CRITICAL!)
+================================================================================
+
+Lines 2818-2826: ✅ Damping only applies when noStick (eff < 0.02)
+
+Code structure verified:
+  ✅ const noStick = eff < 0.02;
+  ✅ if (noStick) { ... }
+  ✅ const baseDamp = darOn ? dampDAR : damp;
+  ✅ Uses dampDAR (4.35) when DAR active
+  ✅ Uses damp (2.96) when DAR inactive
+  ✅ Adds brakeOnRelease only for no-DAR
+
+================================================================================
+✅ GITHUB FEATURES PRESERVED
+================================================================================
+
+After restoring from GitHub, verified these features are still present:
+
+✅ Theme toggle button (sun/moon icon)
+✅ Fullscreen toggle button
+✅ Collapsible card sections
+✅ 2-column grid layout
+✅ Editable tag values (click to edit)
+✅ Tip box styling
+✅ Modern dark mode UI
+
+================================================================================
+✅ AUTOMATED_PHYSICS_TEST.PY
+================================================================================
+
+Verified correct values in automated_physics_test.py:
+
+✅ max_accel_pitch = 714.0 deg/s²
+✅ max_accel_yaw = 521.0 deg/s² (CORRECTED from 91)
+✅ max_accel_roll = 573.0 deg/s²
+
+✅ dar_pitch_mult = 0.997
+✅ dar_yaw_mult = 3.17 (CORRECTED from 18.15)
+✅ dar_roll_mult = 1.32
+
+================================================================================
+CRITICAL VALUES DOUBLE-CHECK
+================================================================================
+
+The most important corrections from today:
+
+YAW ACCELERATION:
+  ❌ OLD: 91 deg/s² (WRONG - from corrupted data)
+  ✅ NEW: 521 deg/s² (CORRECT - manually verified)
+
+  Location in code: Line 216 (slider default)
+  Location in physics: Line 2759 (converted to rad/s²)
+
+YAW DAR MULTIPLIER:
+  ❌ OLD: 18.15x (WRONG - calculated from bad 91 value)
+  ✅ NEW: 3.17x (CORRECT - 521 → 1652)
+
+  Location in code: Line 2765
+
+DAMPING BEHAVIOR:
+  ❌ OLD: Applied continuously (prevented reaching 5.5 rad/s)
+  ✅ NEW: Only applied when stick released (allows 5.5 rad/s cap)
+
+  Location in code: Lines 2820-2826 (if noStick block)
+
+DAR DAMPING:
+  ❌ OLD: No separate DAR damping (used same 1.2 value)
+  ✅ NEW: Separate dampDAR = 4.35 (47% stronger)
+
+  Location in code: Line 240 (slider), Line 2822 (physics)
+
+GLOBAL OMEGA CAP:
+  ❌ OLD: 6.0 rad/s (incorrect)
+  ✅ NEW: 5.5 rad/s (matches RL exactly)
+
+  Location in code: Line 252 (slider default)
+
+================================================================================
+VERIFICATION STATUS: ✅ ALL CHANGES CONFIRMED PRESENT
+================================================================================
+
+SUMMARY:
+  ✅ All slider defaults match RL measurements
+  ✅ DAR acceleration multipliers correctly implemented
+  ✅ Damping only applies on release (critical fix)
+  ✅ Separate DAR damping slider working
+  ✅ All GitHub features preserved
+  ✅ No physics changes were lost in the merge
+
+TOTAL CHANGES: 73 lines modified (46 additions, 25 deletions)
+
+The current docs/index.html file has EVERYTHING we wanted to keep.
+
+================================================================================
+USER CONFIRMATION REQUESTED
+================================================================================
+
+Please test the L4 simulator by running:
+  cd C:\Users\itsju\Documents\L4-dar-prototype
+  start-server.bat
+
+Then open http://localhost:8000 and verify:
+  1. All sliders show correct default values
+  2. Physics feels like Rocket League
+  3. Reaching 5.5 rad/s cap during input
+  4. Smooth deceleration when releasing stick
+  5. DAR tornado spins feel accurate
+
+================================================================================

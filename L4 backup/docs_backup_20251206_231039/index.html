@@ -431,11 +431,6 @@
 import * as THREE from "three";
 import { GLTFLoader } from "https://unpkg.com/three@0.164.0/examples/jsm/loaders/GLTFLoader.js";
 
-// Import modular components
-import * as CONST from './js/modules/constants.js';
-import * as Audio from './js/modules/audio.js';
-import * as Settings from './js/modules/settings.js';
-
 /* ====== Renderer / Scene / Camera ====== */
 const gl = document.getElementById('gl');
 const hud = document.getElementById('hud');
@@ -1209,8 +1204,71 @@ const arrowSlider=document.getElementById('arrowSlider'), arrowVal=document.getE
 const brightnessSlider=document.getElementById('brightnessSlider'), brightnessVal=document.getElementById('brightnessVal');
 const presetSel=document.getElementById('presetSel');
 
-// Load settings from Settings module
-const savedSettings = Settings.loadSettings();
+// Load saved settings from localStorage or use defaults
+function loadSettings() {
+  const saved = localStorage.getItem('darSettings');
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      console.log('Settings loaded from localStorage:', parsed);
+      return parsed;
+    } catch (e) {
+      console.error('Failed to parse saved settings:', e);
+      return {};
+    }
+  }
+  console.log('No saved settings found, using defaults');
+  return {};
+}
+
+function saveSettings() {
+  try {
+    const settings = {
+      maxAccelPitch, maxAccelYaw, maxAccelRoll,
+      inputPow, damp, dampDAR, brakeOnRelease,
+      wMax, wMaxPitch, wMaxYaw, wMaxRoll,
+      circleTiltAngle, circleTiltModifier, circleScale,
+      zoom, arrowScale,
+      isDarkMode, airRollIsToggle,
+      brightnessDark, brightnessLight,
+      gpEnabled, gpBindings,
+      showArrow, showCircle,
+      ringModeHighScore,
+      lastActiveAirRoll,
+      ringDifficulty: currentDifficulty,
+      gameSoundsEnabled,
+      gameMusicEnabled
+    };
+
+    // Only save these if the elements exist
+    const gpPresetEl = document.getElementById('gpPreset');
+    if (gpPresetEl) {
+      settings.gpPreset = gpPresetEl.value;
+    }
+
+    const presetSelEl = document.getElementById('presetSel');
+    if (presetSelEl) {
+      settings.selectedCarBody = presetSelEl.value;
+    }
+
+    const json = JSON.stringify(settings);
+    localStorage.setItem('darSettings', json);
+    console.log('Settings saved:', settings);
+    console.log('Settings JSON length:', json.length, 'chars');
+
+    // Verify it was saved
+    const verification = localStorage.getItem('darSettings');
+    if(verification === json){
+      console.log('✓ Verified: Settings successfully written to localStorage');
+    } else {
+      console.error('✗ ERROR: localStorage verification failed!');
+    }
+  } catch (e) {
+    console.error('Failed to save settings:', e);
+  }
+}
+
+const savedSettings = loadSettings();
 
 // Initialize gamepad bindings early (will be properly set later)
 let gpEnabled = savedSettings.gpEnabled ?? true;
@@ -1243,45 +1301,6 @@ let brightnessLight = savedSettings.brightnessLight ?? 1.0;
 // Audio settings
 let gameSoundsEnabled = savedSettings.gameSoundsEnabled ?? true;
 let gameMusicEnabled = savedSettings.gameMusicEnabled ?? true;
-
-// Sync audio settings with Audio module
-Audio.setGameSoundsEnabled(gameSoundsEnabled);
-Audio.setGameMusicEnabled(gameMusicEnabled);
-
-// Wrapper function to save settings to Settings module
-function saveSettings() {
-  // Collect current settings
-  const currentSettings = {
-    maxAccelPitch, maxAccelYaw, maxAccelRoll,
-    inputPow, damp, dampDAR, brakeOnRelease,
-    wMax, wMaxPitch, wMaxYaw, wMaxRoll,
-    circleTiltAngle, circleTiltModifier, circleScale,
-    zoom, arrowScale,
-    isDarkMode, airRollIsToggle,
-    brightnessDark, brightnessLight,
-    gpEnabled, gpBindings,
-    showArrow, showCircle,
-    ringModeHighScore,
-    lastActiveAirRoll,
-    ringDifficulty: currentDifficulty,
-    gameSoundsEnabled,
-    gameMusicEnabled
-  };
-
-  // Add optional settings if elements exist
-  const gpPresetEl = document.getElementById('gpPreset');
-  if (gpPresetEl) {
-    currentSettings.gpPreset = gpPresetEl.value;
-  }
-
-  const presetSelEl = document.getElementById('presetSel');
-  if (presetSelEl) {
-    currentSettings.selectedCarBody = presetSelEl.value;
-  }
-
-  // Save to Settings module
-  Settings.saveSettings(currentSettings);
-}
 
 // Apply loaded values to sliders
 accelPitch.value = maxAccelPitch;
@@ -1374,8 +1393,8 @@ document.getElementById('rollFree').addEventListener('click', () => selectAirRol
 
 // Reset Physics to Defaults button
 document.getElementById('resetPhysicsDefaults').addEventListener('click', () => {
-  // Clear settings via Settings module
-  Settings.clearAllSettings();
+  // Clear localStorage to force defaults on next load
+  localStorage.removeItem('darSettings');
 
   // Reload the page to apply defaults
   location.reload();
@@ -1507,12 +1526,263 @@ let ringCameraSpeed = 0.1;
 // Ring Mode Physics
 let ringModeVelocity = new THREE.Vector2(0, 0); // XY velocity only
 let ringModePosition = new THREE.Vector2(0, 0); // Car position in 2D plane
+const RING_MAX_SPEED = 1400; // Max speed cap (~60 mph equivalent, more controllable)
+const RING_BOOST_ACCEL = 1200; // Boost acceleration (balanced with reduced gravity)
+const RING_GRAVITY = -600; // Constant downward gravity (reduced for slower speeds)
+const RING_GRID_BOUNDS = 1500; // Movement boundary (3x larger: 500 * 3)
 let ringModeBoostActive = false;
 let ringModeStarted = false; // Track if player has started (boosted at least once)
 let ringModePaused = false; // Track pause state
 
 // Boost flame effects
 let boostFlames = [];
+
+// Audio context for ring pass sound
+let audioContext = null;
+function playRingPassSound() {
+  if (!gameSoundsEnabled) return; // Check if sounds are enabled
+
+  try {
+    // Create audio context on first use (user interaction required)
+    if (!audioContext) {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+
+    // Create a dull, hollow "thunk" sound
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+
+    // Lower frequency for dull thunk (C3 note = 130.8 Hz)
+    oscillator.frequency.setValueAtTime(130.8, audioContext.currentTime);
+    oscillator.type = 'triangle'; // Warmer, less harsh than sine
+
+    // Quick attack and decay for "thunk" effect
+    gainNode.gain.setValueAtTime(0.25, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
+
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.15);
+  } catch (e) {
+    console.warn('Audio playback failed:', e);
+  }
+}
+
+function playRingMissSound() {
+  if (!gameSoundsEnabled) return; // Check if sounds are enabled
+
+  try {
+    // Create audio context on first use (user interaction required)
+    if (!audioContext) {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+
+    // Create an obnoxious high-pitched "ding" sound
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+
+    // High frequency for bright ding (E6 note = 1318.5 Hz)
+    oscillator.frequency.setValueAtTime(1318.5, audioContext.currentTime);
+    oscillator.type = 'sine'; // Bright, sharp tone
+
+    // Sharp attack and longer decay for "ding" effect
+    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.3);
+  } catch (e) {
+    console.warn('Audio playback failed:', e);
+  }
+}
+
+// Boost rumble sound (continuous while boosting)
+let boostRumbleOscillator = null;
+let boostRumbleGain = null;
+
+// Background music (chill beat with drums)
+let musicBassOsc = null;
+let musicChordOsc = null;
+let musicKickOsc = null;
+let musicHihatNoise = null;
+let musicSnareNoise = null;
+let musicGain = null;
+let musicIntervalId = null;
+let musicBeatIndex = 0;
+
+// Chill chord progression (Am - F - C - G in Hz)
+const chordProgression = [
+  220,  // A (Am)
+  174.6, // F
+  261.6, // C
+  196    // G
+];
+
+function startBackgroundMusic() {
+  if (!gameMusicEnabled) return; // Check if music is enabled
+  if (musicIntervalId) return; // Already playing
+
+  try {
+    if (!audioContext) {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+
+    // Create main gain for all music
+    musicGain = audioContext.createGain();
+    musicGain.connect(audioContext.destination);
+    musicGain.gain.setValueAtTime(0.15, audioContext.currentTime); // Overall volume
+
+    // Bass oscillator (sine wave for smooth bass)
+    musicBassOsc = audioContext.createOscillator();
+    const bassGain = audioContext.createGain();
+    musicBassOsc.connect(bassGain);
+    bassGain.connect(musicGain);
+    musicBassOsc.type = 'sine';
+    musicBassOsc.frequency.setValueAtTime(110, audioContext.currentTime); // A2
+    bassGain.gain.setValueAtTime(0.3, audioContext.currentTime);
+    musicBassOsc.start();
+
+    // Chord pad (triangle wave for softer tone)
+    musicChordOsc = audioContext.createOscillator();
+    const chordGain = audioContext.createGain();
+    musicChordOsc.connect(chordGain);
+    chordGain.connect(musicGain);
+    musicChordOsc.type = 'triangle';
+    musicChordOsc.frequency.setValueAtTime(220, audioContext.currentTime); // A3
+    chordGain.gain.setValueAtTime(0.15, audioContext.currentTime);
+    musicChordOsc.start();
+
+    // Drum pattern function
+    function playBeat() {
+      const beat = musicBeatIndex % 16; // 16 beat pattern
+      const now = audioContext.currentTime;
+
+      // Kick drum (beats 0, 4, 8, 12)
+      if (beat % 4 === 0) {
+        const kickOsc = audioContext.createOscillator();
+        const kickGain = audioContext.createGain();
+        kickOsc.connect(kickGain);
+        kickGain.connect(musicGain);
+        kickOsc.frequency.setValueAtTime(150, now);
+        kickOsc.frequency.exponentialRampToValueAtTime(40, now + 0.1);
+        kickGain.gain.setValueAtTime(0.5, now);
+        kickGain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+        kickOsc.start(now);
+        kickOsc.stop(now + 0.15);
+      }
+
+      // Hi-hat (beats 2, 6, 10, 14)
+      if (beat % 4 === 2) {
+        const noise = audioContext.createBufferSource();
+        const noiseBuffer = audioContext.createBuffer(1, 4410, 44100); // 0.1s
+        const noiseData = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < noiseData.length; i++) {
+          noiseData[i] = Math.random() * 2 - 1;
+        }
+        noise.buffer = noiseBuffer;
+        const hihatGain = audioContext.createGain();
+        const hihatFilter = audioContext.createBiquadFilter();
+        hihatFilter.type = 'highpass';
+        hihatFilter.frequency.value = 7000;
+        noise.connect(hihatFilter);
+        hihatFilter.connect(hihatGain);
+        hihatGain.connect(musicGain);
+        hihatGain.gain.setValueAtTime(0.1, now);
+        hihatGain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+        noise.start(now);
+        noise.stop(now + 0.05);
+      }
+
+      // Change chord every 4 beats
+      if (beat % 4 === 0) {
+        const chordIndex = Math.floor(beat / 4) % chordProgression.length;
+        const rootNote = chordProgression[chordIndex];
+        musicBassOsc.frequency.setValueAtTime(rootNote / 2, now); // Bass (octave below)
+        musicChordOsc.frequency.setValueAtTime(rootNote, now); // Chord root
+      }
+
+      musicBeatIndex++;
+    }
+
+    playBeat();
+    musicIntervalId = setInterval(playBeat, 300); // 100 BPM 16th notes
+  } catch (e) {
+    console.warn('Music playback failed:', e);
+  }
+}
+
+function stopBackgroundMusic() {
+  if (!musicIntervalId) return;
+
+  try {
+    clearInterval(musicIntervalId);
+    musicIntervalId = null;
+
+    if (musicGain) {
+      musicGain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+    }
+    if (musicBassOsc) {
+      musicBassOsc.stop(audioContext.currentTime + 0.1);
+      musicBassOsc = null;
+    }
+    if (musicChordOsc) {
+      musicChordOsc.stop(audioContext.currentTime + 0.1);
+      musicChordOsc = null;
+    }
+    musicGain = null;
+    musicBeatIndex = 0;
+  } catch (e) {
+    console.warn('Stop music failed:', e);
+  }
+}
+
+function startBoostRumble() {
+  if (!gameSoundsEnabled) return; // Check if sounds are enabled
+  if (boostRumbleOscillator) return; // Already playing
+
+  try {
+    if (!audioContext) {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+
+    // Create low rumble sound
+    boostRumbleOscillator = audioContext.createOscillator();
+    boostRumbleGain = audioContext.createGain();
+
+    boostRumbleOscillator.connect(boostRumbleGain);
+    boostRumbleGain.connect(audioContext.destination);
+
+    // Very low frequency for deep rumble (30 Hz - sub-bass)
+    boostRumbleOscillator.frequency.setValueAtTime(30, audioContext.currentTime);
+    boostRumbleOscillator.type = 'sawtooth'; // Rough, engine-like sound
+
+    // Low volume so it doesn't drown out ring sounds
+    boostRumbleGain.gain.setValueAtTime(0.03, audioContext.currentTime); // Quarter volume
+
+    boostRumbleOscillator.start(audioContext.currentTime);
+  } catch (e) {
+    console.warn('Boost rumble failed:', e);
+  }
+}
+
+function stopBoostRumble() {
+  if (!boostRumbleOscillator) return;
+
+  try {
+    // Fade out quickly
+    boostRumbleGain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.05);
+    boostRumbleOscillator.stop(audioContext.currentTime + 0.05);
+    boostRumbleOscillator = null;
+    boostRumbleGain = null;
+  } catch (e) {
+    console.warn('Stop boost rumble failed:', e);
+  }
+}
 
 // Camera smooth path tracking
 let cameraTargetX = 0; // Smooth interpolated camera target position
@@ -1521,7 +1791,7 @@ let cameraTargetY = 0;
 // Reset Ring Mode (for retry button)
 function resetRingMode() {
   ringModeScore = 0;
-  ringModeLives = CONST.DIFFICULTY_SETTINGS[currentDifficulty].initialLives;
+  ringModeLives = DIFFICULTY_SETTINGS[currentDifficulty].initialLives;
   ringModeRingCount = 0;
   ringModeVelocity.set(0, 0);
   ringModePosition.set(0, 0);
@@ -1547,11 +1817,19 @@ function resetRingMode() {
   spawnRing();
 
   // Restart music
-  Audio.startBackgroundMusic();
+  startBackgroundMusic();
 }
 
 // Ring geometry and spawning
 let rings = []; // Active rings in the scene
+const RING_COLORS = [
+  0xff00ff, // Magenta
+  0x00ffff, // Cyan
+  0xff0080, // Hot pink
+  0x00ff00, // Green
+  0xffff00, // Yellow
+  0xff6600  // Orange
+];
 let currentColorIndex = 0;
 
 // Preloaded ring resources (cached geometry and materials)
@@ -1559,9 +1837,72 @@ let ringGeometryCache = null;
 let ringMaterialCache = new Map(); // Cache materials by color
 let ringResourcesPreloaded = false;
 
-// Ring spawning state
+// Ring sizing (car is ~30 units wide, ~20 tall, ~45 long based on Octane)
+const CAR_WIDTH = 30;
+const CAR_HEIGHT = 20;
+const INITIAL_RING_SIZE = CAR_WIDTH * 20; // Start at 20x car width (600 units diameter) - MUCH BIGGER
+const RING_TUBE_RADIUS = 8; // Thickness of the ring torus
+
+// Ring movement and spawning
+const RING_SPAWN_DISTANCE = -1100; // Spawn rings far behind camera (extra ~1.5 seconds reaction time)
+const RING_DESPAWN_DISTANCE = 1000; // Remove rings well past camera (allows them to pass behind)
+const RING_BASE_SPEED = 200; // Base units per second toward camera
+const RING_BASE_SPAWN_INTERVAL = 3.0; // Base seconds between ring spawns
 let ringSpawnTimer = 0;
 let ringSpawnIndex = 0; // Track spawn order for camera focusing
+
+// Difficulty settings
+const DIFFICULTY_SETTINGS = {
+  easy: {
+    // Ring properties
+    sizeMultiplier: 1.5,        // 50% larger rings
+    speedMultiplier: 0.7,        // 30% slower
+    spawnIntervalMultiplier: 1.3, // More time between rings
+
+    // Progression
+    progressionRate: 0,          // No difficulty increase
+
+    // Patterns
+    allowedPatterns: ['horizontal_line', 'vertical_line'], // Only straight lines
+    patternAmplitudeMultiplier: 1.0,
+
+    // Other
+    initialLives: 7              // More forgiving
+  },
+  normal: {
+    // Ring properties
+    sizeMultiplier: 1.0,         // Default size
+    speedMultiplier: 0.85,       // 15% slower for more reaction time
+    spawnIntervalMultiplier: 1.5, // 50% more time between rings
+
+    // Progression
+    progressionRate: 1.0,        // Normal progression
+
+    // Patterns
+    allowedPatterns: null,       // All patterns (progressive unlock)
+    patternAmplitudeMultiplier: 0.55, // Tighter patterns for easier tracking
+    excludeRandomPattern: true,  // No harsh cross-map teleports in Normal
+
+    // Other
+    initialLives: 5              // Default
+  },
+  hard: {
+    // Ring properties
+    sizeMultiplier: 0.7,         // 30% smaller rings
+    speedMultiplier: 1.3,        // 30% faster
+    spawnIntervalMultiplier: 0.75, // Less time between rings
+
+    // Progression
+    progressionRate: 1.5,        // Faster progression
+
+    // Patterns
+    allowedPatterns: null,       // All patterns (immediate unlock)
+    patternAmplitudeMultiplier: 1.4, // Wider patterns
+
+    // Other
+    initialLives: 3              // Less forgiving
+  }
+};
 
 let currentDifficulty = savedSettings.ringDifficulty ?? 'normal';
 
@@ -1572,10 +1913,10 @@ function preloadRingResources() {
   console.log('[Ring Mode] Preloading resources...');
 
   // Cache shared geometry (all rings use same torus geometry)
-  ringGeometryCache = new THREE.TorusGeometry(CONST.INITIAL_RING_SIZE / 2, CONST.RING_TUBE_RADIUS, 16, 32);
+  ringGeometryCache = new THREE.TorusGeometry(INITIAL_RING_SIZE / 2, RING_TUBE_RADIUS, 16, 32);
 
   // Cache materials for each color
-  CONST.RING_COLORS.forEach(color => {
+  RING_COLORS.forEach(color => {
     const material = new THREE.MeshStandardMaterial({
       color: color,
       emissive: color,
@@ -1589,12 +1930,12 @@ function preloadRingResources() {
   // Create a dummy ring offscreen and render it to compile shaders
   const dummyRing = new THREE.Mesh(
     ringGeometryCache,
-    ringMaterialCache.get(CONST.RING_COLORS[0])
+    ringMaterialCache.get(RING_COLORS[0])
   );
   dummyRing.position.set(0, 0, -5000); // Far offscreen
 
   // Add point light to compile light shaders too
-  const dummyLight = new THREE.PointLight(CONST.RING_COLORS[0], 2, 150);
+  const dummyLight = new THREE.PointLight(RING_COLORS[0], 2, 150);
   dummyRing.add(dummyLight);
 
   scene.add(dummyRing);
@@ -1623,8 +1964,8 @@ function preloadRingResources() {
 
 // Create a ring with neon 80s aesthetic (now uses cached resources)
 function createRing(x, y, z, size, speed, spawnIndex) {
-  const color = CONST.RING_COLORS[currentColorIndex];
-  currentColorIndex = (currentColorIndex + 1) % CONST.RING_COLORS.length;
+  const color = RING_COLORS[currentColorIndex];
+  currentColorIndex = (currentColorIndex + 1) % RING_COLORS.length;
 
   // ALWAYS use cached geometry for performance (prevents lag on spawn)
   // Scale the mesh instead of creating new geometry for different sizes
@@ -1641,8 +1982,8 @@ function createRing(x, y, z, size, speed, spawnIndex) {
   const ring = new THREE.Mesh(geometry, material);
   ring.position.set(x, y, z);
 
-  // Scale ring to match requested size (cached geometry is for CONST.INITIAL_RING_SIZE)
-  const scale = size / CONST.INITIAL_RING_SIZE;
+  // Scale ring to match requested size (cached geometry is for INITIAL_RING_SIZE)
+  const scale = size / INITIAL_RING_SIZE;
   ring.scale.set(scale, scale, scale);
 
   // Add point light for glow effect
@@ -1675,7 +2016,7 @@ let patternFrequency = 0.5; // Oscillation frequency
 let patternPhase = 0; // Starting phase offset
 
 function selectNewPattern() {
-  const settings = CONST.DIFFICULTY_SETTINGS[currentDifficulty];
+  const settings = DIFFICULTY_SETTINGS[currentDifficulty];
 
   // Progressive difficulty based on rings completed (affected by difficulty setting)
   const difficultyLevel = Math.floor(ringModeRingCount / 5 * settings.progressionRate); // Increase every 5 rings
@@ -1707,7 +2048,7 @@ function selectNewPattern() {
   // Progressive amplitude and frequency increase (affected by difficulty)
   const baseAmplitude = (200 + (difficultyLevel * 100)) * settings.patternAmplitudeMultiplier;
   const amplitudeVariance = (200 + (difficultyLevel * 50)) * settings.patternAmplitudeMultiplier;
-  patternAmplitude = Math.min(baseAmplitude + Math.random() * amplitudeVariance, CONST.RING_GRID_BOUNDS * 0.9);
+  patternAmplitude = Math.min(baseAmplitude + Math.random() * amplitudeVariance, RING_GRID_BOUNDS * 0.9);
 
   const baseFrequency = 0.3 + (difficultyLevel * 0.1); // Faster oscillations as difficulty increases
   patternFrequency = Math.min(baseFrequency + Math.random() * 0.5, 2.0);
@@ -1776,14 +2117,14 @@ function getPatternPosition(progress) {
     case 'random':
     default:
       // Pure random
-      x = (Math.random() - 0.5) * CONST.RING_GRID_BOUNDS * 0.8;
-      y = (Math.random() - 0.5) * CONST.RING_GRID_BOUNDS * 0.8;
+      x = (Math.random() - 0.5) * RING_GRID_BOUNDS * 0.8;
+      y = (Math.random() - 0.5) * RING_GRID_BOUNDS * 0.8;
       break;
   }
 
   // Distance cap: Limit maximum distance from current player position
   // Max distance = grid radius (center to edge = 1500 units)
-  const MAX_RING_DISTANCE = CONST.RING_GRID_BOUNDS; // 1500 units (half the total grid width)
+  const MAX_RING_DISTANCE = RING_GRID_BOUNDS; // 1500 units (half the total grid width)
   const dx = x - ringModePosition.x;
   const dy = y - ringModePosition.y;
   const distance = Math.sqrt(dx * dx + dy * dy);
@@ -1804,7 +2145,7 @@ function spawnRing() {
   // Prevent clustering by enforcing minimum Z-distance between rings
   // At base speed (200 u/s) and 3s interval, rings should be ~600 units apart
   const MIN_RING_Z_SPACING = 650; // Minimum units between rings on Z-axis
-  const hasCloseRing = rings.some(r => Math.abs(r.mesh.position.z - CONST.RING_SPAWN_DISTANCE) < MIN_RING_Z_SPACING);
+  const hasCloseRing = rings.some(r => Math.abs(r.mesh.position.z - RING_SPAWN_DISTANCE) < MIN_RING_Z_SPACING);
 
   if (hasCloseRing) {
     // Skip spawning this ring, try again next interval
@@ -1821,29 +2162,29 @@ function spawnRing() {
   const pos = getPatternPosition(patternProgress);
   const spawnX = pos.x;
   const spawnY = pos.y;
-  const spawnZ = CONST.RING_SPAWN_DISTANCE;
+  const spawnZ = RING_SPAWN_DISTANCE;
 
   patternRingCount++;
 
-  const settings = CONST.DIFFICULTY_SETTINGS[currentDifficulty];
+  const settings = DIFFICULTY_SETTINGS[currentDifficulty];
 
   // Calculate progression based on ring count (every 10 rings, affected by difficulty)
   const progressionLevel = Math.floor(ringModeRingCount / 10 * settings.progressionRate);
 
   // Size: -5% every 10 rings (max 50% reduction), then apply difficulty multiplier
   const sizeReduction = progressionLevel * 0.05;
-  const ringSize = CONST.INITIAL_RING_SIZE * (1 - Math.min(sizeReduction, 0.5)) * settings.sizeMultiplier;
+  const ringSize = INITIAL_RING_SIZE * (1 - Math.min(sizeReduction, 0.5)) * settings.sizeMultiplier;
 
   // Speed: +5% every 10 rings (max 50% increase), then apply difficulty multiplier
   const speedIncrease = progressionLevel * 0.05;
-  let ringSpeed = CONST.RING_BASE_SPEED * (1 + Math.min(speedIncrease, 0.5)) * settings.speedMultiplier;
+  let ringSpeed = RING_BASE_SPEED * (1 + Math.min(speedIncrease, 0.5)) * settings.speedMultiplier;
 
   // Distance-based speed modifier: slow down rings that spawn far away
   const distanceToRing = Math.sqrt(
     (spawnX - ringModePosition.x) ** 2 +
     (spawnY - ringModePosition.y) ** 2
   );
-  const MAX_RING_DISTANCE = CONST.RING_GRID_BOUNDS; // 1500 units
+  const MAX_RING_DISTANCE = RING_GRID_BOUNDS; // 1500 units
   const distanceRatio = distanceToRing / MAX_RING_DISTANCE; // 0.0 to 1.0
 
   // If ring is far away (>50% of max distance), slow it down
@@ -1949,7 +2290,7 @@ document.getElementById('ringMode').addEventListener('click', () => {
   if(ringModeActive){
     // Initialize Ring Mode
     ringModeScore = 0;
-    ringModeLives = CONST.DIFFICULTY_SETTINGS[currentDifficulty].initialLives;
+    ringModeLives = DIFFICULTY_SETTINGS[currentDifficulty].initialLives;
     ringModeRingCount = 0;
     ringModeVelocity.set(0, 0);
     ringModePosition.set(0, 0);
@@ -1975,7 +2316,7 @@ document.getElementById('ringMode').addEventListener('click', () => {
     orbitOn = false;
 
     // Start background music when entering Ring Mode
-    Audio.startBackgroundMusic();
+    startBackgroundMusic();
   } else {
     // Exit Ring Mode
     ringModeVelocity.set(0, 0);
@@ -1985,8 +2326,8 @@ document.getElementById('ringMode').addEventListener('click', () => {
     if (car) car.position.set(0, 0, 0);
 
     // Stop background music when exiting Ring Mode
-    Audio.stopBackgroundMusic();
-    Audio.stopBoostRumble(); // Also stop boost rumble
+    stopBackgroundMusic();
+    stopBoostRumble(); // Also stop boost rumble
   }
 });
 
@@ -2007,7 +2348,7 @@ ringDifficultySelector.addEventListener('change', () => {
   // If Ring Mode is active, restart it with new difficulty
   if (ringModeActive) {
     ringModeScore = 0;
-    ringModeLives = CONST.DIFFICULTY_SETTINGS[currentDifficulty].initialLives;
+    ringModeLives = DIFFICULTY_SETTINGS[currentDifficulty].initialLives;
     ringModeRingCount = 0;
     ringModeVelocity.set(0, 0);
     ringModePosition.set(0, 0);
@@ -2036,8 +2377,10 @@ toggleSoundsBtn.addEventListener('click', () => {
   toggleSoundsBtn.classList.toggle('active', gameSoundsEnabled);
   soundsStatusTag.textContent = gameSoundsEnabled ? 'Enabled' : 'Disabled';
 
-  // Update Audio module settings
-  Audio.setGameSoundsEnabled(gameSoundsEnabled);
+  // Stop boost rumble if sounds are disabled
+  if (!gameSoundsEnabled && boostRumbleOscillator) {
+    stopBoostRumble();
+  }
 
   saveSettings();
 });
@@ -2047,12 +2390,12 @@ toggleMusicBtn.addEventListener('click', () => {
   toggleMusicBtn.classList.toggle('active', gameMusicEnabled);
   musicStatusTag.textContent = gameMusicEnabled ? 'Enabled' : 'Disabled';
 
-  // Update Audio module settings
-  Audio.setGameMusicEnabled(gameMusicEnabled);
-
-  // Start music if enabled and Ring Mode is active
-  if (gameMusicEnabled && ringModeActive && ringModeStarted) {
-    Audio.startBackgroundMusic();
+  // Stop music if disabled
+  if (!gameMusicEnabled && musicIntervalId) {
+    stopBackgroundMusic();
+  } else if (gameMusicEnabled && ringModeActive && ringModeStarted && !musicIntervalId) {
+    // Start music if enabled and Ring Mode is active
+    startBackgroundMusic();
   }
 
   saveSettings();
@@ -2077,7 +2420,7 @@ document.getElementById('restart').addEventListener('click',()=>{
   // Reset Ring Mode if active
   if(ringModeActive){
     ringModeScore = 0;
-    ringModeLives = CONST.DIFFICULTY_SETTINGS[currentDifficulty].initialLives;
+    ringModeLives = DIFFICULTY_SETTINGS[currentDifficulty].initialLives;
     ringModeRingCount = 0;
   }
 });
@@ -2152,12 +2495,12 @@ document.addEventListener('fullscreenchange', () => {
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
     // Page is hidden - stop all audio
-    Audio.stopBackgroundMusic();
-    Audio.stopBoostRumble();
+    stopBackgroundMusic();
+    stopBoostRumble();
   } else {
     // Page is visible again - restart music if Ring Mode is active
     if (ringModeActive && ringModeStarted && gameMusicEnabled) {
-      Audio.startBackgroundMusic();
+      startBackgroundMusic();
     }
   }
 });
@@ -2653,7 +2996,7 @@ function execBinding(action){
         ringModeVelocity.set(0, 0);
         ringModePosition.set(0, 0);
         ringModeScore = 0;
-        ringModeLives = CONST.DIFFICULTY_SETTINGS[currentDifficulty].initialLives;
+        ringModeLives = DIFFICULTY_SETTINGS[currentDifficulty].initialLives;
         ringModeRingCount = 0;
         ringModeStarted = false;
         ringSpawnIndex = 0; // Reset spawn order tracking
@@ -3136,20 +3479,20 @@ function integrate(dt) {
     }
 
     // Boost rumble sound control
-    if (ringModeBoostActive) {
-      Audio.startBoostRumble();
-    } else {
-      Audio.stopBoostRumble();
+    if (ringModeBoostActive && !boostRumbleOscillator) {
+      startBoostRumble();
+    } else if (!ringModeBoostActive && boostRumbleOscillator) {
+      stopBoostRumble();
     }
 
     // Apply forces
     let accelX = 0;
-    let accelY = ringModeStarted ? CONST.RING_GRAVITY : 0; // Only apply gravity after first boost
+    let accelY = ringModeStarted ? RING_GRAVITY : 0; // Only apply gravity after first boost
 
     if (ringModeBoostActive) {
       // Boost in the direction car's nose is facing
-      accelX += boostDirX * CONST.RING_BOOST_ACCEL;
-      accelY += boostDirY * CONST.RING_BOOST_ACCEL;
+      accelX += boostDirX * RING_BOOST_ACCEL;
+      accelY += boostDirY * RING_BOOST_ACCEL;
     }
 
     // Update boost flame visibility and position
@@ -3161,8 +3504,8 @@ function integrate(dt) {
 
     // Clamp to max speed
     const speed = ringModeVelocity.length();
-    if (speed > CONST.RING_MAX_SPEED) {
-      ringModeVelocity.multiplyScalar(CONST.RING_MAX_SPEED / speed);
+    if (speed > RING_MAX_SPEED) {
+      ringModeVelocity.multiplyScalar(RING_MAX_SPEED / speed);
     }
 
     // Integrate position
@@ -3170,12 +3513,12 @@ function integrate(dt) {
     ringModePosition.y += ringModeVelocity.y * dt;
 
     // Clamp to bounds
-    ringModePosition.x = THREE.MathUtils.clamp(ringModePosition.x, -CONST.RING_GRID_BOUNDS, CONST.RING_GRID_BOUNDS);
-    ringModePosition.y = THREE.MathUtils.clamp(ringModePosition.y, -CONST.RING_GRID_BOUNDS, CONST.RING_GRID_BOUNDS);
+    ringModePosition.x = THREE.MathUtils.clamp(ringModePosition.x, -RING_GRID_BOUNDS, RING_GRID_BOUNDS);
+    ringModePosition.y = THREE.MathUtils.clamp(ringModePosition.y, -RING_GRID_BOUNDS, RING_GRID_BOUNDS);
 
     // Check out of bounds (player went too far)
-    if (Math.abs(ringModePosition.x) >= CONST.RING_GRID_BOUNDS ||
-        Math.abs(ringModePosition.y) >= CONST.RING_GRID_BOUNDS) {
+    if (Math.abs(ringModePosition.x) >= RING_GRID_BOUNDS ||
+        Math.abs(ringModePosition.y) >= RING_GRID_BOUNDS) {
       // Out of bounds - respawn at next ring position
       ringModeVelocity.set(0, 0);
 
@@ -3557,8 +3900,8 @@ function integrate(dt) {
           const distanceToCenter = Math.sqrt(dx * dx + dy * dy);
 
           // Ring outer and inner radii
-          const ringOuterRadius = ring.size / 2 + CONST.RING_TUBE_RADIUS;
-          const ringInnerRadius = ring.size / 2 - CONST.RING_TUBE_RADIUS;
+          const ringOuterRadius = ring.size / 2 + RING_TUBE_RADIUS;
+          const ringInnerRadius = ring.size / 2 - RING_TUBE_RADIUS;
 
           if (distanceToCenter <= ringInnerRadius) {
             // Clean pass - car went through the center
@@ -3568,13 +3911,13 @@ function integrate(dt) {
             console.log('Passed through ring! Score:', ringModeScore);
 
             // Audio feedback - play success sound
-            Audio.playRingPassSound();
+            playRingPassSound();
           } else if (distanceToCenter < ringOuterRadius) {
             // Hit the edge of the ring
             ring.missed = true;
             console.log('Hit ring edge! Heart damage');
             // Audio feedback - play miss sound
-            Audio.playRingMissSound();
+            playRingMissSound();
             // TODO: Apply heart damage
           } else {
             // Completely missed the ring
@@ -3582,19 +3925,19 @@ function integrate(dt) {
             ringModeLives--;
             console.log('Missed ring! Lives:', ringModeLives);
             // Audio feedback - play miss sound
-            Audio.playRingMissSound();
+            playRingMissSound();
             // TODO: Check if game over
           }
         }
 
         // Remove rings that have passed the camera
-        if(ring.mesh.position.z > CONST.RING_DESPAWN_DISTANCE) {
+        if(ring.mesh.position.z > RING_DESPAWN_DISTANCE) {
           // Check if we missed an unpassed ring
           if (!ring.passed && !ring.missed) {
             ringModeLives--;
             console.log('Ring passed without going through! Lives:', ringModeLives);
             // Audio feedback - play miss sound
-            Audio.playRingMissSound();
+            playRingMissSound();
           }
           scene.remove(ring.mesh);
           ring.mesh.geometry.dispose();
@@ -3605,7 +3948,7 @@ function integrate(dt) {
 
       // Spawn new rings periodically (affected by difficulty)
       ringSpawnTimer += dt;
-      const spawnInterval = CONST.RING_BASE_SPAWN_INTERVAL * CONST.DIFFICULTY_SETTINGS[currentDifficulty].spawnIntervalMultiplier;
+      const spawnInterval = RING_BASE_SPAWN_INTERVAL * DIFFICULTY_SETTINGS[currentDifficulty].spawnIntervalMultiplier;
       if(ringSpawnTimer >= spawnInterval) {
         spawnRing();
         ringSpawnTimer = 0;
@@ -3881,7 +4224,7 @@ function drawRingModeHUD() {
     }
 
     // Stop audio on game over
-    Audio.stopBoostRumble();
+    stopBoostRumble();
 
     // Activate orbit for cool bouncing effect on game over
     if (!orbitOn) {

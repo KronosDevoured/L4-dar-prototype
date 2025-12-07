@@ -1,0 +1,74 @@
+================================================================================
+L4 DAR PHYSICS UPDATE - CORRECTED VALUES - December 5, 2024
+================================================================================
+
+IMPORTANT: The initial extraction had an ERROR. The script was looking for
+files named "*_full_accel_long.csv" which didn't exist, so it picked up old
+corrupted data. The correct values are below.
+
+ROCKET LEAGUE MEASUREMENTS (from physics_test_bot_fixed.py):
+-------------------------------------------------------------
+
+All tests reached 5.5 rad/s angular velocity cap with perfect orientation.
+
+Acceleration Limits (from fresh test data):
+-------------------------------------------
+
+PITCH:
+  No-DAR: 714 deg/s² (12.456 rad/s²)
+  DAR:    712 deg/s² (12.420 rad/s²)
+  Multiplier: 0.997x (basically unchanged)
+
+YAW: *** CORRECTED ***
+  No-DAR: 521 deg/s² (9.09 rad/s²)
+  DAR:   1652 deg/s² (28.83 rad/s²)
+  Multiplier: 3.17x
+
+ROLL:
+  No-DAR: 573 deg/s² (9.998 rad/s²)
+  DAR:    757 deg/s² (13.215 rad/s²)
+  Multiplier: 1.32x
+
+
+WHAT WAS WRONG:
+---------------
+The extraction script extract_accel_limits.py was hardcoded to look for files
+with "_full_accel_long.csv" suffix (line 83-90), but the actual test files
+were named with "_test.csv" suffix. This caused it to either find no files
+or pick up old corrupted test data.
+
+The manual calculation from the actual CSV data shows:
+  - Yaw went from 0.304 to 4.250 rad/s in 0.434 seconds
+  - Acceleration = (4.250 - 0.304) / 0.434 = 9.09 rad/s² = 521 deg/s²
+
+
+CORRECTED L4 VALUES:
+--------------------
+✓ Max Pitch Accel: 714 deg/s²
+✓ Max Yaw Accel: 521 deg/s² (was incorrectly 91)
+✓ Max Roll Accel: 573 deg/s²
+✓ Max ω (global): 5.5 rad/s
+
+DAR Multipliers:
+✓ Pitch: 0.997x (unchanged)
+✓ Yaw: 3.17x (was incorrectly 18.15x)
+✓ Roll: 1.32x (unchanged)
+
+
+USER FEEDBACK:
+--------------
+User correctly identified that 91 deg/s² for yaw felt completely wrong in L4
+compared to Rocket League. Manual verification confirmed yaw should be 521 deg/s²,
+which makes the behavior match RL properly.
+
+This is why empirical testing and user feedback is critical - the automated
+extraction script had a bug that would have gone unnoticed without testing!
+
+
+FILES UPDATED:
+--------------
+1. docs/index.html - Updated defaults and DAR multipliers
+2. automated_physics_test.py - Updated physics constants
+3. This file documenting the correction
+
+================================================================================

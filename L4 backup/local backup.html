@@ -10,7 +10,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>L4 Aerial Car Control Tool</title>
+<title>L4 — Blender-Style + XYZ Gizmo + DAR Toggle/Relocate</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg" />
 <style>
   /* === CSS BASE START === */
@@ -176,8 +176,8 @@
         <div class="card">
           <h3>Rotation</h3>
           <div class="row">
-            <button id="rollL" class="btn" type="button">Air Roll Left</button>
-            <button id="rollR" class="btn active" type="button">Air Roll Right</button>
+            <button id="rollL" class="btn" type="button">Air Roll Right</button>
+            <button id="rollR" class="btn active" type="button">Air Roll Left</button>
             <button id="rollFree" class="btn" type="button">Air Roll (Free)</button>
             <button id="ringMode" class="btn" type="button">Ring Mode</button>
             <button id="restart" class="btn" type="button">Restart</button>
@@ -198,10 +198,6 @@
 <!-- Dynamics -->
 <div class="card">
   <h3>Dynamics</h3>
-
-  <div class="row">
-    <button id="resetPhysicsDefaults" class="btn" type="button">Reset to Defaults</button>
-  </div>
 
   <div class="row sl">
     <label for="accelPitch">Max Pitch Accel (°/s²)</label>
@@ -337,15 +333,6 @@
         <div class="card">
           <h3>Ring Mode</h3>
 
-          <div class="row">
-            <label for="ringDifficulty">Difficulty</label>
-            <select id="ringDifficulty">
-              <option value="easy">Easy</option>
-              <option value="normal" selected>Normal</option>
-              <option value="hard">Hard</option>
-            </select>
-          </div>
-
           <div class="row sl">
             <label for="ringCameraSpeed">Camera Transition Speed</label>
             <input id="ringCameraSpeed" type="range" min="0.01" max="0.5" step="0.01" value="0.1" />
@@ -354,28 +341,6 @@
 
           <div class="tip">
             <b>Ring Mode:</b> Navigate through rings using boost. Lower camera speed = slower, smoother transitions to next ring.
-            <br><br>
-            <b>Difficulty:</b><br>
-            • Easy: Large rings, slower speed, simple patterns<br>
-            • Normal: Balanced challenge<br>
-            • Hard: Smaller rings, faster speed, complex patterns
-          </div>
-        </div>
-
-        <!-- Audio Settings -->
-        <div class="card">
-          <h3>Audio</h3>
-          <div class="row">
-            <button id="toggleSounds" class="btn active" type="button">Game Sounds</button>
-            <span class="tag" id="soundsStatus">Enabled</span>
-          </div>
-          <div class="row">
-            <button id="toggleMusic" class="btn active" type="button">Background Music</button>
-            <span class="tag" id="musicStatus">Enabled</span>
-          </div>
-          <div class="tip">
-            <b>Game Sounds:</b> Ring pass/miss sounds and boost rumble<br>
-            <b>Background Music:</b> 8-bit style music during Ring Mode
           </div>
         </div>
 
@@ -431,11 +396,6 @@
 import * as THREE from "three";
 import { GLTFLoader } from "https://unpkg.com/three@0.164.0/examples/jsm/loaders/GLTFLoader.js";
 
-// Import modular components
-import * as CONST from './js/modules/constants.js';
-import * as Audio from './js/modules/audio.js';
-import * as Settings from './js/modules/settings.js';
-
 /* ====== Renderer / Scene / Camera ====== */
 const gl = document.getElementById('gl');
 const hud = document.getElementById('hud');
@@ -465,12 +425,11 @@ directionalLight.position.set(-350, 700, 900);
 directionalLight.castShadow = false;
 scene.add(directionalLight);
 
-/* Grid - expanded to look infinite */
+/* Grid */
 const grid = new THREE.Group();
-const gridMain = new THREE.GridHelper(10000, 100, 0xd7dde6, 0xE5E9F1); // 10x larger, more divisions
+const gridMain = new THREE.GridHelper(2600, 26, 0xd7dde6, 0xE5E9F1);
 gridMain.material.opacity = 0.65;
 gridMain.material.transparent = true;
-gridMain.material.depthWrite = false; // Prevent z-fighting
 grid.add(gridMain);
 grid.rotation.x = -Math.PI/2;
 grid.position.y = -160;
@@ -800,16 +759,11 @@ function Htri(x,y,a,r,fillStyle){hctx.save();hctx.translate(x,y);hctx.rotate(a);
 
 /* Joystick */
 let JOY_BASE_R = 100, JOY_KNOB_R = Math.round(JOY_BASE_R*0.32);
-let JOY_CENTER = new THREE.Vector2(130, window.innerHeight-130); // Bottom left
+let JOY_CENTER = new THREE.Vector2(126, innerHeight-170);
 let joyActive=false, joyVec = new THREE.Vector2(0,0), smJoy = new THREE.Vector2(0,0);
 const STICK_TAU_MS=8, RELOCATE_HOLD_MS=250, STICK_MIN=0.02;
 let activeId=null, relocating=false, holdTimer=null;
 let activePointers = new Map(); // Track all active pointers for multi-touch
-
-// Multi-touch state tracking (per pointer ID)
-let joyPointerId = null;    // Pointer controlling joystick
-let boostPointerId = null;  // Pointer controlling boost button
-let darPointerId = null;    // Pointer controlling DAR button
 const COLS = {UP:'#ff5c5c', RIGHT:'#4c8dff', DOWN:'#53d769', LEFT:'#ffd166'};
 
 function drawJoystick(){
@@ -847,12 +801,12 @@ function clampJoyCenter(){
 
 /* DAR button (toggle + relocate) */
 let DAR_R = 44;
-let DAR_CENTER = new THREE.Vector2(window.innerWidth-80, window.innerHeight-130); // Bottom right, same height as joystick
+let DAR_CENTER = new THREE.Vector2(innerWidth-120, innerHeight-150);
 let darOn = false, darRelocating = false, darHoldTimer = null, darPressT=0;
 
 /* Boost button (for Ring Mode without gamepad) */
 let BOOST_R = 50;
-let BOOST_CENTER = new THREE.Vector2(window.innerWidth-80, window.innerHeight-250); // Bottom right, below DAR button
+let BOOST_CENTER = new THREE.Vector2(innerWidth-120, innerHeight-80);
 let boostRelocating = false, boostHoldTimer = null, boostPressT=0;
 let showBoostButton = isMobile; // Only show on mobile/tablet, not desktop
 
@@ -936,82 +890,16 @@ function updateMenuFocusableElements() {
 }
 
 function findClosestElementInDirection(direction) {
+  // Simple, intuitive sequential navigation
+  // UP/LEFT = previous, DOWN/RIGHT = next
   if (menuFocusableElements.length === 0) return menuFocusIndex;
 
-  const currentEl = menuFocusableElements[menuFocusIndex];
-  const isHeader = currentEl.tagName === 'H3';
-
-  // UP/DOWN behavior depends on what's focused
-  if (direction === 'down' || direction === 'up') {
-    const step = direction === 'down' ? 1 : -1;
-    const currentCard = currentEl.closest('.card');
-
-    // If on a card header (H3), jump to next/previous card header
-    if (isHeader) {
-      for (let i = 1; i < menuFocusableElements.length; i++) {
-        const checkIndex = (menuFocusIndex + (i * step) + menuFocusableElements.length) % menuFocusableElements.length;
-        const checkEl = menuFocusableElements[checkIndex];
-
-        if (checkEl.tagName === 'H3') {
-          return checkIndex;
-        }
-      }
-    } else {
-      // If on a control (slider/button), navigate within the card
-      for (let i = 1; i < menuFocusableElements.length; i++) {
-        const checkIndex = (menuFocusIndex + (i * step) + menuFocusableElements.length) % menuFocusableElements.length;
-        const checkEl = menuFocusableElements[checkIndex];
-        const checkCard = checkEl.closest('.card');
-
-        // Stay within the same card
-        if (checkCard === currentCard) {
-          return checkIndex;
-        }
-
-        // If we've left the card, wrap to the card header
-        const headerIndex = menuFocusableElements.findIndex(el =>
-          el.tagName === 'H3' && el.closest('.card') === currentCard
-        );
-        if (headerIndex !== -1) return headerIndex;
-      }
-    }
-
-    // Fallback
-    return (menuFocusIndex + step + menuFocusableElements.length) % menuFocusableElements.length;
-  }
-
-  // LEFT/RIGHT: Navigate within current card (sequential)
-  if (direction === 'left' || direction === 'right') {
-    const step = direction === 'right' ? 1 : -1;
-    const currentCard = currentEl.closest('.card');
-
-    // Try to find next/previous element in same card
-    for (let i = 1; i < menuFocusableElements.length; i++) {
-      const checkIndex = (menuFocusIndex + (i * step) + menuFocusableElements.length) % menuFocusableElements.length;
-      const checkEl = menuFocusableElements[checkIndex];
-      const checkCard = checkEl.closest('.card');
-
-      // If still in same card, return this element
-      if (checkCard === currentCard) {
-        return checkIndex;
-      }
-
-      // If we've left the card, wrap back to start/end of current card
-      if (direction === 'right') {
-        // Wrap to first element in card
-        return menuFocusableElements.findIndex(el => el.closest('.card') === currentCard);
-      } else {
-        // Wrap to last element in card
-        for (let j = menuFocusableElements.length - 1; j >= 0; j--) {
-          if (menuFocusableElements[j].closest('.card') === currentCard) {
-            return j;
-          }
-        }
-      }
-    }
-
-    // Fallback to sequential
-    return (menuFocusIndex + step + menuFocusableElements.length) % menuFocusableElements.length;
+  if (direction === 'down' || direction === 'right') {
+    // Move to next element (wraps to start)
+    return (menuFocusIndex + 1) % menuFocusableElements.length;
+  } else if (direction === 'up' || direction === 'left') {
+    // Move to previous element (wraps to end)
+    return (menuFocusIndex - 1 + menuFocusableElements.length) % menuFocusableElements.length;
   }
 
   return menuFocusIndex;
@@ -1177,12 +1065,6 @@ function closeMenu(){
     el.style.outline = '';
     el.style.boxShadow = '';
   });
-
-  // CRITICAL: Clear gamepad button state for air roll actions to prevent
-  // stale button presses from being processed when menu closes
-  gpPrevActionPressed['rollLeft'] = false;
-  gpPrevActionPressed['rollRight'] = false;
-  gpPrevActionPressed['rollFree'] = false;
 }
 menuBtn.addEventListener('click',()=> chromeShown ? closeMenu() : openMenu());
 menuCloseBtn.addEventListener('click', closeMenu);
@@ -1209,8 +1091,67 @@ const arrowSlider=document.getElementById('arrowSlider'), arrowVal=document.getE
 const brightnessSlider=document.getElementById('brightnessSlider'), brightnessVal=document.getElementById('brightnessVal');
 const presetSel=document.getElementById('presetSel');
 
-// Load settings from Settings module
-const savedSettings = Settings.loadSettings();
+// Load saved settings from localStorage or use defaults
+function loadSettings() {
+  const saved = localStorage.getItem('darSettings');
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      console.log('Settings loaded from localStorage:', parsed);
+      return parsed;
+    } catch (e) {
+      console.error('Failed to parse saved settings:', e);
+      return {};
+    }
+  }
+  console.log('No saved settings found, using defaults');
+  return {};
+}
+
+function saveSettings() {
+  try {
+    const settings = {
+      maxAccelPitch, maxAccelYaw, maxAccelRoll,
+      inputPow, damp, dampDAR, brakeOnRelease,
+      wMax, wMaxPitch, wMaxYaw, wMaxRoll,
+      circleTiltAngle, circleTiltModifier, circleScale,
+      zoom, arrowScale,
+      isDarkMode, airRollIsToggle,
+      brightnessDark, brightnessLight,
+      gpEnabled, gpBindings,
+      showArrow, showCircle,
+      ringModeHighScore
+    };
+
+    // Only save these if the elements exist
+    const gpPresetEl = document.getElementById('gpPreset');
+    if (gpPresetEl) {
+      settings.gpPreset = gpPresetEl.value;
+    }
+
+    const presetSelEl = document.getElementById('presetSel');
+    if (presetSelEl) {
+      settings.selectedCarBody = presetSelEl.value;
+    }
+
+    const json = JSON.stringify(settings);
+    localStorage.setItem('darSettings', json);
+    console.log('Settings saved:', settings);
+    console.log('Settings JSON length:', json.length, 'chars');
+
+    // Verify it was saved
+    const verification = localStorage.getItem('darSettings');
+    if(verification === json){
+      console.log('✓ Verified: Settings successfully written to localStorage');
+    } else {
+      console.error('✗ ERROR: localStorage verification failed!');
+    }
+  } catch (e) {
+    console.error('Failed to save settings:', e);
+  }
+}
+
+const savedSettings = loadSettings();
 
 // Initialize gamepad bindings early (will be properly set later)
 let gpEnabled = savedSettings.gpEnabled ?? true;
@@ -1240,49 +1181,6 @@ let maxAccelPitch=savedSettings.maxAccelPitch ?? parseFloat(accelPitch.value),
 let brightnessDark = savedSettings.brightnessDark ?? 1.0;
 let brightnessLight = savedSettings.brightnessLight ?? 1.0;
 
-// Audio settings
-let gameSoundsEnabled = savedSettings.gameSoundsEnabled ?? true;
-let gameMusicEnabled = savedSettings.gameMusicEnabled ?? true;
-
-// Sync audio settings with Audio module
-Audio.setGameSoundsEnabled(gameSoundsEnabled);
-Audio.setGameMusicEnabled(gameMusicEnabled);
-
-// Wrapper function to save settings to Settings module
-function saveSettings() {
-  // Collect current settings
-  const currentSettings = {
-    maxAccelPitch, maxAccelYaw, maxAccelRoll,
-    inputPow, damp, dampDAR, brakeOnRelease,
-    wMax, wMaxPitch, wMaxYaw, wMaxRoll,
-    circleTiltAngle, circleTiltModifier, circleScale,
-    zoom, arrowScale,
-    isDarkMode, airRollIsToggle,
-    brightnessDark, brightnessLight,
-    gpEnabled, gpBindings,
-    showArrow, showCircle,
-    ringModeHighScore,
-    lastActiveAirRoll,
-    ringDifficulty: currentDifficulty,
-    gameSoundsEnabled,
-    gameMusicEnabled
-  };
-
-  // Add optional settings if elements exist
-  const gpPresetEl = document.getElementById('gpPreset');
-  if (gpPresetEl) {
-    currentSettings.gpPreset = gpPresetEl.value;
-  }
-
-  const presetSelEl = document.getElementById('presetSel');
-  if (presetSelEl) {
-    currentSettings.selectedCarBody = presetSelEl.value;
-  }
-
-  // Save to Settings module
-  Settings.saveSettings(currentSettings);
-}
-
 // Apply loaded values to sliders
 accelPitch.value = maxAccelPitch;
 accelYaw.value = maxAccelYaw;
@@ -1304,47 +1202,20 @@ arrowSlider.value = arrowScale;
 /* Air Roll System */
 // Air roll values: -1 = left, 0 = off, +1 = right, 2 = free
 let airRoll = savedSettings.airRoll ?? 0; // default to off
-let lastActiveAirRoll = savedSettings.lastActiveAirRoll ?? -1; // Remember last active for DAR toggle (default to Air Roll Left)
+let lastActiveAirRoll = airRoll !== 0 ? airRoll : -1; // Remember last active for DAR toggle
 // Default: toggle for keyboard (gpEnabled=false), hold for gamepad (gpEnabled=true)
 let airRollIsToggle = savedSettings.airRollIsToggle ?? (savedSettings.gpEnabled === false);
-
-/* Keyboard Input State */
-const keyState = new Map(); // Track which keys are currently held down
-const keyPrevState = new Map(); // Track previous frame state for edge detection
-
-// Keyboard event listeners
-window.addEventListener('keydown', (e) => {
-  keyState.set(e.code, true);
-});
-
-window.addEventListener('keyup', (e) => {
-  keyState.set(e.code, false);
-});
-
-// Helper: Check if key was just pressed this frame (edge detection)
-function keyJustPressed(code) {
-  return keyState.get(code) && !keyPrevState.get(code);
-}
-
-// Helper: Check if key is currently held down
-function keyHeld(code) {
-  return keyState.get(code) || false;
-}
 
 function setRoll(dir, skipSave = false){
   airRoll = dir;
   // Remember last active air roll for DAR toggle (but not 0)
   if(dir !== 0) lastActiveAirRoll = dir;
+  document.getElementById('rollL').classList.toggle('active', dir === 1);
+  document.getElementById('rollR').classList.toggle('active', dir === -1);
+  document.getElementById('rollFree').classList.toggle('active', dir === 2);
   // Sync darOn with air roll state (on if any air roll is active)
   darOn = (dir !== 0);
   if (!skipSave) saveSettings();
-}
-
-function updateMenuButtonStyling(){
-  // Menu buttons show which air roll is SELECTED (not active)
-  document.getElementById('rollL').classList.toggle('active', lastActiveAirRoll === -1);
-  document.getElementById('rollR').classList.toggle('active', lastActiveAirRoll === 1);
-  document.getElementById('rollFree').classList.toggle('active', lastActiveAirRoll === 2);
 }
 
 function toggleRoll(dir){
@@ -1361,25 +1232,9 @@ function toggleRoll(dir){
   }
 }
 
-function selectAirRoll(dir){
-  // Menu buttons: just select which air roll to use (don't activate it)
-  lastActiveAirRoll = dir;
-  updateMenuButtonStyling();
-  saveSettings();
-}
-
-document.getElementById('rollL').addEventListener('click', () => selectAirRoll(-1)); // Air Roll Left
-document.getElementById('rollR').addEventListener('click', () => selectAirRoll(1));  // Air Roll Right
-document.getElementById('rollFree').addEventListener('click', () => selectAirRoll(2));
-
-// Reset Physics to Defaults button
-document.getElementById('resetPhysicsDefaults').addEventListener('click', () => {
-  // Clear settings via Settings module
-  Settings.clearAllSettings();
-
-  // Reload the page to apply defaults
-  location.reload();
-});
+document.getElementById('rollL').addEventListener('click', () => toggleRoll(1));
+document.getElementById('rollR').addEventListener('click', () => toggleRoll(-1));
+document.getElementById('rollFree').addEventListener('click', () => toggleRoll(2));
 
 // Toggle/Hold mode button
 document.getElementById('toggleMode').addEventListener('click', () => {
@@ -1507,6 +1362,10 @@ let ringCameraSpeed = 0.1;
 // Ring Mode Physics
 let ringModeVelocity = new THREE.Vector2(0, 0); // XY velocity only
 let ringModePosition = new THREE.Vector2(0, 0); // Car position in 2D plane
+const RING_MAX_SPEED = 1400; // Max speed cap (~60 mph equivalent, more controllable)
+const RING_BOOST_ACCEL = 1200; // Boost acceleration (balanced with reduced gravity)
+const RING_GRAVITY = -600; // Constant downward gravity (reduced for slower speeds)
+const RING_GRID_BOUNDS = 1500; // Movement boundary (3x larger: 500 * 3)
 let ringModeBoostActive = false;
 let ringModeStarted = false; // Track if player has started (boosted at least once)
 let ringModePaused = false; // Track pause state
@@ -1518,40 +1377,16 @@ let boostFlames = [];
 let cameraTargetX = 0; // Smooth interpolated camera target position
 let cameraTargetY = 0;
 
-// Reset Ring Mode (for retry button)
-function resetRingMode() {
-  ringModeScore = 0;
-  ringModeLives = CONST.DIFFICULTY_SETTINGS[currentDifficulty].initialLives;
-  ringModeRingCount = 0;
-  ringModeVelocity.set(0, 0);
-  ringModePosition.set(0, 0);
-  ringSpawnTimer = 0;
-  ringSpawnIndex = 0;
-  currentColorIndex = 0;
-  ringModeStarted = false;
-  ringModePaused = false;
-  patternRingCount = 0;
-  cameraTargetX = 0;
-  cameraTargetY = 0;
-  clearAllRings();
-  clearBoostFlames();
-
-  if (car) {
-    car.quaternion.identity();
-    car.rotation.set(Math.PI * 1.5, 0, Math.PI);
-    car.position.set(0, 0, 0);
-  }
-  w.set(0,0,0);
-  orbitOn = false;
-
-  spawnRing();
-
-  // Restart music
-  Audio.startBackgroundMusic();
-}
-
 // Ring geometry and spawning
 let rings = []; // Active rings in the scene
+const RING_COLORS = [
+  0xff00ff, // Magenta
+  0x00ffff, // Cyan
+  0xff0080, // Hot pink
+  0x00ff00, // Green
+  0xffff00, // Yellow
+  0xff6600  // Orange
+];
 let currentColorIndex = 0;
 
 // Preloaded ring resources (cached geometry and materials)
@@ -1559,11 +1394,19 @@ let ringGeometryCache = null;
 let ringMaterialCache = new Map(); // Cache materials by color
 let ringResourcesPreloaded = false;
 
-// Ring spawning state
+// Ring sizing (car is ~30 units wide, ~20 tall, ~45 long based on Octane)
+const CAR_WIDTH = 30;
+const CAR_HEIGHT = 20;
+const INITIAL_RING_SIZE = CAR_WIDTH * 20; // Start at 20x car width (600 units diameter) - MUCH BIGGER
+const RING_TUBE_RADIUS = 8; // Thickness of the ring torus
+
+// Ring movement and spawning
+const RING_SPAWN_DISTANCE = -1100; // Spawn rings far behind camera (extra ~1.5 seconds reaction time)
+const RING_DESPAWN_DISTANCE = 1000; // Remove rings well past camera (allows them to pass behind)
+const RING_BASE_SPEED = 200; // Base units per second toward camera
+const RING_BASE_SPAWN_INTERVAL = 3.0; // Base seconds between ring spawns
 let ringSpawnTimer = 0;
 let ringSpawnIndex = 0; // Track spawn order for camera focusing
-
-let currentDifficulty = savedSettings.ringDifficulty ?? 'normal';
 
 // Preload ring resources to prevent lag on first spawn
 function preloadRingResources() {
@@ -1572,10 +1415,10 @@ function preloadRingResources() {
   console.log('[Ring Mode] Preloading resources...');
 
   // Cache shared geometry (all rings use same torus geometry)
-  ringGeometryCache = new THREE.TorusGeometry(CONST.INITIAL_RING_SIZE / 2, CONST.RING_TUBE_RADIUS, 16, 32);
+  ringGeometryCache = new THREE.TorusGeometry(INITIAL_RING_SIZE / 2, RING_TUBE_RADIUS, 16, 32);
 
   // Cache materials for each color
-  CONST.RING_COLORS.forEach(color => {
+  RING_COLORS.forEach(color => {
     const material = new THREE.MeshStandardMaterial({
       color: color,
       emissive: color,
@@ -1589,12 +1432,12 @@ function preloadRingResources() {
   // Create a dummy ring offscreen and render it to compile shaders
   const dummyRing = new THREE.Mesh(
     ringGeometryCache,
-    ringMaterialCache.get(CONST.RING_COLORS[0])
+    ringMaterialCache.get(RING_COLORS[0])
   );
   dummyRing.position.set(0, 0, -5000); // Far offscreen
 
   // Add point light to compile light shaders too
-  const dummyLight = new THREE.PointLight(CONST.RING_COLORS[0], 2, 150);
+  const dummyLight = new THREE.PointLight(RING_COLORS[0], 2, 150);
   dummyRing.add(dummyLight);
 
   scene.add(dummyRing);
@@ -1623,12 +1466,12 @@ function preloadRingResources() {
 
 // Create a ring with neon 80s aesthetic (now uses cached resources)
 function createRing(x, y, z, size, speed, spawnIndex) {
-  const color = CONST.RING_COLORS[currentColorIndex];
-  currentColorIndex = (currentColorIndex + 1) % CONST.RING_COLORS.length;
+  const color = RING_COLORS[currentColorIndex];
+  currentColorIndex = (currentColorIndex + 1) % RING_COLORS.length;
 
-  // ALWAYS use cached geometry for performance (prevents lag on spawn)
-  // Scale the mesh instead of creating new geometry for different sizes
-  const geometry = ringGeometryCache;
+  // Use cached geometry and material (share across all rings for better performance)
+  // Note: We clone the material so each ring can be colored independently
+  const geometry = ringGeometryCache || new THREE.TorusGeometry(size / 2, RING_TUBE_RADIUS, 16, 32);
   const cachedMaterial = ringMaterialCache.get(color);
   const material = cachedMaterial || new THREE.MeshStandardMaterial({
     color: color,
@@ -1640,10 +1483,6 @@ function createRing(x, y, z, size, speed, spawnIndex) {
 
   const ring = new THREE.Mesh(geometry, material);
   ring.position.set(x, y, z);
-
-  // Scale ring to match requested size (cached geometry is for CONST.INITIAL_RING_SIZE)
-  const scale = size / CONST.INITIAL_RING_SIZE;
-  ring.scale.set(scale, scale, scale);
 
   // Add point light for glow effect
   const light = new THREE.PointLight(color, 2, 150);
@@ -1675,39 +1514,28 @@ let patternFrequency = 0.5; // Oscillation frequency
 let patternPhase = 0; // Starting phase offset
 
 function selectNewPattern() {
-  const settings = CONST.DIFFICULTY_SETTINGS[currentDifficulty];
+  // Progressive difficulty based on rings completed
+  const difficultyLevel = Math.floor(ringModeRingCount / 5); // Increase every 5 rings
 
-  // Progressive difficulty based on rings completed (affected by difficulty setting)
-  const difficultyLevel = Math.floor(ringModeRingCount / 5 * settings.progressionRate); // Increase every 5 rings
-
-  // Use difficulty-specific allowed patterns or progressive unlock
-  let availablePatterns = settings.allowedPatterns || PATTERN_TYPES;
-
-  // If no specific pattern restriction, use progressive unlock (Normal/Hard modes)
-  if (!settings.allowedPatterns) {
-    if (difficultyLevel < 2) {
-      // First 10 rings: easier straight/simple patterns
-      availablePatterns = ['horizontal_line', 'vertical_line', 'sine_horizontal', 'sine_vertical'];
-    } else if (difficultyLevel < 4) {
-      // Rings 10-20: introduce more complex patterns
-      availablePatterns = ['sine_horizontal', 'sine_vertical', 'wave_combo', 'helix', 'spiral'];
-    }
-    // After 20 rings: all patterns available
-
-    // Exclude 'random' pattern if difficulty setting requires it (Normal mode)
-    if (settings.excludeRandomPattern) {
-      availablePatterns = availablePatterns.filter(p => p !== 'random');
-    }
+  // Start with easier patterns, unlock harder ones as you progress
+  let availablePatterns = PATTERN_TYPES;
+  if (difficultyLevel < 2) {
+    // First 10 rings: easier straight/simple patterns
+    availablePatterns = ['horizontal_line', 'vertical_line', 'sine_horizontal', 'sine_vertical'];
+  } else if (difficultyLevel < 4) {
+    // Rings 10-20: introduce more complex patterns
+    availablePatterns = ['sine_horizontal', 'sine_vertical', 'wave_combo', 'helix', 'spiral'];
   }
+  // After 20 rings: all patterns available including 'random' for cross-map leaps
 
   currentPattern = availablePatterns[Math.floor(Math.random() * availablePatterns.length)];
   patternRingCount = 0;
   patternLength = 8 + Math.floor(Math.random() * 12); // 8-20 rings per pattern
 
-  // Progressive amplitude and frequency increase (affected by difficulty)
-  const baseAmplitude = (200 + (difficultyLevel * 100)) * settings.patternAmplitudeMultiplier;
-  const amplitudeVariance = (200 + (difficultyLevel * 50)) * settings.patternAmplitudeMultiplier;
-  patternAmplitude = Math.min(baseAmplitude + Math.random() * amplitudeVariance, CONST.RING_GRID_BOUNDS * 0.9);
+  // Progressive amplitude and frequency increase
+  const baseAmplitude = 200 + (difficultyLevel * 100); // Starts at 200, increases by 100 every 5 rings
+  const amplitudeVariance = 200 + (difficultyLevel * 50); // More variance as difficulty increases
+  patternAmplitude = Math.min(baseAmplitude + Math.random() * amplitudeVariance, RING_GRID_BOUNDS * 0.9);
 
   const baseFrequency = 0.3 + (difficultyLevel * 0.1); // Faster oscillations as difficulty increases
   patternFrequency = Math.min(baseFrequency + Math.random() * 0.5, 2.0);
@@ -1776,23 +1604,9 @@ function getPatternPosition(progress) {
     case 'random':
     default:
       // Pure random
-      x = (Math.random() - 0.5) * CONST.RING_GRID_BOUNDS * 0.8;
-      y = (Math.random() - 0.5) * CONST.RING_GRID_BOUNDS * 0.8;
+      x = (Math.random() - 0.5) * RING_GRID_BOUNDS * 0.8;
+      y = (Math.random() - 0.5) * RING_GRID_BOUNDS * 0.8;
       break;
-  }
-
-  // Distance cap: Limit maximum distance from current player position
-  // Max distance = grid radius (center to edge = 1500 units)
-  const MAX_RING_DISTANCE = CONST.RING_GRID_BOUNDS; // 1500 units (half the total grid width)
-  const dx = x - ringModePosition.x;
-  const dy = y - ringModePosition.y;
-  const distance = Math.sqrt(dx * dx + dy * dy);
-
-  if (distance > MAX_RING_DISTANCE) {
-    // Clamp to max distance while preserving direction
-    const scale = MAX_RING_DISTANCE / distance;
-    x = ringModePosition.x + dx * scale;
-    y = ringModePosition.y + dy * scale;
   }
 
   return { x, y };
@@ -1800,17 +1614,6 @@ function getPatternPosition(progress) {
 
 // Spawn a new ring
 function spawnRing() {
-  // Check if there's already a ring too close to spawn position
-  // Prevent clustering by enforcing minimum Z-distance between rings
-  // At base speed (200 u/s) and 3s interval, rings should be ~600 units apart
-  const MIN_RING_Z_SPACING = 650; // Minimum units between rings on Z-axis
-  const hasCloseRing = rings.some(r => Math.abs(r.mesh.position.z - CONST.RING_SPAWN_DISTANCE) < MIN_RING_Z_SPACING);
-
-  if (hasCloseRing) {
-    // Skip spawning this ring, try again next interval
-    return;
-  }
-
   // Check if we need a new pattern
   if (patternRingCount === 0 || patternRingCount >= patternLength) {
     selectNewPattern();
@@ -1821,37 +1624,20 @@ function spawnRing() {
   const pos = getPatternPosition(patternProgress);
   const spawnX = pos.x;
   const spawnY = pos.y;
-  const spawnZ = CONST.RING_SPAWN_DISTANCE;
+  const spawnZ = RING_SPAWN_DISTANCE;
 
   patternRingCount++;
 
-  const settings = CONST.DIFFICULTY_SETTINGS[currentDifficulty];
+  // Calculate progression based on ring count (every 10 rings)
+  const progressionLevel = Math.floor(ringModeRingCount / 10);
 
-  // Calculate progression based on ring count (every 10 rings, affected by difficulty)
-  const progressionLevel = Math.floor(ringModeRingCount / 10 * settings.progressionRate);
-
-  // Size: -5% every 10 rings (max 50% reduction), then apply difficulty multiplier
+  // Size: -5% every 10 rings (max 50% reduction)
   const sizeReduction = progressionLevel * 0.05;
-  const ringSize = CONST.INITIAL_RING_SIZE * (1 - Math.min(sizeReduction, 0.5)) * settings.sizeMultiplier;
+  const ringSize = INITIAL_RING_SIZE * (1 - Math.min(sizeReduction, 0.5));
 
-  // Speed: +5% every 10 rings (max 50% increase), then apply difficulty multiplier
+  // Speed: +5% every 10 rings (max 50% increase)
   const speedIncrease = progressionLevel * 0.05;
-  let ringSpeed = CONST.RING_BASE_SPEED * (1 + Math.min(speedIncrease, 0.5)) * settings.speedMultiplier;
-
-  // Distance-based speed modifier: slow down rings that spawn far away
-  const distanceToRing = Math.sqrt(
-    (spawnX - ringModePosition.x) ** 2 +
-    (spawnY - ringModePosition.y) ** 2
-  );
-  const MAX_RING_DISTANCE = CONST.RING_GRID_BOUNDS; // 1500 units
-  const distanceRatio = distanceToRing / MAX_RING_DISTANCE; // 0.0 to 1.0
-
-  // If ring is far away (>50% of max distance), slow it down
-  // At max distance (1500 units), speed is reduced by 50%
-  if (distanceRatio > 0.5) {
-    const slowdownFactor = 1 - ((distanceRatio - 0.5) * 1.0); // 1.0 at 50%, 0.5 at 100%
-    ringSpeed *= slowdownFactor;
-  }
+  const ringSpeed = RING_BASE_SPEED * (1 + Math.min(speedIncrease, 0.5));
 
   const ring = createRing(spawnX, spawnY, spawnZ, ringSize, ringSpeed, ringSpawnIndex++);
   rings.push(ring);
@@ -1949,7 +1735,7 @@ document.getElementById('ringMode').addEventListener('click', () => {
   if(ringModeActive){
     // Initialize Ring Mode
     ringModeScore = 0;
-    ringModeLives = CONST.DIFFICULTY_SETTINGS[currentDifficulty].initialLives;
+    ringModeLives = 5;
     ringModeRingCount = 0;
     ringModeVelocity.set(0, 0);
     ringModePosition.set(0, 0);
@@ -1973,9 +1759,6 @@ document.getElementById('ringMode').addEventListener('click', () => {
     }
     w.set(0,0,0);
     orbitOn = false;
-
-    // Start background music when entering Ring Mode
-    Audio.startBackgroundMusic();
   } else {
     // Exit Ring Mode
     ringModeVelocity.set(0, 0);
@@ -1983,10 +1766,6 @@ document.getElementById('ringMode').addEventListener('click', () => {
     clearAllRings();
     clearBoostFlames();
     if (car) car.position.set(0, 0, 0);
-
-    // Stop background music when exiting Ring Mode
-    Audio.stopBackgroundMusic();
-    Audio.stopBoostRumble(); // Also stop boost rumble
   }
 });
 
@@ -1995,67 +1774,6 @@ const ringCameraSpeedVal = document.getElementById('ringCameraSpeedVal');
 ringCameraSpeedSlider.addEventListener('input', () => {
   ringCameraSpeed = parseFloat(ringCameraSpeedSlider.value);
   ringCameraSpeedVal.textContent = ringCameraSpeed.toFixed(2);
-});
-
-// Ring Mode difficulty selector
-const ringDifficultySelector = document.getElementById('ringDifficulty');
-ringDifficultySelector.addEventListener('change', () => {
-  currentDifficulty = ringDifficultySelector.value;
-  saveSettings();
-  console.log('Ring Mode difficulty changed to:', currentDifficulty);
-
-  // If Ring Mode is active, restart it with new difficulty
-  if (ringModeActive) {
-    ringModeScore = 0;
-    ringModeLives = CONST.DIFFICULTY_SETTINGS[currentDifficulty].initialLives;
-    ringModeRingCount = 0;
-    ringModeVelocity.set(0, 0);
-    ringModePosition.set(0, 0);
-    ringSpawnTimer = 0;
-    ringSpawnIndex = 0;
-    patternRingCount = 0;
-    clearAllRings();
-    console.log('Ring Mode restarted with new difficulty');
-  }
-});
-
-// Audio toggles
-const toggleSoundsBtn = document.getElementById('toggleSounds');
-const soundsStatusTag = document.getElementById('soundsStatus');
-const toggleMusicBtn = document.getElementById('toggleMusic');
-const musicStatusTag = document.getElementById('musicStatus');
-
-// Set initial button states
-toggleSoundsBtn.classList.toggle('active', gameSoundsEnabled);
-soundsStatusTag.textContent = gameSoundsEnabled ? 'Enabled' : 'Disabled';
-toggleMusicBtn.classList.toggle('active', gameMusicEnabled);
-musicStatusTag.textContent = gameMusicEnabled ? 'Enabled' : 'Disabled';
-
-toggleSoundsBtn.addEventListener('click', () => {
-  gameSoundsEnabled = !gameSoundsEnabled;
-  toggleSoundsBtn.classList.toggle('active', gameSoundsEnabled);
-  soundsStatusTag.textContent = gameSoundsEnabled ? 'Enabled' : 'Disabled';
-
-  // Update Audio module settings
-  Audio.setGameSoundsEnabled(gameSoundsEnabled);
-
-  saveSettings();
-});
-
-toggleMusicBtn.addEventListener('click', () => {
-  gameMusicEnabled = !gameMusicEnabled;
-  toggleMusicBtn.classList.toggle('active', gameMusicEnabled);
-  musicStatusTag.textContent = gameMusicEnabled ? 'Enabled' : 'Disabled';
-
-  // Update Audio module settings
-  Audio.setGameMusicEnabled(gameMusicEnabled);
-
-  // Start music if enabled and Ring Mode is active
-  if (gameMusicEnabled && ringModeActive && ringModeStarted) {
-    Audio.startBackgroundMusic();
-  }
-
-  saveSettings();
 });
 
 document.getElementById('restart').addEventListener('click',()=>{
@@ -2077,7 +1795,7 @@ document.getElementById('restart').addEventListener('click',()=>{
   // Reset Ring Mode if active
   if(ringModeActive){
     ringModeScore = 0;
-    ringModeLives = CONST.DIFFICULTY_SETTINGS[currentDifficulty].initialLives;
+    ringModeLives = 5;
     ringModeRingCount = 0;
   }
 });
@@ -2145,20 +1863,6 @@ document.addEventListener('fullscreenchange', () => {
   } else {
     btn.textContent = '⛶'; // Fullscreen enter icon
     btn.title = 'Enter Fullscreen';
-  }
-});
-
-// Stop music when page loses focus (tab switching, app backgrounding)
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden) {
-    // Page is hidden - stop all audio
-    Audio.stopBackgroundMusic();
-    Audio.stopBoostRumble();
-  } else {
-    // Page is visible again - restart music if Ring Mode is active
-    if (ringModeActive && ringModeStarted && gameMusicEnabled) {
-      Audio.startBackgroundMusic();
-    }
   }
 });
 
@@ -2301,29 +2005,7 @@ hud.addEventListener('pointerdown',(e)=>{
   // Track this pointer
   activePointers.set(e.pointerId, {x: e.clientX, y: e.clientY});
 
-  // Check for retry button click on game over screen
-  if(ringModeActive && ringModeLives <= 0){
-    const retryButtonWidth = 200;
-    const retryButtonHeight = 50;
-    const retryButtonX = innerWidth / 2 - retryButtonWidth / 2;
-    const retryButtonY = innerHeight / 2 + 30;
-
-    if(e.clientX >= retryButtonX && e.clientX <= retryButtonX + retryButtonWidth &&
-       e.clientY >= retryButtonY && e.clientY <= retryButtonY + retryButtonHeight){
-      resetRingMode();
-      e.preventDefault(); return;
-    }
-  }
-
-  // Multi-touch: assign this pointer to a specific control FIRST (before checking relocation)
-  if(showBoostButton && inBoost(e.clientX,e.clientY)){
-    boostPointerId = e.pointerId;
-    // ringModeBoostActive is now set in updateKeyboardInput() based on boostPointerId
-    e.preventDefault(); return;
-  }
-
   // Check for two-finger gesture outside buttons (for boost relocation)
-  // IMPORTANT: Only check this AFTER we've checked if user pressed boost button
   if(activePointers.size === 2){
     const pointers = Array.from(activePointers.values());
     const allOutsideButtons = pointers.every(p =>
@@ -2335,29 +2017,21 @@ hud.addEventListener('pointerdown',(e)=>{
     }
   }
 
-  if(inDAR(e.clientX,e.clientY)){
-    darPointerId = e.pointerId;
-    darPressT = performance.now();
+  activeId=e.pointerId;
 
-    // In toggle mode: toggle on press
-    if(airRollIsToggle){
-      if(airRoll === 0){
-        setRoll(lastActiveAirRoll);
-      } else {
-        setRoll(0);
-      }
-      darOn = (airRoll !== 0);
-    } else {
-      // In hold mode: activate immediately on press
-      if(airRoll === 0){
-        setRoll(lastActiveAirRoll);
-      }
-      darOn = true;
+  if(showBoostButton && inBoost(e.clientX,e.clientY)){
+    if(ringModeActive){
+      // During Ring Mode: simple hold button for boost
+      ringModeBoostActive = true;
     }
+    e.preventDefault(); return;
+  }
 
+  if(inDAR(e.clientX,e.clientY)){
+    darPressT = performance.now();
     clearTimeout(darHoldTimer);
     darHoldTimer = setTimeout(()=>{
-      if(darPointerId===e.pointerId){
+      if(activeId===e.pointerId){
         darRelocating = true; showHint(darHint, 2000);
       }
     }, RELOCATE_HOLD_MS);
@@ -2365,15 +2039,8 @@ hud.addEventListener('pointerdown',(e)=>{
   }
 
   if(inJoyLoose(e.clientX,e.clientY)){
-    joyPointerId = e.pointerId;
-    joyActive=true;
-    joyVec = vecFromJoyPx(e.clientX,e.clientY);
-    e.preventDefault(); return;
-  }
-
-  // If not on any control, set as active for relocation
-  if(!chromeShown){
-    activeId = e.pointerId;
+    joyActive=true; joyVec = vecFromJoyPx(e.clientX,e.clientY);
+  }else if(!chromeShown){
     clearTimeout(holdTimer);
     holdTimer = setTimeout(()=>{
       if(activeId===e.pointerId && !chromeShown){
@@ -2389,26 +2056,12 @@ hud.addEventListener('pointermove',(e)=>{
     activePointers.set(e.pointerId, {x: e.clientX, y: e.clientY});
   }
 
-  // Handle each pointer independently based on what it's controlling
-  if(e.pointerId === joyPointerId && joyActive){
-    joyVec = vecFromJoyPx(e.clientX,e.clientY);
-    e.preventDefault();
-  }
-
-  // DAR relocation uses darPointerId
-  if(e.pointerId === darPointerId && darRelocating){
-    DAR_CENTER.set(e.clientX,e.clientY);
-    clampDARCenter();
-    positionHints();
-    e.preventDefault();
-  }
-
-  // Joystick and boost relocation use activeId
-  if(e.pointerId === activeId){
-    if(boostRelocating){ BOOST_CENTER.set(e.clientX,e.clientY); clampBoostCenter(); }
-    else if(relocating){ JOY_CENTER.set(e.clientX,e.clientY); clampJoyCenter(); positionHints(); }
-    e.preventDefault();
-  }
+  if(activeId!==e.pointerId)return;
+  if(boostRelocating){ BOOST_CENTER.set(e.clientX,e.clientY); clampBoostCenter(); }
+  else if(darRelocating){ DAR_CENTER.set(e.clientX,e.clientY); clampDARCenter(); positionHints(); }
+  else if(relocating){ JOY_CENTER.set(e.clientX,e.clientY); clampJoyCenter(); positionHints(); }
+  else if(joyActive){ joyVec = vecFromJoyPx(e.clientX,e.clientY); }
+  e.preventDefault();
 },{passive:false});
 function endPtr(e){
   // Remove pointer from tracking
@@ -2419,44 +2072,35 @@ function endPtr(e){
     boostRelocating = false;
   }
 
+  if(activeId!==e.pointerId) return;
   try{hud.releasePointerCapture(e.pointerId);}catch(_){}
+  clearTimeout(holdTimer); relocating=false;
 
-  // Handle each pointer release independently
-  if(e.pointerId === boostPointerId){
-    // ringModeBoostActive is now automatically cleared in updateKeyboardInput() when boostPointerId = null
-    boostPointerId = null;
-  }
-
-  if(e.pointerId === darPointerId){
-    if(!darRelocating && inDAR(e.clientX,e.clientY)){
-      const heldMs = performance.now() - darPressT;
-      if(heldMs < RELOCATE_HOLD_MS){
-        // In toggle mode: nothing to do (already toggled on press)
-        // In hold mode: deactivate on release
-        if(!airRollIsToggle){
-          setRoll(0);
-          darOn = false;
-        }
-      }
+  // Handle boost button release
+  if(ringModeActive){
+    if(!boostRelocating){
+      ringModeBoostActive = false;
     }
-    clearTimeout(darHoldTimer);
-    darRelocating = false;
-    darPointerId = null;
   }
 
-  if(e.pointerId === joyPointerId){
-    joyActive = false;
-    joyVec.set(0,0);
-    joyPointerId = null;
+  if(!darRelocating && inDAR(e.clientX,e.clientY)){
+    const heldMs = performance.now() - darPressT;
+    if(heldMs < RELOCATE_HOLD_MS){
+      // Toggle the currently selected air roll on/off
+      if(airRoll === 0){
+        // If no air roll active, activate the last active one
+        setRoll(lastActiveAirRoll);
+      } else {
+        // If air roll active, deactivate it
+        setRoll(0);
+      }
+      darOn = (airRoll !== 0); // Update darOn to match air roll state
+    }
   }
+  clearTimeout(darHoldTimer); darRelocating=false;
 
-  if(e.pointerId === activeId){
-    clearTimeout(holdTimer);
-    relocating = false;
-    activeId = null;
-  }
-
-  e.preventDefault();
+  if(joyActive){ joyActive = false; joyVec.set(0,0); }
+  activeId=null; e.preventDefault();
 }
 hud.addEventListener('pointerup',endPtr,{passive:false});
 hud.addEventListener('pointercancel',endPtr,{passive:false});
@@ -2653,7 +2297,7 @@ function execBinding(action){
         ringModeVelocity.set(0, 0);
         ringModePosition.set(0, 0);
         ringModeScore = 0;
-        ringModeLives = CONST.DIFFICULTY_SETTINGS[currentDifficulty].initialLives;
+        ringModeLives = 5;
         ringModeRingCount = 0;
         ringModeStarted = false;
         ringSpawnIndex = 0; // Reset spawn order tracking
@@ -2784,115 +2428,6 @@ function handleRemap(pad){
       return;
     }
   }
-}
-
-// Helper: Check if gamepad is currently pressing any air roll buttons
-function isGamepadPressingAirRoll(){
-  if(!gpEnabled) return false;
-  const { pad } = readPads();
-  if(!pad) return false;
-
-  // Check if any air roll bindings are currently pressed
-  if(gpBindings.rollLeft && isPressedForBinding(pad, gpBindings.rollLeft)) return true;
-  if(gpBindings.rollRight && isPressedForBinding(pad, gpBindings.rollRight)) return true;
-  if(gpBindings.rollFree && isPressedForBinding(pad, gpBindings.rollFree)) return true;
-
-  return false;
-}
-
-function updateKeyboardInput(){
-  // Keyboard controls: W/A/S/D = movement, Q/E = air roll, Shift = free roll, Space = boost
-  // I = menu toggle, Esc = pause (Ring Mode only)
-
-  // Handle menu toggle (I key) - must be before early return
-  if(keyJustPressed('KeyI')){
-    if(chromeShown){
-      closeMenu();
-    } else {
-      openMenu();
-    }
-  }
-
-  // Update previous key state for next frame (MUST be done every frame!)
-  keyState.forEach((value, key) => {
-    keyPrevState.set(key, value);
-  });
-
-  // If menu is open, don't process game input
-  if(chromeShown) return;
-
-  // Handle pause (Esc key - Ring Mode only)
-  if(keyJustPressed('Escape') && ringModeActive){
-    ringModePaused = !ringModePaused;
-    console.log('Ring Mode paused:', ringModePaused);
-  }
-
-  // Movement (WASD) - only when not dragging joystick manually
-  if(!joyActive && !relocating && !darRelocating){
-    let kx = 0, ky = 0;
-
-    if(keyHeld('KeyW')) ky -= 1; // Up
-    if(keyHeld('KeyS')) ky += 1; // Down
-    if(keyHeld('KeyA')) kx -= 1; // Left
-    if(keyHeld('KeyD')) kx += 1; // Right
-
-    // Normalize diagonal movement
-    const mag = Math.hypot(kx, ky);
-    if(mag > 0){
-      kx /= mag;
-      ky /= mag;
-      joyVec.set(kx * JOY_BASE_R, ky * JOY_BASE_R);
-    } else if(!gpEnabled || !readPads().pad){
-      // Only clear joystick if no gamepad input either
-      joyVec.set(0, 0);
-    }
-  }
-
-  // Keyboard air roll handling depends on mode
-  if(airRollIsToggle){
-    // Toggle mode: toggle on key press (edge detection)
-    if(keyJustPressed('KeyQ')){
-      toggleRoll(-1);
-    }
-    if(keyJustPressed('KeyE')){
-      toggleRoll(1);
-    }
-    if(keyJustPressed('ShiftLeft') || keyJustPressed('ShiftRight')){
-      toggleRoll(2);
-    }
-  } else {
-    // Hold mode: keyboard activates while held, deactivates when released
-    const gpControllingAirRoll = isGamepadPressingAirRoll();
-    const darButtonPressed = (darPointerId !== null);
-
-    // Air Roll Left (Q)
-    if(keyHeld('KeyQ')){
-      if(airRoll !== -1) setRoll(-1);
-    } else if(!keyHeld('KeyE') && !keyHeld('ShiftLeft') && !keyHeld('ShiftRight') && !gpControllingAirRoll && !darButtonPressed){
-      // Only release if no other air roll keys are held AND gamepad/DAR button isn't controlling it
-      if(airRoll === -1) setRoll(0);
-    }
-
-    // Air Roll Right (E)
-    if(keyHeld('KeyE')){
-      if(airRoll !== 1) setRoll(1);
-    } else if(!keyHeld('KeyQ') && !keyHeld('ShiftLeft') && !keyHeld('ShiftRight') && !gpControllingAirRoll && !darButtonPressed){
-      if(airRoll === 1) setRoll(0);
-    }
-
-    // Air Roll Free (Shift)
-    if(keyHeld('ShiftLeft') || keyHeld('ShiftRight')){
-      if(airRoll !== 2) setRoll(2);
-    } else if(!keyHeld('KeyQ') && !keyHeld('KeyE') && !gpControllingAirRoll && !darButtonPressed){
-      if(airRoll === 2) setRoll(0);
-    }
-  }
-
-  // Boost (Space) - for Ring Mode
-  // Combine keyboard and touch input (touch is handled separately in pointerdown/up)
-  const keyboardBoost = keyHeld('Space');
-  const touchBoost = (boostPointerId !== null); // If pointer assigned to boost, it's being held
-  ringModeBoostActive = keyboardBoost || touchBoost;
 }
 
 function updateGamepadInput(){
@@ -3037,9 +2572,8 @@ function updateGamepadInput(){
         // Just pressed - activate this air roll
         const dir = action === 'rollLeft' ? -1 : action === 'rollRight' ? 1 : 2;
         setRoll(dir);
-      } else if(!nowPressed && wasPressed && darPointerId === null){
+      } else if(!nowPressed && wasPressed){
         // Just released - deactivate if this was the active one
-        // BUT don't deactivate if DAR button is currently being held
         const dir = action === 'rollLeft' ? -1 : action === 'rollRight' ? 1 : 2;
         if(airRoll === dir){
           setRoll(0);
@@ -3135,21 +2669,14 @@ function integrate(dt) {
       ringModeStarted = true;
     }
 
-    // Boost rumble sound control
-    if (ringModeBoostActive) {
-      Audio.startBoostRumble();
-    } else {
-      Audio.stopBoostRumble();
-    }
-
     // Apply forces
     let accelX = 0;
-    let accelY = ringModeStarted ? CONST.RING_GRAVITY : 0; // Only apply gravity after first boost
+    let accelY = ringModeStarted ? RING_GRAVITY : 0; // Only apply gravity after first boost
 
     if (ringModeBoostActive) {
       // Boost in the direction car's nose is facing
-      accelX += boostDirX * CONST.RING_BOOST_ACCEL;
-      accelY += boostDirY * CONST.RING_BOOST_ACCEL;
+      accelX += boostDirX * RING_BOOST_ACCEL;
+      accelY += boostDirY * RING_BOOST_ACCEL;
     }
 
     // Update boost flame visibility and position
@@ -3161,8 +2688,8 @@ function integrate(dt) {
 
     // Clamp to max speed
     const speed = ringModeVelocity.length();
-    if (speed > CONST.RING_MAX_SPEED) {
-      ringModeVelocity.multiplyScalar(CONST.RING_MAX_SPEED / speed);
+    if (speed > RING_MAX_SPEED) {
+      ringModeVelocity.multiplyScalar(RING_MAX_SPEED / speed);
     }
 
     // Integrate position
@@ -3170,25 +2697,15 @@ function integrate(dt) {
     ringModePosition.y += ringModeVelocity.y * dt;
 
     // Clamp to bounds
-    ringModePosition.x = THREE.MathUtils.clamp(ringModePosition.x, -CONST.RING_GRID_BOUNDS, CONST.RING_GRID_BOUNDS);
-    ringModePosition.y = THREE.MathUtils.clamp(ringModePosition.y, -CONST.RING_GRID_BOUNDS, CONST.RING_GRID_BOUNDS);
+    ringModePosition.x = THREE.MathUtils.clamp(ringModePosition.x, -RING_GRID_BOUNDS, RING_GRID_BOUNDS);
+    ringModePosition.y = THREE.MathUtils.clamp(ringModePosition.y, -RING_GRID_BOUNDS, RING_GRID_BOUNDS);
 
     // Check out of bounds (player went too far)
-    if (Math.abs(ringModePosition.x) >= CONST.RING_GRID_BOUNDS ||
-        Math.abs(ringModePosition.y) >= CONST.RING_GRID_BOUNDS) {
-      // Out of bounds - respawn at next ring position
+    if (Math.abs(ringModePosition.x) >= RING_GRID_BOUNDS ||
+        Math.abs(ringModePosition.y) >= RING_GRID_BOUNDS) {
+      // Out of bounds - respawn at center
       ringModeVelocity.set(0, 0);
-
-      // Find next unpassed ring to respawn at
-      const nextRing = rings.find(r => !r.passed && !r.missed);
-      if (nextRing) {
-        // Respawn at the ring's X/Y position
-        ringModePosition.set(nextRing.mesh.position.x, nextRing.mesh.position.y);
-      } else {
-        // No rings available, respawn at center
-        ringModePosition.set(0, 0);
-      }
-
+      ringModePosition.set(0, 0);
       ringModeStarted = false; // Wait for boost before falling
       ringModeLives--; // Lose a life
       console.log('Out of bounds! Lives:', ringModeLives);
@@ -3492,28 +3009,8 @@ function integrate(dt) {
     camera.position.y += (targetCamY - camera.position.y) * ringCameraSpeed;
     camera.position.z = targetCamZ;
 
-    // Look at point between car and next ring to keep distant rings visible
-    let lookAtX = ringModePosition.x;
-    let lookAtY = ringModePosition.y;
-    let lookAtZ = 0;
-
-    if (targetRing) {
-      // Calculate full 3D distance from car to ring
-      const dx = targetRing.mesh.position.x - ringModePosition.x;
-      const dy = targetRing.mesh.position.y - ringModePosition.y;
-      const dz = targetRing.mesh.position.z - 0; // Car is at Z=0
-      const ringDistance3D = Math.sqrt(dx*dx + dy*dy + dz*dz);
-
-      // Much gentler blend - max 20% toward ring to keep car on screen
-      // Only blend if ring is very far (>2000 units)
-      const blendFactor = ringDistance3D > 2000 ? Math.min((ringDistance3D - 2000) / 4000, 0.2) : 0;
-
-      lookAtX = ringModePosition.x * (1 - blendFactor) + targetRing.mesh.position.x * blendFactor;
-      lookAtY = ringModePosition.y * (1 - blendFactor) + targetRing.mesh.position.y * blendFactor;
-      lookAtZ = 0 * (1 - blendFactor) + targetRing.mesh.position.z * blendFactor * 0.2; // Minimal Z shift
-    }
-
-    camera.lookAt(lookAtX, lookAtY, lookAtZ);
+    // Always look at the car (keeps car centered in frame)
+    camera.lookAt(ringModePosition.x, ringModePosition.y, 0);
 
     // Move rings toward camera (only if not paused, game has started, and not game over)
     if (!ringModePaused && ringModeStarted && ringModeLives > 0) {
@@ -3522,26 +3019,6 @@ function integrate(dt) {
         const prevZ = ring.mesh.position.z;
         ring.mesh.position.z += ring.speed * dt; // Use individual ring speed for progression
         const newZ = ring.mesh.position.z;
-
-        // Update visual effects based on distance for depth perception
-        const distanceZ = Math.abs(ring.mesh.position.z);
-
-        // Opacity fade: full opacity when close, fade out when far
-        // Starts fading at 3000 units, fully visible at 1000 units
-        const opacityFactor = THREE.MathUtils.clamp(1 - (distanceZ - 1000) / 2000, 0.3, 1);
-        ring.mesh.material.opacity = opacityFactor;
-        ring.mesh.material.transparent = true;
-
-        // Emissive intensity: brighter when close, dimmer when far
-        // This creates a fog-like effect
-        const emissiveFactor = THREE.MathUtils.clamp(1 - distanceZ / 4000, 0.3, 0.8);
-        ring.mesh.material.emissiveIntensity = emissiveFactor;
-
-        // Point light intensity also fades with distance
-        if (ring.mesh.children[0] && ring.mesh.children[0].isLight) {
-          const lightIntensity = THREE.MathUtils.clamp(2 - distanceZ / 2000, 0.5, 2);
-          ring.mesh.children[0].intensity = lightIntensity;
-        }
 
         // Check if car passed through the ring's plane (Z=0, where car is locked)
         if (prevZ < 0 && newZ >= 0 && !ring.passed && !ring.missed) {
@@ -3557,8 +3034,8 @@ function integrate(dt) {
           const distanceToCenter = Math.sqrt(dx * dx + dy * dy);
 
           // Ring outer and inner radii
-          const ringOuterRadius = ring.size / 2 + CONST.RING_TUBE_RADIUS;
-          const ringInnerRadius = ring.size / 2 - CONST.RING_TUBE_RADIUS;
+          const ringOuterRadius = ring.size / 2 + RING_TUBE_RADIUS;
+          const ringInnerRadius = ring.size / 2 - RING_TUBE_RADIUS;
 
           if (distanceToCenter <= ringInnerRadius) {
             // Clean pass - car went through the center
@@ -3566,35 +3043,27 @@ function integrate(dt) {
             ringModeScore++;
             ringModeRingCount++;
             console.log('Passed through ring! Score:', ringModeScore);
-
-            // Audio feedback - play success sound
-            Audio.playRingPassSound();
+            // TODO: Play ding sound
           } else if (distanceToCenter < ringOuterRadius) {
             // Hit the edge of the ring
             ring.missed = true;
             console.log('Hit ring edge! Heart damage');
-            // Audio feedback - play miss sound
-            Audio.playRingMissSound();
             // TODO: Apply heart damage
           } else {
             // Completely missed the ring
             ring.missed = true;
             ringModeLives--;
             console.log('Missed ring! Lives:', ringModeLives);
-            // Audio feedback - play miss sound
-            Audio.playRingMissSound();
             // TODO: Check if game over
           }
         }
 
         // Remove rings that have passed the camera
-        if(ring.mesh.position.z > CONST.RING_DESPAWN_DISTANCE) {
+        if(ring.mesh.position.z > RING_DESPAWN_DISTANCE) {
           // Check if we missed an unpassed ring
           if (!ring.passed && !ring.missed) {
             ringModeLives--;
             console.log('Ring passed without going through! Lives:', ringModeLives);
-            // Audio feedback - play miss sound
-            Audio.playRingMissSound();
           }
           scene.remove(ring.mesh);
           ring.mesh.geometry.dispose();
@@ -3603,10 +3072,9 @@ function integrate(dt) {
         }
       }
 
-      // Spawn new rings periodically (affected by difficulty)
+      // Spawn new rings periodically
       ringSpawnTimer += dt;
-      const spawnInterval = CONST.RING_BASE_SPAWN_INTERVAL * CONST.DIFFICULTY_SETTINGS[currentDifficulty].spawnIntervalMultiplier;
-      if(ringSpawnTimer >= spawnInterval) {
+      if(ringSpawnTimer >= RING_BASE_SPAWN_INTERVAL) {
         spawnRing();
         ringSpawnTimer = 0;
       }
@@ -3687,191 +3155,6 @@ function drawRingModeHUD() {
     ctx.fillText('♥', 20, 20 + i * heartSpacing);
   }
 
-  // Ring landing indicator - blinking hollow circle on grid
-  if (ringModeStarted && !ringModePaused && ringModeLives > 0 && rings.length > 0) {
-    // Find the target ring (oldest unpassed ring)
-    const targetRing = rings.find(r => !r.passed && !r.missed);
-
-    if (targetRing) {
-      // Convert ring position to screen coordinates
-      const playerScreenX = innerWidth / 2;
-      const playerScreenY = innerHeight / 2;
-      const ringScreenX = playerScreenX + (targetRing.mesh.position.x - ringModePosition.x);
-      const ringScreenY = playerScreenY - (targetRing.mesh.position.y - ringModePosition.y);
-
-      // Calculate time until ring reaches grid (Z = 0)
-      const timeToGrid = Math.abs(targetRing.mesh.position.z) / targetRing.speed;
-
-      // Blink frequency increases as ring gets closer
-      // At 3+ seconds away: blink every 1 second
-      // At 0 seconds: blink very fast (10 times per second)
-      const maxTime = 3; // Time in seconds when blinking starts
-      const minBlinkInterval = 0.1; // Fastest blink (10 Hz)
-      const maxBlinkInterval = 1.0; // Slowest blink (1 Hz)
-
-      const blinkInterval = maxBlinkInterval - (Math.min(timeToGrid, maxTime) / maxTime) * (maxBlinkInterval - minBlinkInterval);
-      const blinkPhase = (performance.now() / 1000) % blinkInterval;
-      const isVisible = blinkPhase < (blinkInterval * 0.5); // On for half the interval
-
-      if (isVisible) {
-        // Get ring color from material
-        const ringColor = targetRing.mesh.material.color;
-        const ringRadius = targetRing.size / 2;
-
-        ctx.save();
-
-        // Draw hollow circle with ring's color
-        ctx.strokeStyle = `rgb(${ringColor.r * 255}, ${ringColor.g * 255}, ${ringColor.b * 255})`;
-        ctx.lineWidth = 5;
-        ctx.beginPath();
-        ctx.arc(ringScreenX, ringScreenY, ringRadius, 0, Math.PI * 2);
-        ctx.stroke();
-
-        // Add subtle glow
-        ctx.strokeStyle = `rgba(${ringColor.r * 255}, ${ringColor.g * 255}, ${ringColor.b * 255}, 0.3)`;
-        ctx.lineWidth = 10;
-        ctx.beginPath();
-        ctx.arc(ringScreenX, ringScreenY, ringRadius, 0, Math.PI * 2);
-        ctx.stroke();
-
-        ctx.restore();
-      }
-    }
-  }
-
-  // Directional arrow compass for distant rings
-  if (ringModeStarted && !ringModePaused && ringModeLives > 0 && rings.length > 0) {
-    // Find the target ring (oldest unpassed ring)
-    const targetRing = rings.find(r => !r.passed && !r.missed);
-
-    if (targetRing) {
-      // Calculate 2D distance from car to ring (on grid plane)
-      const dx = targetRing.mesh.position.x - ringModePosition.x;
-      const dy = targetRing.mesh.position.y - ringModePosition.y;
-      const distance2D = Math.sqrt(dx*dx + dy*dy);
-
-      // Draw dashed trail from player to ring position on grid
-      // This shows the path you need to travel
-      if (distance2D > 200) { // Only show trail for distant rings
-        // Convert grid positions to screen positions
-        // Player is always at screen center
-        const playerScreenX = innerWidth / 2;
-        const playerScreenY = innerHeight / 2;
-
-        // Ring position relative to player (offset from center)
-        // Screen Y is inverted (positive = down), so negate dy
-        const ringScreenX = playerScreenX + dx;
-        const ringScreenY = playerScreenY - dy;
-
-        // Calculate start point offset from player (to avoid drawing over car)
-        const carRadius = 50; // Visual radius to skip around car
-        const angle = Math.atan2(ringScreenY - playerScreenY, ringScreenX - playerScreenX);
-        const startX = playerScreenX + Math.cos(angle) * carRadius;
-        const startY = playerScreenY + Math.sin(angle) * carRadius;
-
-        // Draw dashed line (starting from edge of car visual)
-        ctx.save();
-        ctx.strokeStyle = 'rgba(255, 92, 92, 0.6)'; // Semi-transparent red
-        ctx.lineWidth = 3;
-        ctx.setLineDash([15, 10]); // Dashed pattern: 15px dash, 10px gap
-        ctx.beginPath();
-        ctx.moveTo(startX, startY);
-        ctx.lineTo(ringScreenX, ringScreenY);
-        ctx.stroke();
-        ctx.setLineDash([]); // Reset dash pattern
-        ctx.restore();
-
-        // Draw target orb at ring position
-        ctx.save();
-        // Outer glow
-        const gradient = ctx.createRadialGradient(ringScreenX, ringScreenY, 0, ringScreenX, ringScreenY, 25);
-        gradient.addColorStop(0, 'rgba(255, 92, 92, 0.8)');
-        gradient.addColorStop(0.5, 'rgba(255, 92, 92, 0.4)');
-        gradient.addColorStop(1, 'rgba(255, 92, 92, 0)');
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.arc(ringScreenX, ringScreenY, 25, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Inner solid orb
-        ctx.fillStyle = '#ff5c5c';
-        ctx.beginPath();
-        ctx.arc(ringScreenX, ringScreenY, 12, 0, Math.PI * 2);
-        ctx.fill();
-
-        // White center highlight
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-        ctx.beginPath();
-        ctx.arc(ringScreenX - 4, ringScreenY - 4, 5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-      }
-
-      // Show arrow if ring is far away - keep on screen longer (5 seconds worth of distance)
-      // At max speed ~1400 units/s, 5 seconds = ~7000 units, use 3000 to be visible earlier
-      if (distance2D > 800) {
-        // Calculate direction angle (in 2D, looking down from above)
-        // Negate dy because screen Y is inverted (increases downward, grid Y increases upward)
-        const angle = Math.atan2(-dy, dx);
-
-        // Convert player grid position to screen position (centered on screen)
-        // The car is always at screen center, so the compass is also at screen center
-        const compassCenterX = innerWidth / 2;
-        const compassCenterY = innerHeight / 2;
-
-        // Draw compass circle - size of medium ring (~150 units radius on screen)
-        const compassRadius = 120;
-
-        ctx.save();
-
-        // Draw semi-transparent dark circle background
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-        ctx.beginPath();
-        ctx.arc(compassCenterX, compassCenterY, compassRadius, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Draw circle outline
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-        ctx.lineWidth = 3;
-        ctx.stroke();
-
-        // Calculate arrow position on circle perimeter
-        const arrowX = compassCenterX + Math.cos(angle) * compassRadius;
-        const arrowY = compassCenterY + Math.sin(angle) * compassRadius;
-
-        // Draw arrow at edge of circle pointing toward ring
-        ctx.translate(arrowX, arrowY);
-        ctx.rotate(angle);
-
-        // Draw prominent arrow shape
-        const arrowSize = 30;
-        ctx.fillStyle = '#ff5c5c';
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.moveTo(arrowSize, 0); // Arrow tip (pointing right = direction of rotation)
-        ctx.lineTo(-arrowSize/2, -arrowSize/2); // Top back
-        ctx.lineTo(-arrowSize/2, arrowSize/2); // Bottom back
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-
-        ctx.restore();
-
-        // Distance text in center of compass
-        const distText = `${Math.round(distance2D)}u`;
-        ctx.font = 'bold 24px system-ui';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillStyle = '#ffffff';
-        ctx.strokeStyle = '#000000';
-        ctx.lineWidth = 4;
-        ctx.strokeText(distText, compassCenterX, compassCenterY);
-        ctx.fillText(distText, compassCenterX, compassCenterY);
-      }
-    }
-  }
-
   // Game over or paused text
   if (ringModeLives <= 0) {
     // Update high score if current score beats it
@@ -3880,39 +3163,20 @@ function drawRingModeHUD() {
       saveSettings(); // Save new high score to localStorage
     }
 
-    // Stop audio on game over
-    Audio.stopBoostRumble();
-
     // Activate orbit for cool bouncing effect on game over
     if (!orbitOn) {
       orbitOn = true;
     }
 
     ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-    ctx.fillRect(0, innerHeight / 2 - 100, innerWidth, 200);
+    ctx.fillRect(0, innerHeight / 2 - 60, innerWidth, 120);
     ctx.fillStyle = '#ff5c5c';
     ctx.font = 'bold 48px system-ui';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('GAME OVER', innerWidth / 2, innerHeight / 2 - 50);
+    ctx.fillText('GAME OVER', innerWidth / 2, innerHeight / 2 - 20);
     ctx.font = 'bold 24px system-ui';
-    ctx.fillText(`Final Score: ${ringModeScore}`, innerWidth / 2, innerHeight / 2 - 5);
-
-    // Draw retry button
-    const retryButtonWidth = 200;
-    const retryButtonHeight = 50;
-    const retryButtonX = innerWidth / 2 - retryButtonWidth / 2;
-    const retryButtonY = innerHeight / 2 + 30;
-
-    ctx.fillStyle = '#4c8dff';
-    ctx.fillRect(retryButtonX, retryButtonY, retryButtonWidth, retryButtonHeight);
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 3;
-    ctx.strokeRect(retryButtonX, retryButtonY, retryButtonWidth, retryButtonHeight);
-
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 24px system-ui';
-    ctx.fillText('RETRY', innerWidth / 2, retryButtonY + retryButtonHeight / 2);
+    ctx.fillText(`Final Score: ${ringModeScore}`, innerWidth / 2, innerHeight / 2 + 30);
   } else if (ringModePaused) {
     ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
     ctx.fillRect(0, innerHeight / 2 - 40, innerWidth, 80);
@@ -3940,7 +3204,6 @@ function tick(){
 
   if(orbitOn){ orbitPhase += dt; orbitStep(orbitPhase); }
 
-  updateKeyboardInput();
   updateGamepadInput();
   integrate(dt);
 
@@ -3983,9 +3246,6 @@ if (presets[savedCarBody]) {
   buildCar(presets.octane, "octane");
 }
 
-// Set initial menu button styling based on saved selection
-updateMenuButtonStyling();
-
 // Set initial rotation: roof facing camera, nose pointing up
 // X: +270°, Y: 0°, Z: +180°
 if (car) {
@@ -4023,11 +3283,6 @@ toggleModeBtn.textContent = airRollIsToggle ? 'Toggle' : 'Hold';
 // Restore gamepad enabled button state
 gpEnableBtn.classList.toggle('active', gpEnabled);
 gpStatusTag.textContent = gpEnabled ? 'Enabled (waiting for gamepad)' : 'Disabled';
-
-// Restore Ring Mode difficulty selector
-if (ringDifficultySelector) {
-  ringDifficultySelector.value = currentDifficulty;
-}
 
 requestAnimationFrame(tick);
 </script>
