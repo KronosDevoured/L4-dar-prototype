@@ -4013,16 +4013,47 @@ function drawRingModeHUD() {
         const ringScreenX = playerScreenX + dx;
         const ringScreenY = playerScreenY - dy;
 
-        // Draw dashed line
+        // Calculate start point offset from player (to avoid drawing over car)
+        const carRadius = 50; // Visual radius to skip around car
+        const angle = Math.atan2(ringScreenY - playerScreenY, ringScreenX - playerScreenX);
+        const startX = playerScreenX + Math.cos(angle) * carRadius;
+        const startY = playerScreenY + Math.sin(angle) * carRadius;
+
+        // Draw dashed line (starting from edge of car visual)
         ctx.save();
         ctx.strokeStyle = 'rgba(255, 92, 92, 0.6)'; // Semi-transparent red
         ctx.lineWidth = 3;
         ctx.setLineDash([15, 10]); // Dashed pattern: 15px dash, 10px gap
         ctx.beginPath();
-        ctx.moveTo(playerScreenX, playerScreenY);
+        ctx.moveTo(startX, startY);
         ctx.lineTo(ringScreenX, ringScreenY);
         ctx.stroke();
         ctx.setLineDash([]); // Reset dash pattern
+        ctx.restore();
+
+        // Draw target orb at ring position
+        ctx.save();
+        // Outer glow
+        const gradient = ctx.createRadialGradient(ringScreenX, ringScreenY, 0, ringScreenX, ringScreenY, 25);
+        gradient.addColorStop(0, 'rgba(255, 92, 92, 0.8)');
+        gradient.addColorStop(0.5, 'rgba(255, 92, 92, 0.4)');
+        gradient.addColorStop(1, 'rgba(255, 92, 92, 0)');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(ringScreenX, ringScreenY, 25, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Inner solid orb
+        ctx.fillStyle = '#ff5c5c';
+        ctx.beginPath();
+        ctx.arc(ringScreenX, ringScreenY, 12, 0, Math.PI * 2);
+        ctx.fill();
+
+        // White center highlight
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+        ctx.beginPath();
+        ctx.arc(ringScreenX - 4, ringScreenY - 4, 5, 0, Math.PI * 2);
+        ctx.fill();
         ctx.restore();
       }
 
