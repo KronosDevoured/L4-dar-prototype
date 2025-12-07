@@ -8,7 +8,7 @@ import * as THREE from 'three';
 import * as CONST from './constants.js';
 import * as Car from './car.js';
 import * as Audio from './audio.js';
-import { settings, saveSettings } from './settings.js';
+import { getSetting, saveSettings } from './settings.js';
 
 // ============================================================================
 // MODULE DEPENDENCIES (injected via init())
@@ -24,10 +24,10 @@ let gameState = null;
 // Ring Mode state
 let ringModeActive = false;
 let ringModeScore = 0;
-let ringModeHighScore = settings.ringModeHighScore ?? 0;
+let ringModeHighScore = getSetting('ringModeHighScore') ?? 0;
 let ringModeLives = 5;
 let ringModeRingCount = 0;
-let ringCameraSpeed = settings.ringCameraSpeed ?? 0.1;
+let ringCameraSpeed = getSetting('ringCameraSpeed') ?? 0.1;
 
 // Ring Mode physics
 let ringModeVelocity = new THREE.Vector2(0, 0); // XY velocity only
@@ -56,7 +56,7 @@ let ringResourcesPreloaded = false;
 let ringSpawnTimer = 0;
 let ringSpawnIndex = 0; // Track spawn order for camera focusing
 
-let currentDifficulty = settings.ringDifficulty ?? 'normal';
+let currentDifficulty = getSetting('ringDifficulty') ?? 'normal';
 
 // Pattern generation variables
 let currentPattern = 'random';
@@ -150,9 +150,9 @@ export function initRingMode(sceneRef, cameraRef, rendererRef, wRef, orbitOnRef)
   externalOrbitOn = orbitOnRef;
 
   // Load settings
-  ringModeHighScore = settings.ringModeHighScore ?? 0;
-  currentDifficulty = settings.ringDifficulty ?? 'normal';
-  ringCameraSpeed = settings.ringCameraSpeed ?? 0.1;
+  ringModeHighScore = getSetting('ringModeHighScore') ?? 0;
+  currentDifficulty = getSetting('ringDifficulty') ?? 'normal';
+  ringCameraSpeed = getSetting('ringCameraSpeed') ?? 0.1;
 
   // Preload resources
   preloadRingResources();

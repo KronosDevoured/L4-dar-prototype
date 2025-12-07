@@ -7,10 +7,11 @@
 import { PHYSICS_DEFAULTS } from './constants.js';
 
 // ============================================================================
-// SETTINGS STATE
+// SETTINGS STATE (PRIVATE)
 // ============================================================================
 
-export let settings = {
+// Private settings object - not exported directly to prevent external mutation
+let _settings = {
   // Physics
   maxAccelPitch: PHYSICS_DEFAULTS.accelPitch,
   maxAccelYaw: PHYSICS_DEFAULTS.accelYaw,
@@ -76,15 +77,15 @@ export function loadSettings() {
       console.log('Settings loaded from localStorage:', parsed);
 
       // Merge saved settings with defaults
-      settings = { ...settings, ...parsed };
-      return settings;
+      _settings = { ..._settings, ...parsed };
+      return { ..._settings }; // Return copy to prevent external mutation
     } catch (e) {
       console.error('Failed to parse saved settings:', e);
-      return settings;
+      return { ..._settings }; // Return copy
     }
   }
   console.log('No saved settings found, using defaults');
-  return settings;
+  return { ..._settings }; // Return copy
 }
 
 /**
@@ -93,11 +94,11 @@ export function loadSettings() {
 export function saveSettings(partialSettings = {}) {
   try {
     // Merge any partial updates
-    settings = { ...settings, ...partialSettings };
+    _settings = { ..._settings, ...partialSettings };
 
-    const json = JSON.stringify(settings);
+    const json = JSON.stringify(_settings);
     localStorage.setItem('darSettings', json);
-    console.log('Settings saved:', settings);
+    console.log('Settings saved:', _settings);
     console.log('Settings JSON length:', json.length, 'chars');
 
     // Verify it was saved
@@ -116,7 +117,7 @@ export function saveSettings(partialSettings = {}) {
  * Update a specific setting and save
  */
 export function updateSetting(key, value) {
-  settings[key] = value;
+  _settings[key] = value;
   saveSettings();
 }
 
@@ -124,7 +125,7 @@ export function updateSetting(key, value) {
  * Update multiple settings and save
  */
 export function updateSettings(updates) {
-  Object.assign(settings, updates);
+  Object.assign(_settings, updates);
   saveSettings();
 }
 
@@ -133,7 +134,7 @@ export function updateSettings(updates) {
  */
 export function resetSetting(key) {
   if (PHYSICS_DEFAULTS[key] !== undefined) {
-    settings[key] = PHYSICS_DEFAULTS[key];
+    _settings[key] = PHYSICS_DEFAULTS[key];
     saveSettings();
   }
 }
@@ -142,17 +143,17 @@ export function resetSetting(key) {
  * Reset all physics settings to defaults
  */
 export function resetPhysicsDefaults() {
-  settings.maxAccelPitch = PHYSICS_DEFAULTS.accelPitch;
-  settings.maxAccelYaw = PHYSICS_DEFAULTS.accelYaw;
-  settings.maxAccelRoll = PHYSICS_DEFAULTS.accelRoll;
-  settings.inputPow = PHYSICS_DEFAULTS.curve;
-  settings.damp = PHYSICS_DEFAULTS.damp;
-  settings.dampDAR = PHYSICS_DEFAULTS.dampDAR;
-  settings.brakeOnRelease = PHYSICS_DEFAULTS.brake;
-  settings.wMax = PHYSICS_DEFAULTS.wmax;
-  settings.wMaxPitch = PHYSICS_DEFAULTS.wmaxPitch;
-  settings.wMaxYaw = PHYSICS_DEFAULTS.wmaxYaw;
-  settings.wMaxRoll = PHYSICS_DEFAULTS.wmaxRoll;
+  _settings.maxAccelPitch = PHYSICS_DEFAULTS.accelPitch;
+  _settings.maxAccelYaw = PHYSICS_DEFAULTS.accelYaw;
+  _settings.maxAccelRoll = PHYSICS_DEFAULTS.accelRoll;
+  _settings.inputPow = PHYSICS_DEFAULTS.curve;
+  _settings.damp = PHYSICS_DEFAULTS.damp;
+  _settings.dampDAR = PHYSICS_DEFAULTS.dampDAR;
+  _settings.brakeOnRelease = PHYSICS_DEFAULTS.brake;
+  _settings.wMax = PHYSICS_DEFAULTS.wmax;
+  _settings.wMaxPitch = PHYSICS_DEFAULTS.wmaxPitch;
+  _settings.wMaxYaw = PHYSICS_DEFAULTS.wmaxYaw;
+  _settings.wMaxRoll = PHYSICS_DEFAULTS.wmaxRoll;
   saveSettings();
 }
 
@@ -172,12 +173,12 @@ export function clearAllSettings() {
  * Get a specific setting value
  */
 export function getSetting(key) {
-  return settings[key];
+  return _settings[key];
 }
 
 /**
- * Get all settings
+ * Get all settings (returns copy to prevent external mutation)
  */
 export function getAllSettings() {
-  return { ...settings };
+  return { ..._settings };
 }
