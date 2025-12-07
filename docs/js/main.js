@@ -16,238 +16,79 @@ import * as Input from './modules/input.js';
 import * as RingMode from './modules/ringMode.js';
 import * as Physics from './modules/physics.js';
 import { GameState } from './modules/gameState.js';
+import { SceneManager } from './modules/sceneManager.js';
+import { ThemeManager } from './modules/themeManager.js';
+import { UIManager } from './modules/uiManager.js';
+import { CameraController } from './modules/cameraController.js';
 
 // ============================================================================
-// SCENE SETUP
+// MANAGERS
 // ============================================================================
 
-let renderer, scene, camera;
-let ambientLight, directionalLight;
-let grid, gridMain;
-
-function initScene() {
-  const gl = document.getElementById('gl');
-  const hud = document.getElementById('hud');
-
-  renderer = new THREE.WebGLRenderer({canvas: gl, antialias: true});
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-  renderer.setSize(innerWidth, innerHeight);
-
-  // Device detection managed by Input module
-  console.log('Device type:', Input.getIsMobile() ? 'Mobile/Tablet' : 'Desktop');
-
-  scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(0xeef1f6, 900, 2200);
-
-  camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 0.1, 5000);
-  camera.position.set(0, CONST.CAM_BASE.y, CONST.CAM_BASE.z);
-  scene.add(camera);
-
-  /* Lights */
-  ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
-  scene.add(ambientLight);
-  directionalLight = new THREE.DirectionalLight(0xffffff, 1.15);
-  directionalLight.position.set(-350, 700, 900);
-  directionalLight.castShadow = false;
-  scene.add(directionalLight);
-
-  /* Grid - expanded to look infinite */
-  grid = new THREE.Group();
-  gridMain = new THREE.GridHelper(10000, 100, 0xd7dde6, 0xE5E9F1); // 10x larger, more divisions
-  gridMain.material.opacity = 0.65;
-  gridMain.material.transparent = true;
-  gridMain.material.depthWrite = false; // Prevent z-fighting
-  grid.add(gridMain);
-  grid.rotation.x = -Math.PI/2;
-  grid.position.y = -160;
-  scene.add(grid);
-
-  return hud;
-}
+let sceneManager;
+let themeManager;
+let uiManager;
+let cameraController;
 
 // ============================================================================
-// THEME SYSTEM
+// SETTINGS VARIABLES
 // ============================================================================
 
-let isDarkMode; // Will be initialized from localStorage
-let brightnessDark = 1.0;
-let brightnessLight = 1.0;
-
-const THEMES = {
-  dark: {
-    body: '#000000',
-    fog: 0x000000,
-    fogNear: 1000,
-    fogFar: 2500,
-    ambient: 0xffffff,
-    ambientIntensity: 1.5,
-    directional: 0xffffff,
-    directionalIntensity: 1.2,
-    gridMain: 0x4a5060,
-    gridSub: 0x353945,
-    gridOpacity: 0.7,
-    gridY: -160
-  },
-  light: {
-    body: '#ffffff',
-    fog: 0xeef1f6,
-    fogNear: 900,
-    fogFar: 2200,
-    ambient: 0xffffff,
-    ambientIntensity: 0.8,
-    directional: 0xffffff,
-    directionalIntensity: 1.15,
-    gridMain: 0x8a95a5,
-    gridSub: 0xb5bec8,
-    gridOpacity: 0.85,
-    gridY: -160
-  }
-};
-
-function applyTheme(dark) {
-  const theme = dark ? THEMES.dark : THEMES.light;
-
-  // Update body background
-  document.body.style.background = dark
-    ? '#000000'
-    : 'linear-gradient(180deg,#f6f7fb 0%,#eef1f6 45%,#e9edf3 100%)';
-
-  // Update fog
-  scene.fog.color.setHex(theme.fog);
-  scene.fog.near = theme.fogNear;
-  scene.fog.far = theme.fogFar;
-
-  // Update lights with brightness multiplier
-  const brightness = dark ? brightnessDark : brightnessLight;
-  ambientLight.intensity = theme.ambientIntensity * brightness;
-  directionalLight.intensity = theme.directionalIntensity * brightness;
-
-  // Update grid
-  gridMain.material.color.setHex(theme.gridMain);
-  gridMain.material.opacity = theme.gridOpacity;
-
-  // Update renderer background
-  renderer.setClearColor(theme.fog);
-
-  // Update car materials for better visibility in day mode
-  Car.updateCarTheme(dark);
-}
-
-// ============================================================================
-// MENU/UI MANAGEMENT
-// ============================================================================
-
-let chromeShown = false;
-const COLS = {UP:'#ff5c5c', RIGHT:'#4c8dff', DOWN:'#53d769', LEFT:'#ffd166'};
-
-// Collapsible cards initialization
-let cardsInitialized = false;
-function initCollapsibleCards() {
-  // Only initialize once to avoid duplicate event listeners
-  if (cardsInitialized) return;
-  cardsInitialized = true;
-
-  const cards = document.querySelectorAll('.card');
-  cards.forEach((card, index) => {
-    const h3 = card.querySelector('h3');
-    if (!h3) return;
-
-    // Wrap all content after h3 in a card-content div
-    if (!card.querySelector('.card-content')) {
-      const content = document.createElement('div');
-      content.className = 'card-content';
-
-      // Move all children after h3 into content div
-      const children = Array.from(card.children);
-      children.forEach(child => {
-        if (child !== h3) {
-          content.appendChild(child);
-        }
-      });
-      card.appendChild(content);
-
-      // Collapse all cards except the first one (Rotation)
-      const isRotationCard = h3.textContent.trim() === 'Rotation';
-      if (!isRotationCard) {
-        card.classList.add('collapsed');
-        content.style.maxHeight = '0';
-      } else {
-        content.style.maxHeight = content.scrollHeight + 'px';
-      }
-    }
-
-    // Add click handler to h3
-    h3.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const content = card.querySelector('.card-content');
-      const isCollapsed = card.classList.contains('collapsed');
-
-      if (isCollapsed) {
-        card.classList.remove('collapsed');
-        content.style.maxHeight = content.scrollHeight + 'px';
-      } else {
-        card.classList.add('collapsed');
-        content.style.maxHeight = '0';
-      }
-    });
+// Menu open/close wrapper functions
+function openMenu() {
+  uiManager.openMenu(() => {
+    Input.setChromeShown(true);
   });
 }
 
-function openMenu(){
-  chromeShown=true;
-  const menuBtn = document.getElementById('menuBtn');
-  const menuOverlay = document.getElementById('menuOverlay');
-  menuBtn.classList.add('active');
-  menuOverlay.style.display='block';
-
-  // Initialize collapsible cards on first open
-  initCollapsibleCards();
-
-  // Initialize Input module menu navigation after DOM is visible
-  setTimeout(() => {
-    Input.setChromeShown(true);
-  }, 10);
-}
-
-function closeMenu(){
-  chromeShown=false;
-  Input.setChromeShown(false);
-  const menuBtn = document.getElementById('menuBtn');
-  const menuOverlay = document.getElementById('menuOverlay');
-  menuBtn.classList.remove('active');
-  menuOverlay.style.display='none';
+function closeMenu() {
+  uiManager.closeMenu(() => {
+    Input.setChromeShown(false);
+  });
 }
 
 // ============================================================================
-// SETTINGS UI
+// SETTINGS VARIABLES
 // ============================================================================
 
-// All settings variables
-let maxAccelPitch, maxAccelYaw, maxAccelRoll;
-let inputPow, damp, dampDAR, brakeOnRelease;
-let wMax, wMaxPitch, wMaxYaw, wMaxRoll;
-let circleTiltAngle, circleTiltModifier, circleScale;
-let zoom, arrowScale;
-let showArrow, showCircle;
-let gameSoundsEnabled, gameMusicEnabled;
+// Settings object to hold all configuration
+const settings = {
+  // Physics
+  maxAccelPitch: 715,
+  maxAccelYaw: 565,
+  maxAccelRoll: 1030,
+  inputPow: 1.5,
+  damp: 2.96,
+  dampDAR: 4.35,
+  brakeOnRelease: 0.0,
+  wMax: 6.0,
+  wMaxPitch: 8.5,
+  wMaxYaw: 9.0,
+  wMaxRoll: 6.0,
+  // Visualization
+  circleTiltAngle: 34,
+  circleTiltModifier: 0,
+  circleScale: 0.3,
+  zoom: 1.0,
+  arrowScale: 4.0,
+  showArrow: true,
+  showCircle: true,
+  // Theme
+  isDarkMode: true,
+  brightnessDark: 1.0,
+  brightnessLight: 1.0,
+  // Audio
+  gameSoundsEnabled: true,
+  gameMusicEnabled: true
+};
 
 // Wrapper function to save settings to Settings module
 function saveSettings() {
   // Collect current settings
-  // Note: Input-related settings (airRoll, gpEnabled, etc.) are saved by Input module automatically
   const currentSettings = {
-    maxAccelPitch, maxAccelYaw, maxAccelRoll,
-    inputPow, damp, dampDAR, brakeOnRelease,
-    wMax, wMaxPitch, wMaxYaw, wMaxRoll,
-    circleTiltAngle, circleTiltModifier, circleScale,
-    zoom, arrowScale,
-    isDarkMode,
-    brightnessDark, brightnessLight,
-    showArrow, showCircle,
+    ...settings,
     ringModeHighScore: RingMode.getRingModeHighScore(),
-    ringDifficulty: RingMode.getCurrentDifficulty(),
-    gameSoundsEnabled,
-    gameMusicEnabled
+    ringDifficulty: RingMode.getCurrentDifficulty()
   };
 
   // Add optional settings if elements exist
@@ -265,268 +106,89 @@ function saveSettings() {
   Settings.saveSettings(currentSettings);
 }
 
-function syncTags(){
-  const accelPitchTag = document.getElementById('accelPitchTag');
-  const accelYawTag = document.getElementById('accelYawTag');
-  const accelRollTag = document.getElementById('accelRollTag');
-  const curveTag = document.getElementById('curveTag');
-  const dampTag = document.getElementById('dampTag');
-  const dampDARTag = document.getElementById('dampDARTag');
-  const brakeTag = document.getElementById('brakeTag');
-  const wmaxTag = document.getElementById('wmaxTag');
-  const wmaxPitchTag = document.getElementById('wmaxPitchTag');
-  const wmaxYawTag = document.getElementById('wmaxYawTag');
-  const wmaxRollTag = document.getElementById('wmaxRollTag');
-  const circleTiltTag = document.getElementById('circleTiltTag');
-  const circleTiltModifierTag = document.getElementById('circleTiltModifierTag');
-  const circleScaleTag = document.getElementById('circleScaleTag');
-  const stickVal = document.getElementById('stickVal');
-  const zoomVal = document.getElementById('zoomVal');
-  const arrowVal = document.getElementById('arrowVal');
-  const brightnessVal = document.getElementById('brightnessVal');
-
-  accelPitchTag.textContent=maxAccelPitch.toFixed(0);
-  accelYawTag.textContent=maxAccelYaw.toFixed(0);
-  accelRollTag.textContent=maxAccelRoll.toFixed(0);
-  curveTag.textContent=inputPow.toFixed(2);
-  dampTag.textContent=damp.toFixed(2);
-  dampDARTag.textContent=dampDAR.toFixed(2);
-  brakeTag.textContent=brakeOnRelease.toFixed(1);
-  wmaxTag.textContent=wMax.toFixed(1);
-  wmaxPitchTag.textContent=wMaxPitch.toFixed(1);
-  wmaxYawTag.textContent=wMaxYaw.toFixed(1);
-  wmaxRollTag.textContent=wMaxRoll.toFixed(1);
-  circleTiltTag.textContent=`${circleTiltAngle.toFixed(0)}°`;
-  circleTiltModifierTag.textContent=`${circleTiltModifier.toFixed(0)}°`;
-  circleScaleTag.textContent=`${circleScale.toFixed(2)}×`;
-  stickVal.textContent = String(Math.round(Input.getJoyBaseR()));
-  zoomVal.textContent = `${(zoom||1).toFixed(2)}×`;
-  arrowVal.textContent = `${(arrowScale||1).toFixed(2)}×`;
-  const currentBrightness = isDarkMode ? brightnessDark : brightnessLight;
-  brightnessVal.textContent = `${currentBrightness.toFixed(2)}×`;
-  const brightnessSlider = document.getElementById('brightnessSlider');
-  brightnessSlider.value = currentBrightness;
+// Wrapper for syncTags that uses UIManager
+function syncTags() {
+  uiManager.syncTags(settings, {
+    getJoyBaseR: () => Input.getJoyBaseR()
+  });
 }
 
-// Make all tag elements editable
+// Wrapper for setupEditableTags that uses UIManager
 function setupEditableTags() {
-  const accelPitch = document.getElementById('accelPitch');
-  const accelYaw = document.getElementById('accelYaw');
-  const accelRoll = document.getElementById('accelRoll');
-  const curveRange = document.getElementById('curveRange');
-  const dampRange = document.getElementById('dampRange');
-  const dampDARRange = document.getElementById('dampDARRange');
-  const brakeRange = document.getElementById('brakeRange');
-  const wmaxRange = document.getElementById('wmaxRange');
-  const wmaxPitchRange = document.getElementById('wmaxPitch');
-  const wmaxYawRange = document.getElementById('wmaxYaw');
-  const wmaxRollRange = document.getElementById('wmaxRoll');
-  const circleTiltRange = document.getElementById('circleTilt');
-  const circleTiltModifierRange = document.getElementById('circleTiltModifier');
-  const circleScaleRange = document.getElementById('circleScale');
-  const zoomSlider = document.getElementById('zoomSlider');
-  const arrowSlider = document.getElementById('arrowSlider');
-  const brightnessSlider = document.getElementById('brightnessSlider');
-
-  const accelPitchTag = document.getElementById('accelPitchTag');
-  const accelYawTag = document.getElementById('accelYawTag');
-  const accelRollTag = document.getElementById('accelRollTag');
-  const curveTag = document.getElementById('curveTag');
-  const dampTag = document.getElementById('dampTag');
-  const dampDARTag = document.getElementById('dampDARTag');
-  const brakeTag = document.getElementById('brakeTag');
-  const wmaxTag = document.getElementById('wmaxTag');
-  const wmaxPitchTag = document.getElementById('wmaxPitchTag');
-  const wmaxYawTag = document.getElementById('wmaxYawTag');
-  const wmaxRollTag = document.getElementById('wmaxRollTag');
-  const circleTiltTag = document.getElementById('circleTiltTag');
-  const circleTiltModifierTag = document.getElementById('circleTiltModifierTag');
-  const circleScaleTag = document.getElementById('circleScaleTag');
-  const zoomVal = document.getElementById('zoomVal');
-  const arrowVal = document.getElementById('arrowVal');
-  const brightnessVal = document.getElementById('brightnessVal');
-
-  const tagMappings = [
-    {tag: accelPitchTag, slider: accelPitch, setter: (v) => maxAccelPitch = Math.max(0, Math.min(1200, parseFloat(v) || 400))},
-    {tag: accelYawTag, slider: accelYaw, setter: (v) => maxAccelYaw = Math.max(0, Math.min(1200, parseFloat(v) || 400))},
-    {tag: accelRollTag, slider: accelRoll, setter: (v) => maxAccelRoll = Math.max(0, Math.min(1200, parseFloat(v) || 400))},
-    {tag: curveTag, slider: curveRange, setter: (v) => inputPow = Math.max(1, Math.min(4, parseFloat(v) || 1.0))},
-    {tag: dampTag, slider: dampRange, setter: (v) => damp = Math.max(0, Math.min(6, parseFloat(v) || 2.96))},
-    {tag: dampDARTag, slider: dampDARRange, setter: (v) => dampDAR = Math.max(0, Math.min(6, parseFloat(v) || 4.35))},
-    {tag: brakeTag, slider: brakeRange, setter: (v) => brakeOnRelease = Math.max(0, Math.min(6, parseFloat(v) || 0))},
-    {tag: wmaxTag, slider: wmaxRange, setter: (v) => wMax = Math.max(6, Math.min(24, parseFloat(v) || 6))},
-    {tag: wmaxPitchTag, slider: wmaxPitchRange, setter: (v) => wMaxPitch = Math.max(6, Math.min(24, parseFloat(v) || 8.5))},
-    {tag: wmaxYawTag, slider: wmaxYawRange, setter: (v) => wMaxYaw = Math.max(6, Math.min(24, parseFloat(v) || 9))},
-    {tag: wmaxRollTag, slider: wmaxRollRange, setter: (v) => wMaxRoll = Math.max(4, Math.min(24, parseFloat(v) || 6))},
-    {tag: circleTiltTag, slider: circleTiltRange, setter: (v) => circleTiltAngle = Math.max(0, Math.min(45, parseFloat(v) || 34))},
-    {tag: circleTiltModifierTag, slider: circleTiltModifierRange, setter: (v) => circleTiltModifier = Math.max(-45, Math.min(45, parseFloat(v) || 0))},
-    {tag: circleScaleTag, slider: circleScaleRange, setter: (v) => circleScale = Math.max(0.2, Math.min(2.0, parseFloat(v) || 0.3))},
-    {tag: zoomVal, slider: zoomSlider, setter: (v) => { zoom = Math.max(0.2, Math.min(4.0, parseFloat(v) || 1)); applyZoom(); }},
-    {tag: arrowVal, slider: arrowSlider, setter: (v) => arrowScale = Math.max(0.6, Math.min(4, parseFloat(v) || 4))},
-    {tag: brightnessVal, slider: brightnessSlider, setter: (v) => {
-      const val = Math.max(0.5, Math.min(3, parseFloat(v) || 1));
-      if (isDarkMode) brightnessDark = val; else brightnessLight = val;
-      applyTheme(isDarkMode);
-    }}
-  ];
-
-  tagMappings.forEach(mapping => {
-    mapping.tag.contentEditable = true;
-    mapping.tag.style.cursor = 'text';
-
-    mapping.tag.addEventListener('click', (e) => {
-      e.target.select?.() || document.execCommand('selectAll', false, null);
-    });
-
-    mapping.tag.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        e.target.blur();
-      }
-    });
-
-    mapping.tag.addEventListener('blur', (e) => {
-      const rawValue = e.target.textContent.replace(/[^\d.-]/g, '');
-      mapping.setter(rawValue);
-      mapping.slider.value = parseFloat(rawValue) || 0;
-      syncTags();
-      saveSettings();
-    });
-  });
+  uiManager.setupEditableTags(
+    settings,
+    () => cameraController.applyZoom(),
+    (dark) => themeManager.applyTheme(dark),
+    syncTags,
+    saveSettings
+  );
 }
 
+// Wrapper for initSettingsSliders that uses UIManager
 function initSettingsSliders() {
-  const accelPitch = document.getElementById('accelPitch');
-  const accelYaw = document.getElementById('accelYaw');
-  const accelRoll = document.getElementById('accelRoll');
-  const curveRange = document.getElementById('curveRange');
-  const dampRange = document.getElementById('dampRange');
-  const dampDARRange = document.getElementById('dampDARRange');
-  const brakeRange = document.getElementById('brakeRange');
-  const wmaxRange = document.getElementById('wmaxRange');
-  const wmaxPitchRange = document.getElementById('wmaxPitch');
-  const wmaxYawRange = document.getElementById('wmaxYaw');
-  const wmaxRollRange = document.getElementById('wmaxRoll');
-  const circleTiltRange = document.getElementById('circleTilt');
-  const circleTiltModifierRange = document.getElementById('circleTiltModifier');
-  const circleScaleRange = document.getElementById('circleScale');
-  const sizeSlider = document.getElementById('stickSizeSlider');
-  const zoomSlider = document.getElementById('zoomSlider');
-  const arrowSlider = document.getElementById('arrowSlider');
-  const brightnessSlider = document.getElementById('brightnessSlider');
-  const presetSel = document.getElementById('presetSel');
-
-  accelPitch.addEventListener('input',()=>{maxAccelPitch=parseFloat(accelPitch.value)||400; syncTags(); saveSettings();});
-  accelYaw.addEventListener('input',()=>{maxAccelYaw=parseFloat(accelYaw.value)||400; syncTags(); saveSettings();});
-  accelRoll.addEventListener('input',()=>{maxAccelRoll=parseFloat(accelRoll.value)||400; syncTags(); saveSettings();});
-  curveRange.addEventListener('input',()=>{inputPow=parseFloat(curveRange.value)||1.0; syncTags(); saveSettings();});
-  dampRange.addEventListener('input',()=>{damp=parseFloat(dampRange.value)||2.96; syncTags(); saveSettings();});
-  dampDARRange.addEventListener('input',()=>{dampDAR=parseFloat(dampDARRange.value)||4.35; syncTags(); saveSettings();});
-  brakeRange.addEventListener('input',()=>{brakeOnRelease=parseFloat(brakeRange.value)||0.0; syncTags(); saveSettings();});
-  wmaxRange.addEventListener('input',()=>{wMax=parseFloat(wmaxRange.value)||6.0; syncTags(); saveSettings();});
-  wmaxPitchRange.addEventListener('input',()=>{wMaxPitch=parseFloat(wmaxPitchRange.value)||8.5; syncTags(); saveSettings();});
-  wmaxYawRange.addEventListener('input',()=>{wMaxYaw=parseFloat(wmaxYawRange.value)||9.0; syncTags(); saveSettings();});
-  wmaxRollRange.addEventListener('input',()=>{wMaxRoll=parseFloat(wmaxRollRange.value)||6.0; syncTags(); saveSettings();});
-  circleTiltRange.addEventListener('input',()=>{circleTiltAngle=parseFloat(circleTiltRange.value)||38; syncTags(); saveSettings();});
-  circleTiltModifierRange.addEventListener('input',()=>{circleTiltModifier=parseFloat(circleTiltModifierRange.value)||0; syncTags(); saveSettings();});
-  circleScaleRange.addEventListener('input',()=>{circleScale=parseFloat(circleScaleRange.value)||0.3; syncTags(); saveSettings();});
-  sizeSlider.addEventListener('input',()=>{Input.setJoyBaseR(parseInt(sizeSlider.value,10)||100); Input.setJoyKnobR(Math.round(Input.getJoyBaseR()*0.32)); Input.clampJoyCenter(); Input.positionHints(); syncTags();});
-  zoomSlider.addEventListener('input',()=>{zoom=parseFloat(zoomSlider.value)||1.0; applyZoom(); syncTags(); saveSettings();});
-  arrowSlider.addEventListener('input',()=>{arrowScale=parseFloat(arrowSlider.value)||4.0; syncTags(); saveSettings();});
-  brightnessSlider.addEventListener('input',()=>{
-    const val = parseFloat(brightnessSlider.value) || 1.0;
-    if (isDarkMode) {
-      brightnessDark = val;
-    } else {
-      brightnessLight = val;
-    }
-    applyTheme(isDarkMode);
-    syncTags();
-    saveSettings();
-  });
-  presetSel.addEventListener('change',()=>{
-    const name = presetSel.value;
-    Car.buildCar(CONST.CAR_PRESETS[name], name, scene);
-    Car.car.quaternion.identity();
-    Car.car.rotation.set(Math.PI * 1.5, 0, Math.PI); // X: +270°, Y: 0°, Z: +180°
-    Physics.resetAngularVelocity();
-    saveSettings(); // Save selected car body
+  uiManager.initSettingsSliders(settings, {
+    applyZoom: () => cameraController.applyZoom(),
+    applyTheme: (dark) => themeManager.applyTheme(dark),
+    syncTags,
+    saveSettings,
+    buildCar: (name) => {
+      Car.buildCar(CONST.CAR_PRESETS[name], name, sceneManager.getScene());
+      Car.car.quaternion.identity();
+      Car.car.rotation.set(Math.PI * 1.5, 0, Math.PI);
+    },
+    resetAngularVelocity: () => Physics.resetAngularVelocity(),
+    setJoyBaseR: (v) => Input.setJoyBaseR(v),
+    setJoyKnobR: (v) => Input.setJoyKnobR(v),
+    getJoyBaseR: () => Input.getJoyBaseR(),
+    clampJoyCenter: () => Input.clampJoyCenter(),
+    positionHints: () => Input.positionHints()
   });
 }
 
-// Helper function to update menu button styling based on Input module state
-function updateMenuButtonStyling(){
-  const lastActive = Input.getLastActiveAirRoll();
-  document.getElementById('rollL').classList.toggle('active', lastActive === -1);
-  document.getElementById('rollR').classList.toggle('active', lastActive === 1);
-  document.getElementById('rollFree').classList.toggle('active', lastActive === 2);
+// Wrapper for updateMenuButtonStyling that uses UIManager
+function updateMenuButtonStyling() {
+  uiManager.updateMenuButtonStyling(Input.getLastActiveAirRoll());
 }
 
 // ============================================================================
 // GAME LOOP FUNCTIONS
 // ============================================================================
 
-let orbitOn = false;
-let orbitDir = 1;
-let orbitPhase = 0;
-
 function integrate(dt) {
   // Skip physics when menu is open OR when Ring Mode is paused
-  if (chromeShown || (RingMode.getRingModeActive() && RingMode.getRingModePaused())) {
+  if (uiManager.getChromeShown() || (RingMode.getRingModeActive() && RingMode.getRingModePaused())) {
     return;
   }
 
   // Call physics module
   Physics.updatePhysics(dt, {
     // Visualization
-    showArrow,
-    showCircle,
-    arrowScale,
-    circleScale,
-    circleTiltAngle,
-    circleTiltModifier,
+    showArrow: settings.showArrow,
+    showCircle: settings.showCircle,
+    arrowScale: settings.arrowScale,
+    circleScale: settings.circleScale,
+    circleTiltAngle: settings.circleTiltAngle,
+    circleTiltModifier: settings.circleTiltModifier,
 
     // Input shaping
-    inputPow,
+    inputPow: settings.inputPow,
 
     // Damping
-    damp,
-    dampDAR,
-    brakeOnRelease,
+    damp: settings.damp,
+    dampDAR: settings.dampDAR,
+    brakeOnRelease: settings.brakeOnRelease,
 
     // Accelerations (deg/s²)
-    maxAccelPitch,
-    maxAccelYaw,
-    maxAccelRoll,
+    maxAccelPitch: settings.maxAccelPitch,
+    maxAccelYaw: settings.maxAccelYaw,
+    maxAccelRoll: settings.maxAccelRoll,
 
     // Velocity limits (rad/s)
-    wMax,
-    wMaxPitch,
-    wMaxYaw,
-    wMaxRoll
-  }, chromeShown);
-}
-
-/* Camera zoom/orbit */
-function applyZoom(){
-  const f = Math.max(0.7, Math.min(1.6, zoom||1));
-  const dist = CONST.CAM_BASE.z / f;
-  const h = CONST.CAM_BASE.y / f;
-  if(!orbitOn){
-    camera.position.set(0, h, dist);
-    camera.lookAt(0, Car.car ? Car.car.position.y : 0, 0);
-  }
-}
-
-function orbitStep(t){
-  const f = Math.max(0.7, Math.min(1.6, zoom||1));
-  const R = (CONST.CAM_BASE.z / f);
-  const h = (CONST.CAM_BASE.y / f);
-  const sp = 0.35 * orbitDir;
-  const x = Math.sin(t*sp)*R;
-  const z = Math.cos(t*sp)*R;
-  camera.position.set(x, h, z);
-  camera.lookAt(0, Car.car ? Car.car.position.y : 0, 0);
+    wMax: settings.wMax,
+    wMaxPitch: settings.wMaxPitch,
+    wMaxYaw: settings.wMaxYaw,
+    wMaxRoll: settings.wMaxRoll
+  }, uiManager.getChromeShown());
 }
 
 /* XYZ Gizmo */
@@ -547,7 +209,7 @@ function renderHUD(){
     JOY_BASE_R: Input.getJoyBaseR(),
     JOY_KNOB_R: Input.getJoyKnobR(),
     joyVec: Input.getJoyVec(),
-    COLS,
+    COLS: uiManager.getCOLS(),
     // DAR button state
     DAR_CENTER: Input.getDarCenter(),
     DAR_R: Input.getDarR(),
@@ -579,12 +241,17 @@ function tick(){
   const dt = Math.min(0.033, Math.max(0.001, t - lastT));
   lastT = t;
 
-  if(orbitOn){ orbitPhase += dt; orbitStep(orbitPhase); }
+  // Update camera orbit
+  cameraController.update(dt);
 
   // Update input state from Input module
   Input.updateInput(dt);
 
   integrate(dt);
+
+  const renderer = sceneManager.getRenderer();
+  const scene = sceneManager.getScene();
+  const camera = sceneManager.getCamera();
 
   renderer.setScissorTest(false);
   renderer.setViewport(0,0,innerWidth,innerHeight);
@@ -608,9 +275,7 @@ function tick(){
 }
 
 function resize(){
-  renderer.setSize(innerWidth, innerHeight);
-  camera.aspect = innerWidth/innerHeight;
-  camera.updateProjectionMatrix();
+  sceneManager.resize();
 
   // Update gizmo camera aspect ratio
   const gizmoRect = document.getElementById('gizmoFrame').getBoundingClientRect();
@@ -619,7 +284,7 @@ function resize(){
 
   Rendering.sizeHud();
   Input.handleResize();
-  applyZoom();
+  cameraController.applyZoom();
 }
 
 // ============================================================================
@@ -629,14 +294,54 @@ function resize(){
 export function init() {
   console.log('Initializing L4 DAR Prototype...');
 
-  // Initialize scene
-  const hud = initScene();
+  // ============================================================================
+  // INITIALIZE MANAGERS
+  // ============================================================================
+
+  sceneManager = new SceneManager();
+  const hud = sceneManager.init();
+
+  uiManager = new UIManager();
+  themeManager = new ThemeManager(sceneManager);
+  cameraController = new CameraController(sceneManager.getCamera(), Car);
 
   // Initialize HUD
   Rendering.initHUD(hud);
 
   // Load settings from Settings module
   const savedSettings = Settings.loadSettings();
+
+  // Restore settings into settings object
+  settings.isDarkMode = savedSettings.isDarkMode ?? true;
+  settings.brightnessDark = savedSettings.brightnessDark ?? 1.0;
+  settings.brightnessLight = savedSettings.brightnessLight ?? 1.0;
+  settings.maxAccelPitch = savedSettings.maxAccelPitch ?? 715;
+  settings.maxAccelYaw = savedSettings.maxAccelYaw ?? 565;
+  settings.maxAccelRoll = savedSettings.maxAccelRoll ?? 1030;
+  settings.inputPow = savedSettings.inputPow ?? 1.5;
+  settings.damp = savedSettings.damp ?? 2.96;
+  settings.dampDAR = savedSettings.dampDAR ?? 4.35;
+  settings.brakeOnRelease = savedSettings.brakeOnRelease ?? 0.0;
+  settings.wMax = savedSettings.wMax ?? 6.0;
+  settings.wMaxPitch = savedSettings.wMaxPitch ?? 8.5;
+  settings.wMaxYaw = savedSettings.wMaxYaw ?? 9.0;
+  settings.wMaxRoll = savedSettings.wMaxRoll ?? 6.0;
+  settings.circleTiltAngle = savedSettings.circleTiltAngle ?? 34;
+  settings.circleTiltModifier = savedSettings.circleTiltModifier ?? 0;
+  settings.circleScale = savedSettings.circleScale ?? 0.3;
+  settings.zoom = savedSettings.zoom ?? 1.0;
+  settings.arrowScale = savedSettings.arrowScale ?? 4.0;
+  settings.showArrow = savedSettings.showArrow ?? true;
+  settings.showCircle = savedSettings.showCircle ?? true;
+  settings.gameSoundsEnabled = savedSettings.gameSoundsEnabled ?? true;
+  settings.gameMusicEnabled = savedSettings.gameMusicEnabled ?? true;
+
+  // Sync zoom with CameraController
+  cameraController.setZoom(settings.zoom);
+
+  // Sync audio settings with Audio module
+  Audio.setGameSoundsEnabled(settings.gameSoundsEnabled);
+  Audio.setGameMusicEnabled(settings.gameMusicEnabled);
 
   // ============================================================================
   // INITIALIZE GAME STATE (breaks circular dependencies)
@@ -647,41 +352,6 @@ export function init() {
   // Initialize modules with game state (dependency injection)
   Physics.init(gameState, RingMode);
   RingMode.init(gameState);
-
-  // ============================================================================
-
-  // Restore theme mode (default to true = dark mode)
-  isDarkMode = savedSettings.isDarkMode ?? true;
-  brightnessDark = savedSettings.brightnessDark ?? 1.0;
-  brightnessLight = savedSettings.brightnessLight ?? 1.0;
-
-  // Initialize settings variables
-  maxAccelPitch = savedSettings.maxAccelPitch ?? 715;
-  maxAccelYaw = savedSettings.maxAccelYaw ?? 565;
-  maxAccelRoll = savedSettings.maxAccelRoll ?? 1030;
-  inputPow = savedSettings.inputPow ?? 1.5;
-  damp = savedSettings.damp ?? 2.96;
-  dampDAR = savedSettings.dampDAR ?? 4.35;
-  brakeOnRelease = savedSettings.brakeOnRelease ?? 0.0;
-  wMax = savedSettings.wMax ?? 6.0;
-  wMaxPitch = savedSettings.wMaxPitch ?? 8.5;
-  wMaxYaw = savedSettings.wMaxYaw ?? 9.0;
-  wMaxRoll = savedSettings.wMaxRoll ?? 6.0;
-  circleTiltAngle = savedSettings.circleTiltAngle ?? 34;
-  circleTiltModifier = savedSettings.circleTiltModifier ?? 0;
-  circleScale = savedSettings.circleScale ?? 0.3;
-  zoom = savedSettings.zoom ?? 1.0;
-  arrowScale = savedSettings.arrowScale ?? 4.0;
-  showArrow = savedSettings.showArrow ?? true;
-  showCircle = savedSettings.showCircle ?? true;
-
-  // Audio settings
-  gameSoundsEnabled = savedSettings.gameSoundsEnabled ?? true;
-  gameMusicEnabled = savedSettings.gameMusicEnabled ?? true;
-
-  // Sync audio settings with Audio module
-  Audio.setGameSoundsEnabled(gameSoundsEnabled);
-  Audio.setGameMusicEnabled(gameMusicEnabled);
 
   // Apply loaded values to sliders
   const accelPitch = document.getElementById('accelPitch');
@@ -701,22 +371,22 @@ export function init() {
   const zoomSlider = document.getElementById('zoomSlider');
   const arrowSlider = document.getElementById('arrowSlider');
 
-  accelPitch.value = maxAccelPitch;
-  accelYaw.value = maxAccelYaw;
-  accelRoll.value = maxAccelRoll;
-  curveRange.value = inputPow;
-  dampRange.value = damp;
-  dampDARRange.value = dampDAR;
-  brakeRange.value = brakeOnRelease;
-  wmaxRange.value = wMax;
-  wmaxPitchRange.value = wMaxPitch;
-  wmaxYawRange.value = wMaxYaw;
-  wmaxRollRange.value = wMaxRoll;
-  circleTiltRange.value = circleTiltAngle;
-  circleTiltModifierRange.value = circleTiltModifier;
-  circleScaleRange.value = circleScale;
-  zoomSlider.value = zoom;
-  arrowSlider.value = arrowScale;
+  accelPitch.value = settings.maxAccelPitch;
+  accelYaw.value = settings.maxAccelYaw;
+  accelRoll.value = settings.maxAccelRoll;
+  curveRange.value = settings.inputPow;
+  dampRange.value = settings.damp;
+  dampDARRange.value = settings.dampDAR;
+  brakeRange.value = settings.brakeOnRelease;
+  wmaxRange.value = settings.wMax;
+  wmaxPitchRange.value = settings.wMaxPitch;
+  wmaxYawRange.value = settings.wMaxYaw;
+  wmaxRollRange.value = settings.wMaxRoll;
+  circleTiltRange.value = settings.circleTiltAngle;
+  circleTiltModifierRange.value = settings.circleTiltModifier;
+  circleScaleRange.value = settings.circleScale;
+  zoomSlider.value = settings.zoom;
+  arrowSlider.value = settings.arrowScale;
 
   // Initialize UI
   setupEditableTags();
@@ -839,13 +509,9 @@ export function init() {
       Car.car.rotation.set(Math.PI * 1.5, 0, Math.PI); // X: +270°, Y: 0°, Z: +180°
     }
     Physics.resetAngularVelocity();
-    orbitOn = false;
-    orbitDir = 1;
+    cameraController.resetCamera();
     document.getElementById('orbitCW').classList.remove('active');
     document.getElementById('orbitCCW').classList.remove('active');
-    orbitPhase = 0;
-    camera.position.set(0, 220, 650);
-    camera.lookAt(0,0,0);
     if (Car.faceArrow) Car.faceArrow.visible = false;
     if (Car.faceTip)   Car.faceTip.visible   = false;
 
@@ -858,39 +524,27 @@ export function init() {
   // Orbit buttons
   document.getElementById('orbitCW').addEventListener('click',()=>{
     const btn = document.getElementById('orbitCW');
-    if (orbitOn && orbitDir === 1) {
-      // Turn off if already orbiting CW
-      orbitOn = false;
-      btn.classList.remove('active');
-    } else {
-      // Turn on CW orbit
-      orbitOn = true;
-      orbitDir = 1;
-      btn.classList.add('active');
+    const active = cameraController.toggleOrbitCW();
+    btn.classList.toggle('active', active);
+    if (active) {
       document.getElementById('orbitCCW').classList.remove('active');
     }
   });
   document.getElementById('orbitCCW').addEventListener('click',()=>{
     const btn = document.getElementById('orbitCCW');
-    if (orbitOn && orbitDir === -1) {
-      // Turn off if already orbiting CCW
-      orbitOn = false;
-      btn.classList.remove('active');
-    } else {
-      // Turn on CCW orbit
-      orbitOn = true;
-      orbitDir = -1;
-      btn.classList.add('active');
+    const active = cameraController.toggleOrbitCCW();
+    btn.classList.toggle('active', active);
+    if (active) {
       document.getElementById('orbitCW').classList.remove('active');
     }
   });
 
   // Theme toggle (main screen button)
   document.getElementById('themeBtn').addEventListener('click',()=>{
-    isDarkMode = !isDarkMode;
-    applyTheme(isDarkMode);
+    settings.isDarkMode = !settings.isDarkMode;
+    themeManager.applyTheme(settings.isDarkMode);
     const btn = document.getElementById('themeBtn');
-    btn.textContent = isDarkMode ? '🌙' : '☀️';
+    btn.textContent = settings.isDarkMode ? '🌙' : '☀️';
     syncTags(); // Update brightness slider to show correct value for new theme
     saveSettings();
   });
@@ -938,18 +592,18 @@ export function init() {
 
   // Arrow and Circle toggles
   document.getElementById('arrowToggle').addEventListener('click',()=>{
-    showArrow = !showArrow;
+    settings.showArrow = !settings.showArrow;
     const btn = document.getElementById('arrowToggle');
-    btn.classList.toggle('active', showArrow);
-    btn.textContent = showArrow ? 'Show Arrow' : 'Hide Arrow';
+    btn.classList.toggle('active', settings.showArrow);
+    btn.textContent = settings.showArrow ? 'Show Arrow' : 'Hide Arrow';
     saveSettings();
   });
 
   document.getElementById('circleToggle').addEventListener('click',()=>{
-    showCircle = !showCircle;
+    settings.showCircle = !settings.showCircle;
     const btn = document.getElementById('circleToggle');
-    btn.classList.toggle('active', showCircle);
-    btn.textContent = showCircle ? 'Show Circle' : 'Hide Circle';
+    btn.classList.toggle('active', settings.showCircle);
+    btn.textContent = settings.showCircle ? 'Show Circle' : 'Hide Circle';
     saveSettings();
   });
 
@@ -1022,52 +676,26 @@ export function init() {
               Car.car.rotation.set(Math.PI * 1.5, 0, Math.PI);
             }
             Physics.resetAngularVelocity();
-            orbitOn = false;
-            orbitDir = 1;
+            cameraController.resetCamera();
             document.getElementById('orbitCW').classList.remove('active');
             document.getElementById('orbitCCW').classList.remove('active');
-            orbitPhase = 0;
-            camera.position.set(0, 220, 650);
-            camera.lookAt(0,0,0);
             if (Car.faceArrow) Car.faceArrow.visible = false;
             if (Car.faceTip) Car.faceTip.visible = false;
           }
           break;
         case 'orbitCW':
-          if (orbitOn && orbitDir === 1) {
-            // Turn off if already orbiting CW
-            orbitOn = false;
-          } else {
-            // If switching from CCW to CW, maintain camera position
-            if (orbitOn && orbitDir === -1) {
-              orbitPhase = -orbitPhase;
-            }
-            // Turn on CW orbit
-            orbitOn = true;
-            orbitDir = 1;
-          }
+          cameraController.toggleOrbitCW();
           break;
         case 'orbitCCW':
-          if (orbitOn && orbitDir === -1) {
-            // Turn off if already orbiting CCW
-            orbitOn = false;
-          } else {
-            // If switching from CW to CCW, maintain camera position
-            if (orbitOn && orbitDir === 1) {
-              orbitPhase = -orbitPhase;
-            }
-            // Turn on CCW orbit
-            orbitOn = true;
-            orbitDir = -1;
-          }
+          cameraController.toggleOrbitCCW();
           break;
         case 'toggleTheme':
-          isDarkMode = !isDarkMode;
-          applyTheme(isDarkMode);
+          settings.isDarkMode = !settings.isDarkMode;
+          themeManager.applyTheme(settings.isDarkMode);
           saveSettings();
           break;
         case 'openMenu':
-          if (!chromeShown) {
+          if (!uiManager.getChromeShown()) {
             openMenu();
           } else {
             closeMenu();
@@ -1085,10 +713,10 @@ export function init() {
   const presetSel = document.getElementById('presetSel');
   const savedCarBody = savedSettings.selectedCarBody || 'octane';
   if (CONST.CAR_PRESETS[savedCarBody]) {
-    Car.buildCar(CONST.CAR_PRESETS[savedCarBody], savedCarBody, scene);
+    Car.buildCar(CONST.CAR_PRESETS[savedCarBody], savedCarBody, sceneManager.getScene());
     presetSel.value = savedCarBody;
   } else {
-    Car.buildCar(CONST.CAR_PRESETS.octane, "octane", scene);
+    Car.buildCar(CONST.CAR_PRESETS.octane, "octane", sceneManager.getScene());
   }
 
   // Set initial menu button styling based on saved selection
@@ -1101,25 +729,30 @@ export function init() {
   }
 
   // Initialize Ring Mode module with scene references
-  const orbitOnRef = { get value() { return orbitOn; }, set value(v) { orbitOn = v; } };
-  RingMode.initRingMode(scene, camera, renderer, null, orbitOnRef);
+  const orbitOnRef = {
+    get value() { return cameraController.getOrbitOn(); },
+    set value(v) {
+      // Ring Mode might need to disable orbit - not fully implemented yet
+    }
+  };
+  RingMode.initRingMode(sceneManager.getScene(), sceneManager.getCamera(), sceneManager.getRenderer(), null, orbitOnRef);
 
   // Apply zoom and theme
-  applyZoom();
-  applyTheme(isDarkMode); // Initialize theme
+  cameraController.applyZoom();
+  themeManager.applyTheme(settings.isDarkMode); // Initialize theme
 
   // Restore theme button state (main screen)
   const themeBtn = document.getElementById('themeBtn');
-  themeBtn.textContent = isDarkMode ? '🌙' : '☀️';
+  themeBtn.textContent = settings.isDarkMode ? '🌙' : '☀️';
 
   // Restore arrow and circle toggle button states
   const arrowToggleBtn = document.getElementById('arrowToggle');
-  arrowToggleBtn.classList.toggle('active', showArrow);
-  arrowToggleBtn.textContent = showArrow ? 'Show Arrow' : 'Hide Arrow';
+  arrowToggleBtn.classList.toggle('active', settings.showArrow);
+  arrowToggleBtn.textContent = settings.showArrow ? 'Show Arrow' : 'Hide Arrow';
 
   const circleToggleBtn = document.getElementById('circleToggle');
-  circleToggleBtn.classList.toggle('active', showCircle);
-  circleToggleBtn.textContent = showCircle ? 'Show Circle' : 'Hide Circle';
+  circleToggleBtn.classList.toggle('active', settings.showCircle);
+  circleToggleBtn.textContent = settings.showCircle ? 'Show Circle' : 'Hide Circle';
 
   // Restore toggle/hold mode button state
   const toggleModeBtn = document.getElementById('toggleMode');
