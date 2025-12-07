@@ -2212,12 +2212,8 @@ hud.addEventListener('pointerdown',(e)=>{
     debugBoostPressTime = performance.now();
     console.log('[BOOST] Button pressed! ringModeActive:', ringModeActive, 'showBoostButton:', showBoostButton);
     boostPointerId = e.pointerId;
-    if(ringModeActive){
-      ringModeBoostActive = true;
-      console.log('[BOOST] Boost activated!');
-    } else {
-      console.warn('[BOOST] Ring Mode not active, boost not activated');
-    }
+    console.log('[BOOST] Set boostPointerId to:', boostPointerId);
+    // ringModeBoostActive is now set in updateKeyboardInput() based on boostPointerId
     e.preventDefault(); return;
   }
 
@@ -2322,9 +2318,7 @@ function endPtr(e){
 
   // Handle each pointer release independently
   if(e.pointerId === boostPointerId){
-    if(ringModeActive && !boostRelocating){
-      ringModeBoostActive = false;
-    }
+    // ringModeBoostActive is now automatically cleared in updateKeyboardInput() when boostPointerId = null
     boostPointerId = null;
   }
 
@@ -2790,7 +2784,10 @@ function updateKeyboardInput(){
   }
 
   // Boost (Space) - for Ring Mode
-  ringModeBoostActive = keyHeld('Space');
+  // Combine keyboard and touch input (touch is handled separately in pointerdown/up)
+  const keyboardBoost = keyHeld('Space');
+  const touchBoost = (boostPointerId !== null); // If pointer assigned to boost, it's being held
+  ringModeBoostActive = keyboardBoost || touchBoost;
 }
 
 function updateGamepadInput(){
