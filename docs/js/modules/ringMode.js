@@ -27,6 +27,7 @@ let ringModeVelocity = new THREE.Vector2(0, 0); // XY velocity only
 let ringModePosition = new THREE.Vector2(0, 0); // Car position in 2D plane
 let ringModeStarted = false; // Track if player has started (boosted at least once)
 let ringModePaused = false; // Track pause state
+let ignoreBoostUntilRelease = false; // Ignore boost input after respawn until released
 
 // Boost flame effects
 let boostFlames = [];
@@ -219,6 +220,7 @@ export function resetRingMode() {
   currentColorIndex = 0;
   ringModeStarted = false;
   ringModePaused = false;
+  ignoreBoostUntilRelease = true; // Ignore boost until player releases it
   patternRingCount = 0;
   cameraTargetX = 0;
   cameraTargetY = 0;
@@ -262,6 +264,7 @@ export function startRingMode() {
   currentColorIndex = 0;
   ringModeStarted = false;
   ringModePaused = false;
+  ignoreBoostUntilRelease = true; // Ignore boost until player releases it
   patternRingCount = 0;
   cameraTargetX = 0;
   cameraTargetY = 0;
@@ -701,13 +704,22 @@ export function updateRingModePhysics(dt, inputState, carQuaternion) {
   const boostDirX = forward.x;
   const boostDirY = forward.y;
 
+  // Check if boost was released (to re-enable boost after respawn)
+  if (!inputState.boostActive && ignoreBoostUntilRelease) {
+    ignoreBoostUntilRelease = false;
+    console.log('Boost released - ready to start');
+  }
+
+  // Determine if boost is actually active (considering ignore flag)
+  const effectiveBoostActive = inputState.boostActive && !ignoreBoostUntilRelease;
+
   // Track if game has started (first boost press)
-  if (inputState.boostActive && !ringModeStarted) {
+  if (effectiveBoostActive && !ringModeStarted) {
     ringModeStarted = true;
   }
 
   // Boost rumble sound control
-  if (inputState.boostActive) {
+  if (effectiveBoostActive) {
     Audio.startBoostRumble();
   } else {
     Audio.stopBoostRumble();
@@ -717,7 +729,7 @@ export function updateRingModePhysics(dt, inputState, carQuaternion) {
   let accelX = 0;
   let accelY = ringModeStarted ? CONST.RING_GRAVITY : 0; // Only apply gravity after first boost
 
-  if (inputState.boostActive) {
+  if (effectiveBoostActive) {
     // Boost in the direction car's nose is facing
     accelX += boostDirX * CONST.RING_BOOST_ACCEL;
     accelY += boostDirY * CONST.RING_BOOST_ACCEL;
@@ -761,6 +773,7 @@ export function updateRingModePhysics(dt, inputState, carQuaternion) {
     }
 
     ringModeStarted = false; // Wait for boost before falling
+    ignoreBoostUntilRelease = true; // Ignore boost until player releases it
     ringModeLives--; // Lose a life
     console.log('Out of bounds! Lives:', ringModeLives);
   }
@@ -815,11 +828,22 @@ export function updateRingModeRendering(dt) {
     }
   }
 
+  // Check if car is inside the target ring
+  let carInsideTargetRing = false;
+  if (targetRing) {
+    const dx = ringModePosition.x - targetRing.mesh.position.x;
+    const dy = ringModePosition.y - targetRing.mesh.position.y;
+    const distanceToRing = Math.sqrt(dx * dx + dy * dy);
+    const ringOuterRadius = targetRing.size / 2 + CONST.RING_TUBE_RADIUS;
+    carInsideTargetRing = distanceToRing < ringOuterRadius;
+  }
+
   // Smooth camera path following system - interpolate between multiple rings
   let cameraOffsetX = 0;
   let cameraOffsetY = CONST.CAM_BASE.y;
 
-  if (targetRing) {
+  if (targetRing && !carInsideTargetRing) {
+    // Car is outside target ring - focus camera on rings
     // Calculate weighted average position of next 2-3 upcoming rings
     // This creates a smooth curve through ring centers
     let weightedX = 0;
@@ -898,7 +922,13 @@ export function updateRingModeRendering(dt) {
   let lookAtY = ringModePosition.y;
   let lookAtZ = 0;
 
-  if (targetRing) {
+  if (carInsideTargetRing) {
+    // Car is inside target ring - focus camera on car
+    lookAtX = ringModePosition.x;
+    lookAtY = ringModePosition.y;
+    lookAtZ = 0;
+  } else if (targetRing) {
+    // Car is outside target ring - blend between car and ring
     // Calculate full 3D distance from car to ring
     const dx = targetRing.mesh.position.x - ringModePosition.x;
     const dy = targetRing.mesh.position.y - ringModePosition.y;
@@ -942,6 +972,26 @@ export function updateRingModeRendering(dt) {
       if (ring.mesh.children[0] && ring.mesh.children[0].isLight) {
         const lightIntensity = THREE.MathUtils.clamp(2 - distanceZ / 2000, 0.5, 2);
         ring.mesh.children[0].intensity = lightIntensity;
+      }
+
+      // Pulsing effect for the target ring (indicator ring)
+      if (targetRing && ring === targetRing) {
+        // Pulse the emissive intensity using a sine wave
+        const pulseSpeed = 1.5; // 1.5 pulses per second (slower, more noticeable)
+        const pulseAmount = 0.6; // Pulse between base ± 0.6 (much stronger)
+        const baseIntensity = ring.isBonusRing ? 1.5 : 1.2; // Higher base intensity
+        const time = performance.now() / 1000; // Current time in seconds
+        const pulse = Math.sin(time * pulseSpeed * Math.PI * 2) * pulseAmount;
+        ring.mesh.material.emissiveIntensity = Math.max(0.5, baseIntensity + pulse);
+
+        // Also pulse the point light with stronger effect
+        if (ring.mesh.children[0] && ring.mesh.children[0].isLight) {
+          ring.mesh.children[0].intensity = Math.max(1, 3 + pulse * 4);
+        }
+
+        // Slightly pulse the scale for even more visibility
+        const scalePulse = 1.0 + (pulse * 0.05); // ±5% size variation
+        ring.mesh.scale.setScalar(scalePulse * (ring.size / CONST.INITIAL_RING_SIZE));
       }
 
       // Check if car passed through the ring's plane (Z=0, where car is locked)
