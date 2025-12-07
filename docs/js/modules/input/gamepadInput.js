@@ -57,8 +57,11 @@ const GP_PRESETS = {
 // INITIALIZATION
 // ============================================================================
 
-export function initGamepad(savedBindings) {
+export function initGamepad(savedBindings, savedEnabled) {
   gpBindings = savedBindings || { ...defaultGpBindings };
+  if (savedEnabled !== undefined) {
+    gpEnabled = savedEnabled;
+  }
 
   window.addEventListener('gamepadconnected', onGamepadConnected);
   window.addEventListener('gamepaddisconnected', onGamepadDisconnected);

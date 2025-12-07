@@ -613,6 +613,7 @@ export function init() {
   // Initialize Input module with callbacks
   Input.initInput(hud, {
     savedGpBindings: savedSettings.gpBindings,
+    savedGpEnabled: savedSettings.gpEnabled,
     savedAirRollState: {
       airRoll: savedSettings.airRoll,
       lastActiveAirRoll: savedSettings.lastActiveAirRoll,

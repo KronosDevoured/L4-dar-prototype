@@ -399,7 +399,7 @@ export function initInput(hud, callbacks = {}) {
   KeyboardInput.initKeyboard();
 
   // Initialize gamepad input
-  GamepadInput.initGamepad(callbacks.savedGpBindings);
+  GamepadInput.initGamepad(callbacks.savedGpBindings, callbacks.savedGpEnabled);
   GamepadInput.setupGamepadUI();
 
   // Initialize air roll controller
