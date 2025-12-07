@@ -974,26 +974,6 @@ export function updateRingModeRendering(dt) {
         ring.mesh.children[0].intensity = lightIntensity;
       }
 
-      // Pulsing effect for the target ring (indicator ring)
-      if (targetRing && ring === targetRing) {
-        // Pulse the emissive intensity using a sine wave
-        const pulseSpeed = 1.5; // 1.5 pulses per second (slower, more noticeable)
-        const pulseAmount = 0.6; // Pulse between base ± 0.6 (much stronger)
-        const baseIntensity = ring.isBonusRing ? 1.5 : 1.2; // Higher base intensity
-        const time = performance.now() / 1000; // Current time in seconds
-        const pulse = Math.sin(time * pulseSpeed * Math.PI * 2) * pulseAmount;
-        ring.mesh.material.emissiveIntensity = Math.max(0.5, baseIntensity + pulse);
-
-        // Also pulse the point light with stronger effect
-        if (ring.mesh.children[0] && ring.mesh.children[0].isLight) {
-          ring.mesh.children[0].intensity = Math.max(1, 3 + pulse * 4);
-        }
-
-        // Slightly pulse the scale for even more visibility
-        const scalePulse = 1.0 + (pulse * 0.05); // ±5% size variation
-        ring.mesh.scale.setScalar(scalePulse * (ring.size / CONST.INITIAL_RING_SIZE));
-      }
-
       // Check if car passed through the ring's plane (Z=0, where car is locked)
       if (prevZ < 0 && newZ >= 0 && !ring.passed && !ring.missed) {
         // Ring crossed the car's Z plane - check for collision

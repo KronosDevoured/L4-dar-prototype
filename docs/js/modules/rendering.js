@@ -202,7 +202,7 @@ export function drawRingModeHUD(state) {
     ctx.fillText('♥', 20, 20 + i * heartSpacing);
   }
 
-  // Ring landing indicator - solid hollow circle on grid
+  // Ring landing indicator - dashed circle on grid
   if (ringModeStarted && !ringModePaused && ringModeLives > 0 && rings.length > 0) {
     // Find the target ring (oldest unpassed ring)
     const targetRing = rings.find(r => !r.passed && !r.missed);
@@ -220,14 +220,15 @@ export function drawRingModeHUD(state) {
 
       ctx.save();
 
-      // Draw hollow circle with ring's color (always visible, no blinking)
+      // Draw dashed circle with ring's color
       ctx.strokeStyle = `rgb(${ringColor.r * 255}, ${ringColor.g * 255}, ${ringColor.b * 255})`;
       ctx.lineWidth = 5;
+      ctx.setLineDash([15, 10]); // 15px dash, 10px gap
       ctx.beginPath();
       ctx.arc(ringScreenX, ringScreenY, ringRadius, 0, Math.PI * 2);
       ctx.stroke();
 
-      // Add subtle glow
+      // Add subtle glow (also dashed)
       ctx.strokeStyle = `rgba(${ringColor.r * 255}, ${ringColor.g * 255}, ${ringColor.b * 255}, 0.3)`;
       ctx.lineWidth = 10;
       ctx.beginPath();
