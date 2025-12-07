@@ -1511,7 +1511,8 @@ const DIFFICULTY_SETTINGS = {
 
     // Patterns
     allowedPatterns: null,       // All patterns (progressive unlock)
-    patternAmplitudeMultiplier: 1.0,
+    patternAmplitudeMultiplier: 0.7, // Reduce pattern spread for more manageable jumps
+    excludeRandomPattern: true,  // No harsh cross-map teleports in Normal
 
     // Other
     initialLives: 5              // Default
@@ -1597,9 +1598,9 @@ function createRing(x, y, z, size, speed, spawnIndex) {
   const color = RING_COLORS[currentColorIndex];
   currentColorIndex = (currentColorIndex + 1) % RING_COLORS.length;
 
-  // Use cached geometry and material (share across all rings for better performance)
-  // Note: We clone the material so each ring can be colored independently
-  const geometry = ringGeometryCache || new THREE.TorusGeometry(size / 2, RING_TUBE_RADIUS, 16, 32);
+  // ALWAYS use cached geometry for performance (prevents lag on spawn)
+  // Scale the mesh instead of creating new geometry for different sizes
+  const geometry = ringGeometryCache;
   const cachedMaterial = ringMaterialCache.get(color);
   const material = cachedMaterial || new THREE.MeshStandardMaterial({
     color: color,
@@ -1611,6 +1612,10 @@ function createRing(x, y, z, size, speed, spawnIndex) {
 
   const ring = new THREE.Mesh(geometry, material);
   ring.position.set(x, y, z);
+
+  // Scale ring to match requested size (cached geometry is for INITIAL_RING_SIZE)
+  const scale = size / INITIAL_RING_SIZE;
+  ring.scale.set(scale, scale, scale);
 
   // Add point light for glow effect
   const light = new THREE.PointLight(color, 2, 150);
@@ -1650,7 +1655,7 @@ function selectNewPattern() {
   // Use difficulty-specific allowed patterns or progressive unlock
   let availablePatterns = settings.allowedPatterns || PATTERN_TYPES;
 
-  // If no specific pattern restriction, use progressive unlock (Normal mode)
+  // If no specific pattern restriction, use progressive unlock (Normal/Hard modes)
   if (!settings.allowedPatterns) {
     if (difficultyLevel < 2) {
       // First 10 rings: easier straight/simple patterns
@@ -1659,7 +1664,12 @@ function selectNewPattern() {
       // Rings 10-20: introduce more complex patterns
       availablePatterns = ['sine_horizontal', 'sine_vertical', 'wave_combo', 'helix', 'spiral'];
     }
-    // After 20 rings: all patterns available including 'random' for cross-map leaps
+    // After 20 rings: all patterns available
+
+    // Exclude 'random' pattern if difficulty setting requires it (Normal mode)
+    if (settings.excludeRandomPattern) {
+      availablePatterns = availablePatterns.filter(p => p !== 'random');
+    }
   }
 
   currentPattern = availablePatterns[Math.floor(Math.random() * availablePatterns.length)];
@@ -3489,6 +3499,56 @@ function drawRingModeHUD() {
   for (let i = 0; i < Math.min(ringModeLives, 10); i++) {
     ctx.fillStyle = '#ff5c5c';
     ctx.fillText('♥', 20, 20 + i * heartSpacing);
+  }
+
+  // Directional arrow for distant rings (>2000 units away)
+  if (ringModeStarted && !ringModePaused && ringModeLives > 0 && rings.length > 0) {
+    // Find the target ring (oldest unpassed ring)
+    const targetRing = rings.find(r => !r.passed && !r.missed);
+
+    if (targetRing) {
+      // Calculate 3D distance from car to ring
+      const dx = targetRing.mesh.position.x - ringModePosition.x;
+      const dy = targetRing.mesh.position.y - ringModePosition.y;
+      const dz = targetRing.mesh.position.z - 0; // Car is at Z=0
+      const distance = Math.sqrt(dx*dx + dy*dy + dz*dz);
+
+      // Show arrow if ring is >2000 units away, hide if <1000 units
+      if (distance > 2000) {
+        // Calculate direction angle (in 2D, looking down from above)
+        const angle = Math.atan2(dy, dx);
+
+        // Draw arrow at bottom center of screen
+        const arrowCenterX = innerWidth / 2;
+        const arrowCenterY = innerHeight - 100;
+        const arrowSize = 40;
+
+        ctx.save();
+        ctx.translate(arrowCenterX, arrowCenterY);
+        ctx.rotate(angle);
+
+        // Draw arrow shape
+        ctx.fillStyle = 'rgba(255, 92, 92, 0.8)';
+        ctx.strokeStyle = '#ff5c5c';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(arrowSize, 0); // Arrow tip
+        ctx.lineTo(-arrowSize/2, -arrowSize/2);
+        ctx.lineTo(-arrowSize/2, arrowSize/2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.restore();
+
+        // Distance text below arrow
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 16px system-ui';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText(`${Math.round(distance)}u`, arrowCenterX, arrowCenterY + arrowSize);
+      }
+    }
   }
 
   // Game over or paused text
