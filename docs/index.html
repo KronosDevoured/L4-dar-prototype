@@ -1169,7 +1169,9 @@ function saveSettings() {
       showArrow, showCircle,
       ringModeHighScore,
       lastActiveAirRoll,
-      ringDifficulty: currentDifficulty
+      ringDifficulty: currentDifficulty,
+      gameSoundsEnabled,
+      gameMusicEnabled
     };
 
     // Only save these if the elements exist
@@ -1229,6 +1231,10 @@ let maxAccelPitch=savedSettings.maxAccelPitch ?? parseFloat(accelPitch.value),
 // Brightness settings (separate for dark and light modes)
 let brightnessDark = savedSettings.brightnessDark ?? 1.0;
 let brightnessLight = savedSettings.brightnessLight ?? 1.0;
+
+// Audio settings
+let gameSoundsEnabled = savedSettings.gameSoundsEnabled ?? true;
+let gameMusicEnabled = savedSettings.gameMusicEnabled ?? true;
 
 // Apply loaded values to sliders
 accelPitch.value = maxAccelPitch;
@@ -1468,6 +1474,8 @@ let boostFlames = [];
 // Audio context for ring pass sound
 let audioContext = null;
 function playRingPassSound() {
+  if (!gameSoundsEnabled) return; // Check if sounds are enabled
+
   try {
     // Create audio context on first use (user interaction required)
     if (!audioContext) {
@@ -1497,6 +1505,8 @@ function playRingPassSound() {
 }
 
 function playRingMissSound() {
+  if (!gameSoundsEnabled) return; // Check if sounds are enabled
+
   try {
     // Create audio context on first use (user interaction required)
     if (!audioContext) {
@@ -1543,6 +1553,7 @@ const musicMelody = [
 ];
 
 function startBackgroundMusic() {
+  if (!gameMusicEnabled) return; // Check if music is enabled
   if (musicIntervalId) return; // Already playing
 
   try {
@@ -1609,6 +1620,7 @@ function stopBackgroundMusic() {
 }
 
 function startBoostRumble() {
+  if (!gameSoundsEnabled) return; // Check if sounds are enabled
   if (boostRumbleOscillator) return; // Already playing
 
   try {
@@ -1681,6 +1693,9 @@ function resetRingMode() {
   orbitOn = false;
 
   spawnRing();
+
+  // Restart music
+  startBackgroundMusic();
 }
 
 // Ring geometry and spawning
@@ -2137,6 +2152,9 @@ document.getElementById('ringMode').addEventListener('click', () => {
     }
     w.set(0,0,0);
     orbitOn = false;
+
+    // Start background music when entering Ring Mode
+    startBackgroundMusic();
   } else {
     // Exit Ring Mode
     ringModeVelocity.set(0, 0);
@@ -2144,6 +2162,10 @@ document.getElementById('ringMode').addEventListener('click', () => {
     clearAllRings();
     clearBoostFlames();
     if (car) car.position.set(0, 0, 0);
+
+    // Stop background music when exiting Ring Mode
+    stopBackgroundMusic();
+    stopBoostRumble(); // Also stop boost rumble
   }
 });
 
@@ -2174,6 +2196,47 @@ ringDifficultySelector.addEventListener('change', () => {
     clearAllRings();
     console.log('Ring Mode restarted with new difficulty');
   }
+});
+
+// Audio toggles
+const toggleSoundsBtn = document.getElementById('toggleSounds');
+const soundsStatusTag = document.getElementById('soundsStatus');
+const toggleMusicBtn = document.getElementById('toggleMusic');
+const musicStatusTag = document.getElementById('musicStatus');
+
+// Set initial button states
+toggleSoundsBtn.classList.toggle('active', gameSoundsEnabled);
+soundsStatusTag.textContent = gameSoundsEnabled ? 'Enabled' : 'Disabled';
+toggleMusicBtn.classList.toggle('active', gameMusicEnabled);
+musicStatusTag.textContent = gameMusicEnabled ? 'Enabled' : 'Disabled';
+
+toggleSoundsBtn.addEventListener('click', () => {
+  gameSoundsEnabled = !gameSoundsEnabled;
+  toggleSoundsBtn.classList.toggle('active', gameSoundsEnabled);
+  soundsStatusTag.textContent = gameSoundsEnabled ? 'Enabled' : 'Disabled';
+
+  // Stop boost rumble if sounds are disabled
+  if (!gameSoundsEnabled && boostRumbleOscillator) {
+    stopBoostRumble();
+  }
+
+  saveSettings();
+});
+
+toggleMusicBtn.addEventListener('click', () => {
+  gameMusicEnabled = !gameMusicEnabled;
+  toggleMusicBtn.classList.toggle('active', gameMusicEnabled);
+  musicStatusTag.textContent = gameMusicEnabled ? 'Enabled' : 'Disabled';
+
+  // Stop music if disabled
+  if (!gameMusicEnabled && musicIntervalId) {
+    stopBackgroundMusic();
+  } else if (gameMusicEnabled && ringModeActive && ringModeStarted && !musicIntervalId) {
+    // Start music if enabled and Ring Mode is active
+    startBackgroundMusic();
+  }
+
+  saveSettings();
 });
 
 document.getElementById('restart').addEventListener('click',()=>{
