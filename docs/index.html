@@ -1447,6 +1447,9 @@ let ringModePaused = false; // Track pause state
 // Boost flame effects
 let boostFlames = [];
 
+// Debug: Track last boost button press time for visual feedback
+let debugBoostPressTime = 0;
+
 // Audio context for ring pass sound
 let audioContext = null;
 function playRingPassSound() {
@@ -2206,6 +2209,7 @@ hud.addEventListener('pointerdown',(e)=>{
 
   // Multi-touch: assign this pointer to a specific control FIRST (before checking relocation)
   if(showBoostButton && inBoost(e.clientX,e.clientY)){
+    debugBoostPressTime = performance.now();
     console.log('[BOOST] Button pressed! ringModeActive:', ringModeActive, 'showBoostButton:', showBoostButton);
     boostPointerId = e.pointerId;
     if(ringModeActive){
@@ -3605,6 +3609,33 @@ function drawRingModeHUD() {
         ctx.fillText(distText, arrowCenterX, textY);
       }
     }
+  }
+
+  // DEBUG: On-screen boost button status (top-left corner)
+  if (ringModeActive) {
+    const timeSincePress = debugBoostPressTime > 0 ? ((performance.now() - debugBoostPressTime) / 1000).toFixed(2) : 'never';
+    const justPressed = debugBoostPressTime > 0 && (performance.now() - debugBoostPressTime) < 500;
+
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+    ctx.fillRect(10, 60, 320, 140);
+    ctx.fillStyle = '#00ff00';
+    ctx.font = 'bold 14px monospace';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillText('DEBUG - BOOST STATUS:', 15, 65);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '12px monospace';
+    ctx.fillText(`ringModeActive: ${ringModeActive}`, 15, 85);
+    ctx.fillText(`showBoostButton: ${showBoostButton}`, 15, 100);
+    ctx.fillText(`ringModeBoostActive: ${ringModeBoostActive}`, 15, 115);
+    ctx.fillText(`boostPointerId: ${boostPointerId}`, 15, 130);
+    ctx.fillStyle = '#ffff00';
+    ctx.fillText(`Active pointers: ${activePointers.size}`, 15, 145);
+    ctx.fillStyle = justPressed ? '#ffff00' : '#aaaaaa';
+    ctx.fillText(`Last press: ${timeSincePress}s ago`, 15, 160);
+    ctx.fillStyle = ringModeBoostActive ? '#00ff00' : '#ff5c5c';
+    ctx.font = 'bold 14px monospace';
+    ctx.fillText(ringModeBoostActive ? 'BOOST ON!' : 'boost off', 15, 180);
   }
 
   // Game over or paused text
