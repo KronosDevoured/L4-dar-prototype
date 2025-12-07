@@ -147,7 +147,10 @@ function initSettingsSliders() {
 
 // Wrapper for updateMenuButtonStyling that uses UIManager
 function updateMenuButtonStyling() {
-  uiManager.updateMenuButtonStyling(Input.getLastActiveAirRoll());
+  const currentRoll = Input.getAirRoll();
+  // Show current roll if active, otherwise show last active
+  const displayRoll = currentRoll !== 0 ? currentRoll : Input.getLastActiveAirRoll();
+  uiManager.updateMenuButtonStyling(displayRoll);
 }
 
 // ============================================================================
