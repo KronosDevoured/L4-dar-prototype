@@ -3839,7 +3839,8 @@ function drawRingModeHUD() {
       // At max speed ~1400 units/s, 5 seconds = ~7000 units, use 3000 to be visible earlier
       if (distance2D > 800) {
         // Calculate direction angle (in 2D, looking down from above)
-        const angle = Math.atan2(dy, dx);
+        // Negate dy because screen Y is inverted (increases downward, grid Y increases upward)
+        const angle = Math.atan2(-dy, dx);
 
         // Convert player grid position to screen position (centered on screen)
         // The car is always at screen center, so the compass is also at screen center
