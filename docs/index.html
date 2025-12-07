@@ -2077,8 +2077,16 @@ hud.addEventListener('pointerdown',(e)=>{
     darPointerId = e.pointerId;
     darPressT = performance.now();
 
-    // In hold mode: activate immediately on press
-    if(!airRollIsToggle){
+    // In toggle mode: toggle on press
+    if(airRollIsToggle){
+      if(airRoll === 0){
+        setRoll(lastActiveAirRoll);
+      } else {
+        setRoll(0);
+      }
+      darOn = (airRoll !== 0);
+    } else {
+      // In hold mode: activate immediately on press
       if(airRoll === 0){
         setRoll(lastActiveAirRoll);
       }
@@ -2163,18 +2171,9 @@ function endPtr(e){
     if(!darRelocating && inDAR(e.clientX,e.clientY)){
       const heldMs = performance.now() - darPressT;
       if(heldMs < RELOCATE_HOLD_MS){
-        // In toggle mode: toggle air roll on/off
-        // In hold mode: just release (already activated on press)
-        if(airRollIsToggle){
-          // Toggle mode: tap to toggle
-          if(airRoll === 0){
-            setRoll(lastActiveAirRoll);
-          } else {
-            setRoll(0);
-          }
-          darOn = (airRoll !== 0);
-        } else {
-          // Hold mode: deactivate on release
+        // In toggle mode: nothing to do (already toggled on press)
+        // In hold mode: deactivate on release
+        if(!airRollIsToggle){
           setRoll(0);
           darOn = false;
         }
