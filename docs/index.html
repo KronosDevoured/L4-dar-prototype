@@ -2100,7 +2100,22 @@ function spawnRing() {
 
   // Speed: +5% every 10 rings (max 50% increase), then apply difficulty multiplier
   const speedIncrease = progressionLevel * 0.05;
-  const ringSpeed = RING_BASE_SPEED * (1 + Math.min(speedIncrease, 0.5)) * settings.speedMultiplier;
+  let ringSpeed = RING_BASE_SPEED * (1 + Math.min(speedIncrease, 0.5)) * settings.speedMultiplier;
+
+  // Distance-based speed modifier: slow down rings that spawn far away
+  const distanceToRing = Math.sqrt(
+    (spawnX - ringModePosition.x) ** 2 +
+    (spawnY - ringModePosition.y) ** 2
+  );
+  const MAX_RING_DISTANCE = RING_GRID_BOUNDS; // 1500 units
+  const distanceRatio = distanceToRing / MAX_RING_DISTANCE; // 0.0 to 1.0
+
+  // If ring is far away (>50% of max distance), slow it down
+  // At max distance (1500 units), speed is reduced by 50%
+  if (distanceRatio > 0.5) {
+    const slowdownFactor = 1 - ((distanceRatio - 0.5) * 1.0); // 1.0 at 50%, 0.5 at 100%
+    ringSpeed *= slowdownFactor;
+  }
 
   const ring = createRing(spawnX, spawnY, spawnZ, ringSize, ringSpeed, ringSpawnIndex++);
   rings.push(ring);
