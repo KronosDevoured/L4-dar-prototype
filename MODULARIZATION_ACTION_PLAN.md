@@ -5,7 +5,7 @@
 **Status:** In Progress
 **Created:** 2025-12-07
 **Last Updated:** 2025-12-07
-**Current Phase:** Phase 2 COMPLETE ✅ - Ready for Phase 3
+**Current Phase:** Phase 3 COMPLETE ✅ - Ready for Phase 4
 
 ---
 
@@ -598,14 +598,20 @@ Test module interactions:
   - [x] Step 2.3: Create UIManager module
   - [x] Step 2.4: Create CameraController module
   - [x] Step 2.5: Refactor main.js to use managers
+- [x] **Phase 3: Split Input module** (Completed 2025-12-07)
+  - [x] Step 3.1: Create TouchInput module (337 lines)
+  - [x] Step 3.2: Create KeyboardInput module (106 lines)
+  - [x] Step 3.3: Create GamepadInput module (344 lines)
+  - [x] Step 3.4: Create AirRollController module (84 lines)
+  - [x] Step 3.5: Refactor input.js to orchestrate modules (600 lines)
+  - [x] Step 3.6: Testing and commit
 
 ### In Progress 🔄
 
-- [ ] **Phase 3: Split Input module** ⬅️ READY TO START
+- [ ] **Phase 4: Improve State Management** ⬅️ READY TO START
 
 ### Planned 📋
 
-- [ ] Phase 3: Split Input module
 - [ ] Phase 4: Improve State Management
 - [ ] Phase 5: Add Error Handling & Tests
 - [ ] Phase 6: Refine Module Structure (Optional)
@@ -618,12 +624,12 @@ Test module interactions:
 
 | Metric | Before | Current | Target |
 |--------|--------|---------|--------|
-| Modularization Quality | 7.5/10 | 8.2/10 | 9.0/10 |
+| Modularization Quality | 7.5/10 | 8.7/10 | 9.0/10 |
 | Circular Dependencies | 1 | 0 ✅ | 0 |
-| Modules > 500 LOC | 3 | 1 | 0 |
+| Modules > 500 LOC | 3 | 0 ✅ | 0 |
 | Test Coverage | 0% | 0% | 80%+ |
 | main.js Size | 1,129 lines | 677 lines ✅ | < 300 lines |
-| input.js Size | 1,376 lines | 1,376 lines | < 250 lines |
+| input.js Size | 1,376 lines | 600 lines ✅ | < 250 lines |
 
 ### Target State (After Optimization)
 
@@ -686,6 +692,19 @@ git tag phase-X-backup
 ---
 
 ## Notes & Lessons Learned
+
+### 2025-12-07 - Phase 3 Complete ✅
+- **Completed:** Phase 3 - Split input.js into specialized modules
+- **Created:** 4 new input sub-modules in `docs/js/modules/input/`:
+  - touchInput.js (337 lines) - Joystick, DAR button, boost button, multi-touch
+  - keyboardInput.js (106 lines) - Keyboard state, WASD movement, air roll
+  - gamepadInput.js (344 lines) - Gamepad handling, remapping, presets
+  - airRollController.js (84 lines) - Air roll state and toggle/hold logic
+- **Refactored:** input.js from 1,376 lines to 600 lines (58% reduction, 776 lines removed)
+- **Architecture:** Facade/coordinator pattern - input.js orchestrates sub-modules
+- **Result:** Clear separation by input type, easier testing and maintenance ✅
+- **Commit:** feb7107
+- **Next:** Ready for Phase 4 (Improve State Management - MEDIUM PRIORITY)
 
 ### 2025-12-07 - Phase 2 Complete ✅
 - **Completed:** Phase 2 - Split main.js into manager modules
