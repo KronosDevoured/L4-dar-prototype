@@ -1696,7 +1696,7 @@ function startBoostRumble() {
     boostRumbleOscillator.type = 'sawtooth'; // Rough, engine-like sound
 
     // Low volume so it doesn't drown out ring sounds
-    boostRumbleGain.gain.setValueAtTime(0.12, audioContext.currentTime); // Slightly louder since it's lower freq
+    boostRumbleGain.gain.setValueAtTime(0.06, audioContext.currentTime); // Half volume
 
     boostRumbleOscillator.start(audioContext.currentTime);
   } catch (e) {
@@ -2057,8 +2057,8 @@ function getPatternPosition(progress) {
   }
 
   // Distance cap: Limit maximum distance from current player position
-  // Half the grid (750 units) is the max jump distance
-  const MAX_RING_DISTANCE = RING_GRID_BOUNDS / 2; // 1500 / 2 = 750 units
+  // Max distance = grid radius (center to edge = 1500 units)
+  const MAX_RING_DISTANCE = RING_GRID_BOUNDS; // 1500 units (half the total grid width)
   const dx = x - ringModePosition.x;
   const dy = y - ringModePosition.y;
   const distance = Math.sqrt(dx * dx + dy * dy);
@@ -2396,6 +2396,20 @@ document.addEventListener('fullscreenchange', () => {
   } else {
     btn.textContent = '⛶'; // Fullscreen enter icon
     btn.title = 'Enter Fullscreen';
+  }
+});
+
+// Stop music when page loses focus (tab switching, app backgrounding)
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    // Page is hidden - stop all audio
+    stopBackgroundMusic();
+    stopBoostRumble();
+  } else {
+    // Page is visible again - restart music if Ring Mode is active
+    if (ringModeActive && ringModeStarted && gameMusicEnabled) {
+      startBackgroundMusic();
+    }
   }
 });
 
