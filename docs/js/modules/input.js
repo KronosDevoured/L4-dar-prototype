@@ -316,31 +316,36 @@ function handleGamepadStick(stick) {
 }
 
 /**
- * Handle DAR button press/release
+ * Handle DAR button press
  */
 function handleDARPress(pressed) {
   const airRollIsToggle = AirRollController.getAirRollIsToggle();
 
-  if (pressed) {
-    if (airRollIsToggle) {
-      // Toggle mode: toggle between last active and off
-      const currentAirRoll = AirRollController.getAirRoll();
-      if (currentAirRoll === 0) {
-        AirRollController.setRoll(AirRollController.getLastActiveAirRoll());
-      } else {
-        AirRollController.setRoll(0);
-      }
+  if (airRollIsToggle) {
+    // Toggle mode: toggle between last active and off
+    const currentAirRoll = AirRollController.getAirRoll();
+    if (currentAirRoll === 0) {
+      AirRollController.setRoll(AirRollController.getLastActiveAirRoll());
     } else {
-      // Hold mode: activate on press
-      if (AirRollController.getAirRoll() === 0) {
-        AirRollController.setRoll(AirRollController.getLastActiveAirRoll());
-      }
-    }
-  } else {
-    // Release: only deactivate in hold mode
-    if (!airRollIsToggle) {
       AirRollController.setRoll(0);
     }
+  } else {
+    // Hold mode: activate on press
+    if (AirRollController.getAirRoll() === 0) {
+      AirRollController.setRoll(AirRollController.getLastActiveAirRoll());
+    }
+  }
+}
+
+/**
+ * Handle DAR button release
+ */
+function handleDARRelease() {
+  const airRollIsToggle = AirRollController.getAirRollIsToggle();
+
+  // Release: only deactivate in hold mode
+  if (!airRollIsToggle) {
+    AirRollController.setRoll(0);
   }
 }
 
@@ -366,7 +371,11 @@ export function initInput(hud, callbacks = {}) {
   // Initialize sub-modules
   const touchCallbacks = {
     onDARPress: handleDARPress,
-    onBoostPress: handleBoostChange
+    onDARRelease: handleDARRelease,
+    onBoostPress: handleBoostChange,
+    showJoyHint: () => {}, // No-op for now
+    showDARHint: () => {}, // No-op for now
+    positionHints: () => {} // Handled internally by TouchInput
   };
 
   const keyboardCallbacks = {
