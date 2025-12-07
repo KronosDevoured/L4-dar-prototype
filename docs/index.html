@@ -1696,7 +1696,7 @@ function startBoostRumble() {
     boostRumbleOscillator.type = 'sawtooth'; // Rough, engine-like sound
 
     // Low volume so it doesn't drown out ring sounds
-    boostRumbleGain.gain.setValueAtTime(0.06, audioContext.currentTime); // Half volume
+    boostRumbleGain.gain.setValueAtTime(0.03, audioContext.currentTime); // Quarter volume
 
     boostRumbleOscillator.start(audioContext.currentTime);
   } catch (e) {
