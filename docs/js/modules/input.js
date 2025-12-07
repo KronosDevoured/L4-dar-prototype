@@ -845,6 +845,9 @@ function updateKeyboardInput() {
     console.log('Ring Mode paused:', ringModePaused);
   }
 
+  // If Ring Mode is paused, don't process any other keyboard input
+  if (ringModePaused) return;
+
   // Movement (WASD) - only when not dragging joystick manually
   if (!joyActive && !relocating && !darRelocating) {
     let kx = 0, ky = 0;
@@ -1013,6 +1016,23 @@ function updateGamepadInput() {
     }
 
     // Don't process normal game input when menu is open
+    return;
+  }
+
+  // If Ring Mode is paused, only allow specific actions
+  const pausedActions = ['pause', 'restart', 'toggleTheme', 'openMenu'];
+  if (ringModePaused) {
+    // Only process allowed actions when paused
+    for (const action of pausedActions) {
+      if (!gpBindings[action]) continue;
+      const nowPressed = isPressedForBinding(pad, gpBindings[action]);
+      const wasPressed = !!gpPrevActionPressed[action];
+      if (nowPressed && !wasPressed) {
+        if (execBindingCallback) execBindingCallback(action);
+      }
+      gpPrevActionPressed[action] = nowPressed;
+    }
+    // Block all other input when paused
     return;
   }
 
