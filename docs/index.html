@@ -3199,8 +3199,25 @@ function integrate(dt) {
     camera.position.y += (targetCamY - camera.position.y) * ringCameraSpeed;
     camera.position.z = targetCamZ;
 
-    // Always look at the car (keeps car centered in frame)
-    camera.lookAt(ringModePosition.x, ringModePosition.y, 0);
+    // Look at point between car and next ring to keep distant rings visible
+    let lookAtX = ringModePosition.x;
+    let lookAtY = ringModePosition.y;
+    let lookAtZ = 0;
+
+    if (targetRing) {
+      // Blend lookAt target toward next ring to show distant rings
+      const ringZ = targetRing.mesh.position.z;
+      const ringDistance = Math.abs(ringZ);
+
+      // More blend when ring is far away (up to 40% toward ring)
+      const blendFactor = Math.min(ringDistance / 1000, 0.4);
+
+      lookAtX = ringModePosition.x * (1 - blendFactor) + targetRing.mesh.position.x * blendFactor;
+      lookAtY = ringModePosition.y * (1 - blendFactor) + targetRing.mesh.position.y * blendFactor;
+      lookAtZ = 0 * (1 - blendFactor) + ringZ * blendFactor * 0.3; // Slight Z shift
+    }
+
+    camera.lookAt(lookAtX, lookAtY, lookAtZ);
 
     // Move rings toward camera (only if not paused, game has started, and not game over)
     if (!ringModePaused && ringModeStarted && ringModeLives > 0) {
