@@ -1447,6 +1447,37 @@ let ringModePaused = false; // Track pause state
 // Boost flame effects
 let boostFlames = [];
 
+// Audio context for ring pass sound
+let audioContext = null;
+function playRingPassSound() {
+  try {
+    // Create audio context on first use (user interaction required)
+    if (!audioContext) {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+
+    // Create a dull, hollow "thunk" sound
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+
+    // Lower frequency for dull thunk (C3 note = 130.8 Hz)
+    oscillator.frequency.setValueAtTime(130.8, audioContext.currentTime);
+    oscillator.type = 'triangle'; // Warmer, less harsh than sine
+
+    // Quick attack and decay for "thunk" effect
+    gainNode.gain.setValueAtTime(0.25, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
+
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.15);
+  } catch (e) {
+    console.warn('Audio playback failed:', e);
+  }
+}
+
 // Camera smooth path tracking
 let cameraTargetX = 0; // Smooth interpolated camera target position
 let cameraTargetY = 0;
@@ -1503,15 +1534,15 @@ const DIFFICULTY_SETTINGS = {
   normal: {
     // Ring properties
     sizeMultiplier: 1.0,         // Default size
-    speedMultiplier: 1.0,        // Default speed
-    spawnIntervalMultiplier: 1.0, // Default spacing
+    speedMultiplier: 0.85,       // 15% slower for more reaction time
+    spawnIntervalMultiplier: 1.5, // 50% more time between rings
 
     // Progression
     progressionRate: 1.0,        // Normal progression
 
     // Patterns
     allowedPatterns: null,       // All patterns (progressive unlock)
-    patternAmplitudeMultiplier: 0.7, // Reduce pattern spread for more manageable jumps
+    patternAmplitudeMultiplier: 0.55, // Tighter patterns for easier tracking
     excludeRandomPattern: true,  // No harsh cross-map teleports in Normal
 
     // Other
@@ -2175,9 +2206,13 @@ hud.addEventListener('pointerdown',(e)=>{
 
   // Multi-touch: assign this pointer to a specific control FIRST (before checking relocation)
   if(showBoostButton && inBoost(e.clientX,e.clientY)){
+    console.log('[BOOST] Button pressed! ringModeActive:', ringModeActive, 'showBoostButton:', showBoostButton);
     boostPointerId = e.pointerId;
     if(ringModeActive){
       ringModeBoostActive = true;
+      console.log('[BOOST] Boost activated!');
+    } else {
+      console.warn('[BOOST] Ring Mode not active, boost not activated');
     }
     e.preventDefault(); return;
   }
@@ -3346,13 +3381,13 @@ function integrate(dt) {
       const dz = targetRing.mesh.position.z - 0; // Car is at Z=0
       const ringDistance3D = Math.sqrt(dx*dx + dy*dy + dz*dz);
 
-      // Blend factor based on full 3D distance (up to 60% toward ring for very distant rings)
-      // Normalize by max possible distance (~3600 units)
-      const blendFactor = Math.min(ringDistance3D / 3000, 0.6);
+      // Much gentler blend - max 20% toward ring to keep car on screen
+      // Only blend if ring is very far (>2000 units)
+      const blendFactor = ringDistance3D > 2000 ? Math.min((ringDistance3D - 2000) / 4000, 0.2) : 0;
 
       lookAtX = ringModePosition.x * (1 - blendFactor) + targetRing.mesh.position.x * blendFactor;
       lookAtY = ringModePosition.y * (1 - blendFactor) + targetRing.mesh.position.y * blendFactor;
-      lookAtZ = 0 * (1 - blendFactor) + targetRing.mesh.position.z * blendFactor * 0.3; // Slight Z shift
+      lookAtZ = 0 * (1 - blendFactor) + targetRing.mesh.position.z * blendFactor * 0.2; // Minimal Z shift
     }
 
     camera.lookAt(lookAtX, lookAtY, lookAtZ);
@@ -3388,7 +3423,9 @@ function integrate(dt) {
             ringModeScore++;
             ringModeRingCount++;
             console.log('Passed through ring! Score:', ringModeScore);
-            // TODO: Play ding sound
+
+            // Audio feedback - play success sound
+            playRingPassSound();
           } else if (distanceToCenter < ringOuterRadius) {
             // Hit the edge of the ring
             ring.missed = true;
@@ -3513,40 +3550,59 @@ function drawRingModeHUD() {
       const dz = targetRing.mesh.position.z - 0; // Car is at Z=0
       const distance = Math.sqrt(dx*dx + dy*dy + dz*dz);
 
-      // Show arrow if ring is >2000 units away, hide if <1000 units
+      // Show arrow if ring is >2000 units away, hide if <500 units
       if (distance > 2000) {
         // Calculate direction angle (in 2D, looking down from above)
         const angle = Math.atan2(dy, dx);
 
         // Draw arrow at bottom center of screen
         const arrowCenterX = innerWidth / 2;
-        const arrowCenterY = innerHeight - 100;
-        const arrowSize = 40;
+        const arrowCenterY = innerHeight - 120;
+        const arrowSize = 50;
+
+        // Draw background circle for visibility
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx.beginPath();
+        ctx.arc(arrowCenterX, arrowCenterY, arrowSize + 10, 0, Math.PI * 2);
+        ctx.fill();
 
         ctx.save();
         ctx.translate(arrowCenterX, arrowCenterY);
         ctx.rotate(angle);
 
-        // Draw arrow shape
-        ctx.fillStyle = 'rgba(255, 92, 92, 0.8)';
-        ctx.strokeStyle = '#ff5c5c';
-        ctx.lineWidth = 3;
+        // Draw arrow shape - larger and more defined
+        ctx.fillStyle = '#ff5c5c';
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 4;
         ctx.beginPath();
-        ctx.moveTo(arrowSize, 0); // Arrow tip
-        ctx.lineTo(-arrowSize/2, -arrowSize/2);
-        ctx.lineTo(-arrowSize/2, arrowSize/2);
+        ctx.moveTo(arrowSize, 0); // Arrow tip (pointing right)
+        ctx.lineTo(-arrowSize/3, -arrowSize/2); // Top back
+        ctx.lineTo(-arrowSize/3, -arrowSize/4); // Top inner
+        ctx.lineTo(-arrowSize, -arrowSize/4); // Top tail
+        ctx.lineTo(-arrowSize, arrowSize/4); // Bottom tail
+        ctx.lineTo(-arrowSize/3, arrowSize/4); // Bottom inner
+        ctx.lineTo(-arrowSize/3, arrowSize/2); // Bottom back
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
 
         ctx.restore();
 
-        // Distance text below arrow
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 16px system-ui';
+        // Distance text with background for better visibility
+        const distText = `${Math.round(distance)}u`;
+        ctx.font = 'bold 18px system-ui';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
-        ctx.fillText(`${Math.round(distance)}u`, arrowCenterX, arrowCenterY + arrowSize);
+        const textY = arrowCenterY + arrowSize + 15;
+
+        // Text background
+        const textWidth = ctx.measureText(distText).width;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(arrowCenterX - textWidth/2 - 8, textY - 2, textWidth + 16, 24);
+
+        // Text
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(distText, arrowCenterX, textY);
       }
     }
   }
