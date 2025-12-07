@@ -3205,16 +3205,19 @@ function integrate(dt) {
     let lookAtZ = 0;
 
     if (targetRing) {
-      // Blend lookAt target toward next ring to show distant rings
-      const ringZ = targetRing.mesh.position.z;
-      const ringDistance = Math.abs(ringZ);
+      // Calculate full 3D distance from car to ring
+      const dx = targetRing.mesh.position.x - ringModePosition.x;
+      const dy = targetRing.mesh.position.y - ringModePosition.y;
+      const dz = targetRing.mesh.position.z - 0; // Car is at Z=0
+      const ringDistance3D = Math.sqrt(dx*dx + dy*dy + dz*dz);
 
-      // More blend when ring is far away (up to 40% toward ring)
-      const blendFactor = Math.min(ringDistance / 1000, 0.4);
+      // Blend factor based on full 3D distance (up to 60% toward ring for very distant rings)
+      // Normalize by max possible distance (~3600 units)
+      const blendFactor = Math.min(ringDistance3D / 3000, 0.6);
 
       lookAtX = ringModePosition.x * (1 - blendFactor) + targetRing.mesh.position.x * blendFactor;
       lookAtY = ringModePosition.y * (1 - blendFactor) + targetRing.mesh.position.y * blendFactor;
-      lookAtZ = 0 * (1 - blendFactor) + ringZ * blendFactor * 0.3; // Slight Z shift
+      lookAtZ = 0 * (1 - blendFactor) + targetRing.mesh.position.z * blendFactor * 0.3; // Slight Z shift
     }
 
     camera.lookAt(lookAtX, lookAtY, lookAtZ);
