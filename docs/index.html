@@ -460,11 +460,12 @@ directionalLight.position.set(-350, 700, 900);
 directionalLight.castShadow = false;
 scene.add(directionalLight);
 
-/* Grid */
+/* Grid - expanded to look infinite */
 const grid = new THREE.Group();
-const gridMain = new THREE.GridHelper(2600, 26, 0xd7dde6, 0xE5E9F1);
+const gridMain = new THREE.GridHelper(10000, 100, 0xd7dde6, 0xE5E9F1); // 10x larger, more divisions
 gridMain.material.opacity = 0.65;
 gridMain.material.transparent = true;
+gridMain.material.depthWrite = false; // Prevent z-fighting
 grid.add(gridMain);
 grid.rotation.x = -Math.PI/2;
 grid.position.y = -160;
