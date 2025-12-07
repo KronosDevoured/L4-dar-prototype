@@ -48,6 +48,10 @@ let showBoostButton = false;
 
 // Multi-touch pointer tracking
 let joyPointerId = null;
+
+// Hint elements
+const joyHint = document.getElementById('joyHint');
+const darHint = document.getElementById('darHint');
 let darPointerId = null;
 let boostPointerId = null;
 let activePointers = new Map();
@@ -113,6 +117,15 @@ function clampBoostCenter() {
   const m = BOOST_R + 20;
   BOOST_CENTER.x = Math.max(m, Math.min(innerWidth - m, BOOST_CENTER.x));
   BOOST_CENTER.y = Math.max(m, Math.min(innerHeight - m, BOOST_CENTER.y));
+}
+
+function positionHints() {
+  if (joyHint && darHint) {
+    joyHint.style.left = (JOY_CENTER.x + JOY_BASE_R + 18) + 'px';
+    joyHint.style.top = (JOY_CENTER.y - JOY_BASE_R - 18) + 'px';
+    darHint.style.left = (DAR_CENTER.x + DAR_R + 18) + 'px';
+    darHint.style.top = (DAR_CENTER.y - DAR_R - 18) + 'px';
+  }
 }
 
 // ============================================================================
