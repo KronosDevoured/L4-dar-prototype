@@ -931,16 +931,72 @@ function updateMenuFocusableElements() {
 }
 
 function findClosestElementInDirection(direction) {
-  // Simple, intuitive sequential navigation
-  // UP/LEFT = previous, DOWN/RIGHT = next
   if (menuFocusableElements.length === 0) return menuFocusIndex;
 
-  if (direction === 'down' || direction === 'right') {
-    // Move to next element (wraps to start)
-    return (menuFocusIndex + 1) % menuFocusableElements.length;
-  } else if (direction === 'up' || direction === 'left') {
-    // Move to previous element (wraps to end)
-    return (menuFocusIndex - 1 + menuFocusableElements.length) % menuFocusableElements.length;
+  const currentEl = menuFocusableElements[menuFocusIndex];
+
+  // UP/DOWN: Navigate between cards (jump to next/previous card header)
+  if (direction === 'down' || direction === 'up') {
+    const currentCard = currentEl.closest('.card');
+    const step = direction === 'down' ? 1 : -1;
+
+    // Find next/previous card header
+    for (let i = 1; i < menuFocusableElements.length; i++) {
+      const checkIndex = (menuFocusIndex + (i * step) + menuFocusableElements.length) % menuFocusableElements.length;
+      const checkEl = menuFocusableElements[checkIndex];
+
+      // Look for card headers (h3) or elements in different cards
+      if (checkEl.tagName === 'H3') {
+        return checkIndex;
+      }
+
+      // If we've moved to a different card, focus its header
+      const checkCard = checkEl.closest('.card');
+      if (checkCard && checkCard !== currentCard) {
+        // Find the h3 header of this card
+        const headerIndex = menuFocusableElements.findIndex(el =>
+          el.tagName === 'H3' && el.closest('.card') === checkCard
+        );
+        if (headerIndex !== -1) return headerIndex;
+      }
+    }
+
+    // Fallback to sequential navigation if no card found
+    return (menuFocusIndex + step + menuFocusableElements.length) % menuFocusableElements.length;
+  }
+
+  // LEFT/RIGHT: Navigate within current card (sequential)
+  if (direction === 'left' || direction === 'right') {
+    const step = direction === 'right' ? 1 : -1;
+    const currentCard = currentEl.closest('.card');
+
+    // Try to find next/previous element in same card
+    for (let i = 1; i < menuFocusableElements.length; i++) {
+      const checkIndex = (menuFocusIndex + (i * step) + menuFocusableElements.length) % menuFocusableElements.length;
+      const checkEl = menuFocusableElements[checkIndex];
+      const checkCard = checkEl.closest('.card');
+
+      // If still in same card, return this element
+      if (checkCard === currentCard) {
+        return checkIndex;
+      }
+
+      // If we've left the card, wrap back to start/end of current card
+      if (direction === 'right') {
+        // Wrap to first element in card
+        return menuFocusableElements.findIndex(el => el.closest('.card') === currentCard);
+      } else {
+        // Wrap to last element in card
+        for (let j = menuFocusableElements.length - 1; j >= 0; j--) {
+          if (menuFocusableElements[j].closest('.card') === currentCard) {
+            return j;
+          }
+        }
+      }
+    }
+
+    // Fallback to sequential
+    return (menuFocusIndex + step + menuFocusableElements.length) % menuFocusableElements.length;
   }
 
   return menuFocusIndex;
