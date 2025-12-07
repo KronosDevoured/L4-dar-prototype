@@ -8,11 +8,16 @@ import * as THREE from 'three';
 import * as CONST from './constants.js';
 import * as Car from './car.js';
 import * as Input from './input.js';
-import * as RingMode from './ringMode.js';
 
 // ============================================================================
 // MODULE-SCOPED PHYSICS STATE
 // ============================================================================
+
+// Reference to central game state (injected via init())
+let gameState = null;
+
+// Reference to RingMode module (injected via init() to avoid circular dependency)
+let RingMode = null;
 
 // Angular velocity vector (rad/s)
 let w = new THREE.Vector3(0, 0, 0);
@@ -39,6 +44,24 @@ const KP_ROLL = 3.2, KD_ROLL = 0.25;
 const KpPitch = 36.0, KdPitch = 4.0;
 const KpYaw   = 36.0, KdYaw   = 4.0;
 const KpRoll  = 12.0, KdRoll  = 3.0;
+
+// ============================================================================
+// INITIALIZATION
+// ============================================================================
+
+/**
+ * Initialize the Physics module with game state and Ring Mode dependency
+ * This breaks the circular dependency by injecting dependencies at runtime
+ * @param {GameState} state - Central game state instance
+ * @param {Object} ringModeModule - RingMode module reference
+ */
+export function init(state, ringModeModule) {
+  gameState = state;
+  RingMode = ringModeModule;
+
+  // Sync initial angular velocity with game state
+  w = gameState.getAngularVelocityRef();
+}
 
 // ============================================================================
 // EXPORTED GETTERS
@@ -273,7 +296,7 @@ function updateVisualizations(ux, uy, eff, settings) {
  */
 export function updatePhysics(dt, settings, chromeShown) {
   // Skip physics when menu is open OR when Ring Mode is paused
-  if (chromeShown || (RingMode.getRingModeActive() && RingMode.getRingModePaused())) {
+  if (chromeShown || gameState.isRingModePaused()) {
     return;
   }
 
@@ -317,7 +340,7 @@ export function updatePhysics(dt, settings, chromeShown) {
   }
 
   // === RING MODE: Calculate movement forces (normal rotation physics will run below) ===
-  if (RingMode.getRingModeActive()) {
+  if (gameState.getRingModeActive()) {
     // Always call updateRingModePhysics so it can handle game-over logic (like stopping boost sound)
     RingMode.updateRingModePhysics(dt, {
       boostActive: Input.getRingModeBoostActive()

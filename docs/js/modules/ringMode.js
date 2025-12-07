@@ -8,8 +8,14 @@ import * as THREE from 'three';
 import * as CONST from './constants.js';
 import * as Car from './car.js';
 import * as Audio from './audio.js';
-import * as Physics from './physics.js';
 import { settings, saveSettings } from './settings.js';
+
+// ============================================================================
+// MODULE DEPENDENCIES (injected via init())
+// ============================================================================
+
+// Reference to central game state (injected via init() to avoid circular dependency)
+let gameState = null;
 
 // ============================================================================
 // PRIVATE STATE VARIABLES
@@ -72,6 +78,19 @@ let renderer = null;
 // External physics state (passed in from main code)
 let externalW = null; // Angular velocity vector
 let externalOrbitOn = null; // Orbit mode flag (object with value property)
+
+// ============================================================================
+// INITIALIZATION
+// ============================================================================
+
+/**
+ * Initialize the RingMode module with game state dependency
+ * This breaks the circular dependency by injecting dependencies at runtime
+ * @param {GameState} state - Central game state instance
+ */
+export function init(state) {
+  gameState = state;
+}
 
 // ============================================================================
 // EXPORTED GETTERS
@@ -236,7 +255,7 @@ export function resetRingMode() {
   }
 
   // Reset external physics state
-  Physics.resetAngularVelocity();
+  gameState.resetAngularVelocity();
 
   if (externalOrbitOn) {
     externalOrbitOn.value = false;
@@ -281,7 +300,7 @@ export function startRingMode() {
   }
 
   // Reset external physics state
-  Physics.resetAngularVelocity();
+  gameState.resetAngularVelocity();
 
   if (externalOrbitOn) {
     externalOrbitOn.value = false;

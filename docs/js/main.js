@@ -15,6 +15,7 @@ import * as Rendering from './modules/rendering.js';
 import * as Input from './modules/input.js';
 import * as RingMode from './modules/ringMode.js';
 import * as Physics from './modules/physics.js';
+import { GameState } from './modules/gameState.js';
 
 // ============================================================================
 // SCENE SETUP
@@ -636,6 +637,18 @@ export function init() {
 
   // Load settings from Settings module
   const savedSettings = Settings.loadSettings();
+
+  // ============================================================================
+  // INITIALIZE GAME STATE (breaks circular dependencies)
+  // ============================================================================
+
+  const gameState = new GameState();
+
+  // Initialize modules with game state (dependency injection)
+  Physics.init(gameState, RingMode);
+  RingMode.init(gameState);
+
+  // ============================================================================
 
   // Restore theme mode (default to true = dark mode)
   isDarkMode = savedSettings.isDarkMode ?? true;
