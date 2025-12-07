@@ -3992,6 +3992,9 @@ function drawRingModeHUD() {
       saveSettings(); // Save new high score to localStorage
     }
 
+    // Stop audio on game over
+    stopBoostRumble();
+
     // Activate orbit for cool bouncing effect on game over
     if (!orbitOn) {
       orbitOn = true;
