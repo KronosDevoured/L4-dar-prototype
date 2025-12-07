@@ -2056,6 +2056,20 @@ function getPatternPosition(progress) {
       break;
   }
 
+  // Distance cap: Limit maximum distance from current player position
+  // Half the grid (750 units) is the max jump distance
+  const MAX_RING_DISTANCE = RING_GRID_BOUNDS / 2; // 1500 / 2 = 750 units
+  const dx = x - ringModePosition.x;
+  const dy = y - ringModePosition.y;
+  const distance = Math.sqrt(dx * dx + dy * dy);
+
+  if (distance > MAX_RING_DISTANCE) {
+    // Clamp to max distance while preserving direction
+    const scale = MAX_RING_DISTANCE / distance;
+    x = ringModePosition.x + dx * scale;
+    y = ringModePosition.y + dy * scale;
+  }
+
   return { x, y };
 }
 
