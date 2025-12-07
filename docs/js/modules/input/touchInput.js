@@ -280,7 +280,7 @@ export function handleTouchResize() {
 }
 
 // ============================================================================
-// INITIALIZATION & UPDATE
+// INITIALIZATION
 // ============================================================================
 
 let hudElement = null;
@@ -298,13 +298,6 @@ export function initTouch(hud, callbacks = {}) {
 
   // Position hints
   positionHints();
-}
-
-export function updateTouch(dt) {
-  // Smooth joystick movement
-  const k = 1 - Math.exp(-dt / STICK_TAU_MS);
-  smJoy.x += (joyVec.x - smJoy.x) * k;
-  smJoy.y += (joyVec.y - smJoy.y) * k;
 }
 
 // ============================================================================
