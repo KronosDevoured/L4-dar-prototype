@@ -1539,17 +1539,22 @@ function playRingMissSound() {
 let boostRumbleOscillator = null;
 let boostRumbleGain = null;
 
-// Background music (8-bit style)
-let musicOscillator1 = null;
-let musicOscillator2 = null;
+// Background music (chill beat with drums)
+let musicBassOsc = null;
+let musicChordOsc = null;
+let musicKickOsc = null;
+let musicHihatNoise = null;
+let musicSnareNoise = null;
 let musicGain = null;
 let musicIntervalId = null;
-let musicNoteIndex = 0;
+let musicBeatIndex = 0;
 
-// Simple 8-bit melody (frequencies in Hz for C major scale notes)
-const musicMelody = [
-  262, 294, 330, 349, 392, 349, 330, 294, // C D E F G F E D
-  262, 294, 330, 392, 523, 392, 330, 294  // C D E G C5 G E D
+// Chill chord progression (Am - F - C - G in Hz)
+const chordProgression = [
+  220,  // A (Am)
+  174.6, // F
+  261.6, // C
+  196    // G
 ];
 
 function startBackgroundMusic() {
@@ -1561,34 +1566,85 @@ function startBackgroundMusic() {
       audioContext = new (window.AudioContext || window.webkitAudioContext)();
     }
 
-    // Create two oscillators for harmony
-    musicOscillator1 = audioContext.createOscillator();
-    musicOscillator2 = audioContext.createOscillator();
+    // Create main gain for all music
     musicGain = audioContext.createGain();
-
-    musicOscillator1.connect(musicGain);
-    musicOscillator2.connect(musicGain);
     musicGain.connect(audioContext.destination);
+    musicGain.gain.setValueAtTime(0.15, audioContext.currentTime); // Overall volume
 
-    musicOscillator1.type = 'square'; // 8-bit sound
-    musicOscillator2.type = 'square';
+    // Bass oscillator (sine wave for smooth bass)
+    musicBassOsc = audioContext.createOscillator();
+    const bassGain = audioContext.createGain();
+    musicBassOsc.connect(bassGain);
+    bassGain.connect(musicGain);
+    musicBassOsc.type = 'sine';
+    musicBassOsc.frequency.setValueAtTime(110, audioContext.currentTime); // A2
+    bassGain.gain.setValueAtTime(0.3, audioContext.currentTime);
+    musicBassOsc.start();
 
-    // Low volume for background
-    musicGain.gain.setValueAtTime(0.04, audioContext.currentTime);
+    // Chord pad (triangle wave for softer tone)
+    musicChordOsc = audioContext.createOscillator();
+    const chordGain = audioContext.createGain();
+    musicChordOsc.connect(chordGain);
+    chordGain.connect(musicGain);
+    musicChordOsc.type = 'triangle';
+    musicChordOsc.frequency.setValueAtTime(220, audioContext.currentTime); // A3
+    chordGain.gain.setValueAtTime(0.15, audioContext.currentTime);
+    musicChordOsc.start();
 
-    musicOscillator1.start();
-    musicOscillator2.start();
+    // Drum pattern function
+    function playBeat() {
+      const beat = musicBeatIndex % 16; // 16 beat pattern
+      const now = audioContext.currentTime;
 
-    // Play notes in sequence
-    function playNextNote() {
-      const freq = musicMelody[musicNoteIndex % musicMelody.length];
-      musicOscillator1.frequency.setValueAtTime(freq, audioContext.currentTime);
-      musicOscillator2.frequency.setValueAtTime(freq * 1.5, audioContext.currentTime); // Harmony
-      musicNoteIndex++;
+      // Kick drum (beats 0, 4, 8, 12)
+      if (beat % 4 === 0) {
+        const kickOsc = audioContext.createOscillator();
+        const kickGain = audioContext.createGain();
+        kickOsc.connect(kickGain);
+        kickGain.connect(musicGain);
+        kickOsc.frequency.setValueAtTime(150, now);
+        kickOsc.frequency.exponentialRampToValueAtTime(40, now + 0.1);
+        kickGain.gain.setValueAtTime(0.5, now);
+        kickGain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+        kickOsc.start(now);
+        kickOsc.stop(now + 0.15);
+      }
+
+      // Hi-hat (beats 2, 6, 10, 14)
+      if (beat % 4 === 2) {
+        const noise = audioContext.createBufferSource();
+        const noiseBuffer = audioContext.createBuffer(1, 4410, 44100); // 0.1s
+        const noiseData = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < noiseData.length; i++) {
+          noiseData[i] = Math.random() * 2 - 1;
+        }
+        noise.buffer = noiseBuffer;
+        const hihatGain = audioContext.createGain();
+        const hihatFilter = audioContext.createBiquadFilter();
+        hihatFilter.type = 'highpass';
+        hihatFilter.frequency.value = 7000;
+        noise.connect(hihatFilter);
+        hihatFilter.connect(hihatGain);
+        hihatGain.connect(musicGain);
+        hihatGain.gain.setValueAtTime(0.1, now);
+        hihatGain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+        noise.start(now);
+        noise.stop(now + 0.05);
+      }
+
+      // Change chord every 4 beats
+      if (beat % 4 === 0) {
+        const chordIndex = Math.floor(beat / 4) % chordProgression.length;
+        const rootNote = chordProgression[chordIndex];
+        musicBassOsc.frequency.setValueAtTime(rootNote / 2, now); // Bass (octave below)
+        musicChordOsc.frequency.setValueAtTime(rootNote, now); // Chord root
+      }
+
+      musicBeatIndex++;
     }
 
-    playNextNote();
-    musicIntervalId = setInterval(playNextNote, 400); // 150 BPM 8th notes
+    playBeat();
+    musicIntervalId = setInterval(playBeat, 300); // 100 BPM 16th notes
   } catch (e) {
     console.warn('Music playback failed:', e);
   }
@@ -1604,16 +1660,16 @@ function stopBackgroundMusic() {
     if (musicGain) {
       musicGain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
     }
-    if (musicOscillator1) {
-      musicOscillator1.stop(audioContext.currentTime + 0.1);
-      musicOscillator1 = null;
+    if (musicBassOsc) {
+      musicBassOsc.stop(audioContext.currentTime + 0.1);
+      musicBassOsc = null;
     }
-    if (musicOscillator2) {
-      musicOscillator2.stop(audioContext.currentTime + 0.1);
-      musicOscillator2 = null;
+    if (musicChordOsc) {
+      musicChordOsc.stop(audioContext.currentTime + 0.1);
+      musicChordOsc = null;
     }
     musicGain = null;
-    musicNoteIndex = 0;
+    musicBeatIndex = 0;
   } catch (e) {
     console.warn('Stop music failed:', e);
   }
