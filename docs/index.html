@@ -3855,6 +3855,26 @@ function integrate(dt) {
         ring.mesh.position.z += ring.speed * dt; // Use individual ring speed for progression
         const newZ = ring.mesh.position.z;
 
+        // Update visual effects based on distance for depth perception
+        const distanceZ = Math.abs(ring.mesh.position.z);
+
+        // Opacity fade: full opacity when close, fade out when far
+        // Starts fading at 3000 units, fully visible at 1000 units
+        const opacityFactor = THREE.MathUtils.clamp(1 - (distanceZ - 1000) / 2000, 0.3, 1);
+        ring.mesh.material.opacity = opacityFactor;
+        ring.mesh.material.transparent = true;
+
+        // Emissive intensity: brighter when close, dimmer when far
+        // This creates a fog-like effect
+        const emissiveFactor = THREE.MathUtils.clamp(1 - distanceZ / 4000, 0.3, 0.8);
+        ring.mesh.material.emissiveIntensity = emissiveFactor;
+
+        // Point light intensity also fades with distance
+        if (ring.mesh.children[0] && ring.mesh.children[0].isLight) {
+          const lightIntensity = THREE.MathUtils.clamp(2 - distanceZ / 2000, 0.5, 2);
+          ring.mesh.children[0].intensity = lightIntensity;
+        }
+
         // Check if car passed through the ring's plane (Z=0, where car is locked)
         if (prevZ < 0 && newZ >= 0 && !ring.passed && !ring.missed) {
           // Ring crossed the car's Z plane - check for collision
