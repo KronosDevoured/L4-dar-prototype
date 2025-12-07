@@ -4053,7 +4053,7 @@ function drawRingModeHUD() {
       const maxBlinkInterval = 1.0; // Slowest blink (1 Hz)
 
       const blinkInterval = maxBlinkInterval - (Math.min(timeToGrid, maxTime) / maxTime) * (maxBlinkInterval - minBlinkInterval);
-      const blinkPhase = (currentTime / 1000) % blinkInterval;
+      const blinkPhase = (performance.now() / 1000) % blinkInterval;
       const isVisible = blinkPhase < (blinkInterval * 0.5); // On for half the interval
 
       if (isVisible) {
