@@ -305,9 +305,9 @@ export function initTouch(hud, callbacks = {}) {
 
   // Set up touch event listeners
   hud.addEventListener('pointerdown', (e) => onPointerDown(e, callbacks), { passive: false });
-  hud.addEventListener('pointermove', onPointerMove, { passive: false });
-  hud.addEventListener('pointerup', endPtr, { passive: false });
-  hud.addEventListener('pointercancel', endPtr, { passive: false });
+  hud.addEventListener('pointermove', (e) => onPointerMove(e, callbacks), { passive: false });
+  hud.addEventListener('pointerup', (e) => endPtr(e.pointerId, callbacks), { passive: false });
+  hud.addEventListener('pointercancel', (e) => endPtr(e.pointerId, callbacks), { passive: false });
 
   // Position hints
   positionHints();

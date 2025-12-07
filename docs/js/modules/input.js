@@ -459,6 +459,23 @@ export function updateJoystickSize(size) {
   TouchInput.clampJoyCenter();
 }
 
+export function setJoyBaseR(r) {
+  TouchInput.setJoyBaseR(r);
+}
+
+export function setJoyKnobR(r) {
+  TouchInput.setJoyKnobR(r);
+}
+
+export function clampJoyCenter() {
+  TouchInput.clampJoyCenter();
+}
+
+export function positionHints() {
+  // This is handled internally by TouchInput module
+  // No-op here as hints are positioned on init and resize
+}
+
 export function cleanup() {
   KeyboardInput.cleanupKeyboard();
   GamepadInput.cleanupGamepad();
