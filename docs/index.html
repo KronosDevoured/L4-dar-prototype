@@ -362,6 +362,23 @@
           </div>
         </div>
 
+        <!-- Audio Settings -->
+        <div class="card">
+          <h3>Audio</h3>
+          <div class="row">
+            <button id="toggleSounds" class="btn active" type="button">Game Sounds</button>
+            <span class="tag" id="soundsStatus">Enabled</span>
+          </div>
+          <div class="row">
+            <button id="toggleMusic" class="btn active" type="button">Background Music</button>
+            <span class="tag" id="musicStatus">Enabled</span>
+          </div>
+          <div class="tip">
+            <b>Game Sounds:</b> Ring pass/miss sounds and boost rumble<br>
+            <b>Background Music:</b> 8-bit style music during Ring Mode
+          </div>
+        </div>
+
         <!-- Gamepad -->
         <div class="card">
           <h3>Gamepad</h3>
@@ -1507,9 +1524,163 @@ function playRingMissSound() {
   }
 }
 
+// Boost rumble sound (continuous while boosting)
+let boostRumbleOscillator = null;
+let boostRumbleGain = null;
+
+// Background music (8-bit style)
+let musicOscillator1 = null;
+let musicOscillator2 = null;
+let musicGain = null;
+let musicIntervalId = null;
+let musicNoteIndex = 0;
+
+// Simple 8-bit melody (frequencies in Hz for C major scale notes)
+const musicMelody = [
+  262, 294, 330, 349, 392, 349, 330, 294, // C D E F G F E D
+  262, 294, 330, 392, 523, 392, 330, 294  // C D E G C5 G E D
+];
+
+function startBackgroundMusic() {
+  if (musicIntervalId) return; // Already playing
+
+  try {
+    if (!audioContext) {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+
+    // Create two oscillators for harmony
+    musicOscillator1 = audioContext.createOscillator();
+    musicOscillator2 = audioContext.createOscillator();
+    musicGain = audioContext.createGain();
+
+    musicOscillator1.connect(musicGain);
+    musicOscillator2.connect(musicGain);
+    musicGain.connect(audioContext.destination);
+
+    musicOscillator1.type = 'square'; // 8-bit sound
+    musicOscillator2.type = 'square';
+
+    // Low volume for background
+    musicGain.gain.setValueAtTime(0.04, audioContext.currentTime);
+
+    musicOscillator1.start();
+    musicOscillator2.start();
+
+    // Play notes in sequence
+    function playNextNote() {
+      const freq = musicMelody[musicNoteIndex % musicMelody.length];
+      musicOscillator1.frequency.setValueAtTime(freq, audioContext.currentTime);
+      musicOscillator2.frequency.setValueAtTime(freq * 1.5, audioContext.currentTime); // Harmony
+      musicNoteIndex++;
+    }
+
+    playNextNote();
+    musicIntervalId = setInterval(playNextNote, 400); // 150 BPM 8th notes
+  } catch (e) {
+    console.warn('Music playback failed:', e);
+  }
+}
+
+function stopBackgroundMusic() {
+  if (!musicIntervalId) return;
+
+  try {
+    clearInterval(musicIntervalId);
+    musicIntervalId = null;
+
+    if (musicGain) {
+      musicGain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+    }
+    if (musicOscillator1) {
+      musicOscillator1.stop(audioContext.currentTime + 0.1);
+      musicOscillator1 = null;
+    }
+    if (musicOscillator2) {
+      musicOscillator2.stop(audioContext.currentTime + 0.1);
+      musicOscillator2 = null;
+    }
+    musicGain = null;
+    musicNoteIndex = 0;
+  } catch (e) {
+    console.warn('Stop music failed:', e);
+  }
+}
+
+function startBoostRumble() {
+  if (boostRumbleOscillator) return; // Already playing
+
+  try {
+    if (!audioContext) {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+
+    // Create low rumble sound
+    boostRumbleOscillator = audioContext.createOscillator();
+    boostRumbleGain = audioContext.createGain();
+
+    boostRumbleOscillator.connect(boostRumbleGain);
+    boostRumbleGain.connect(audioContext.destination);
+
+    // Very low frequency for rumble (A1 note = 55 Hz)
+    boostRumbleOscillator.frequency.setValueAtTime(55, audioContext.currentTime);
+    boostRumbleOscillator.type = 'sawtooth'; // Rough, engine-like sound
+
+    // Low volume so it doesn't drown out ring sounds
+    boostRumbleGain.gain.setValueAtTime(0.08, audioContext.currentTime);
+
+    boostRumbleOscillator.start(audioContext.currentTime);
+  } catch (e) {
+    console.warn('Boost rumble failed:', e);
+  }
+}
+
+function stopBoostRumble() {
+  if (!boostRumbleOscillator) return;
+
+  try {
+    // Fade out quickly
+    boostRumbleGain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.05);
+    boostRumbleOscillator.stop(audioContext.currentTime + 0.05);
+    boostRumbleOscillator = null;
+    boostRumbleGain = null;
+  } catch (e) {
+    console.warn('Stop boost rumble failed:', e);
+  }
+}
+
 // Camera smooth path tracking
 let cameraTargetX = 0; // Smooth interpolated camera target position
 let cameraTargetY = 0;
+
+// Reset Ring Mode (for retry button)
+function resetRingMode() {
+  ringModeScore = 0;
+  ringModeLives = DIFFICULTY_SETTINGS[currentDifficulty].initialLives;
+  ringModeRingCount = 0;
+  ringModeVelocity.set(0, 0);
+  ringModePosition.set(0, 0);
+  ringSpawnTimer = 0;
+  ringSpawnIndex = 0;
+  currentColorIndex = 0;
+  ringModeStarted = false;
+  ringModePaused = false;
+  patternRingCount = 0;
+  cameraTargetX = 0;
+  cameraTargetY = 0;
+  clearAllRings();
+  clearBoostFlames();
+
+  if (car) {
+    car.quaternion.identity();
+    car.rotation.set(Math.PI * 1.5, 0, Math.PI);
+    car.position.set(0, 0, 0);
+  }
+  w.set(0,0,0);
+  orbitOn = false;
+
+  spawnRing();
+}
 
 // Ring geometry and spawning
 let rings = []; // Active rings in the scene
@@ -2232,6 +2403,20 @@ hud.addEventListener('pointerdown',(e)=>{
 
   // Track this pointer
   activePointers.set(e.pointerId, {x: e.clientX, y: e.clientY});
+
+  // Check for retry button click on game over screen
+  if(ringModeActive && ringModeLives <= 0){
+    const retryButtonWidth = 200;
+    const retryButtonHeight = 50;
+    const retryButtonX = innerWidth / 2 - retryButtonWidth / 2;
+    const retryButtonY = innerHeight / 2 + 30;
+
+    if(e.clientX >= retryButtonX && e.clientX <= retryButtonX + retryButtonWidth &&
+       e.clientY >= retryButtonY && e.clientY <= retryButtonY + retryButtonHeight){
+      resetRingMode();
+      e.preventDefault(); return;
+    }
+  }
 
   // Multi-touch: assign this pointer to a specific control FIRST (before checking relocation)
   if(showBoostButton && inBoost(e.clientX,e.clientY)){
@@ -3053,6 +3238,13 @@ function integrate(dt) {
       ringModeStarted = true;
     }
 
+    // Boost rumble sound control
+    if (ringModeBoostActive && !boostRumbleOscillator) {
+      startBoostRumble();
+    } else if (!ringModeBoostActive && boostRumbleOscillator) {
+      stopBoostRumble();
+    }
+
     // Apply forces
     let accelX = 0;
     let accelY = ringModeStarted ? RING_GRAVITY : 0; // Only apply gravity after first boost
@@ -3568,71 +3760,77 @@ function drawRingModeHUD() {
     ctx.fillText('♥', 20, 20 + i * heartSpacing);
   }
 
-  // Directional arrow for distant rings (>2000 units away)
+  // Directional arrow compass for distant rings
   if (ringModeStarted && !ringModePaused && ringModeLives > 0 && rings.length > 0) {
     // Find the target ring (oldest unpassed ring)
     const targetRing = rings.find(r => !r.passed && !r.missed);
 
     if (targetRing) {
-      // Calculate 3D distance from car to ring
+      // Calculate 2D distance from car to ring (on grid plane)
       const dx = targetRing.mesh.position.x - ringModePosition.x;
       const dy = targetRing.mesh.position.y - ringModePosition.y;
-      const dz = targetRing.mesh.position.z - 0; // Car is at Z=0
-      const distance = Math.sqrt(dx*dx + dy*dy + dz*dz);
+      const distance2D = Math.sqrt(dx*dx + dy*dy);
 
-      // Show arrow if ring is >2000 units away, hide if <500 units
-      if (distance > 2000) {
+      // Show arrow if ring is far away - keep on screen longer (5 seconds worth of distance)
+      // At max speed ~1400 units/s, 5 seconds = ~7000 units, use 3000 to be visible earlier
+      if (distance2D > 800) {
         // Calculate direction angle (in 2D, looking down from above)
         const angle = Math.atan2(dy, dx);
 
-        // Draw arrow at bottom center of screen
-        const arrowCenterX = innerWidth / 2;
-        const arrowCenterY = innerHeight - 120;
-        const arrowSize = 50;
+        // Convert player grid position to screen position (centered on screen)
+        // The car is always at screen center, so the compass is also at screen center
+        const compassCenterX = innerWidth / 2;
+        const compassCenterY = innerHeight / 2;
 
-        // Draw background circle for visibility
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-        ctx.beginPath();
-        ctx.arc(arrowCenterX, arrowCenterY, arrowSize + 10, 0, Math.PI * 2);
-        ctx.fill();
+        // Draw compass circle - size of medium ring (~150 units radius on screen)
+        const compassRadius = 120;
 
         ctx.save();
-        ctx.translate(arrowCenterX, arrowCenterY);
+
+        // Draw semi-transparent dark circle background
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.beginPath();
+        ctx.arc(compassCenterX, compassCenterY, compassRadius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Draw circle outline
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        // Calculate arrow position on circle perimeter
+        const arrowX = compassCenterX + Math.cos(angle) * compassRadius;
+        const arrowY = compassCenterY + Math.sin(angle) * compassRadius;
+
+        // Draw arrow at edge of circle pointing toward ring
+        ctx.translate(arrowX, arrowY);
         ctx.rotate(angle);
 
-        // Draw arrow shape - larger and more defined
+        // Draw prominent arrow shape
+        const arrowSize = 30;
         ctx.fillStyle = '#ff5c5c';
         ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 4;
+        ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.moveTo(arrowSize, 0); // Arrow tip (pointing right)
-        ctx.lineTo(-arrowSize/3, -arrowSize/2); // Top back
-        ctx.lineTo(-arrowSize/3, -arrowSize/4); // Top inner
-        ctx.lineTo(-arrowSize, -arrowSize/4); // Top tail
-        ctx.lineTo(-arrowSize, arrowSize/4); // Bottom tail
-        ctx.lineTo(-arrowSize/3, arrowSize/4); // Bottom inner
-        ctx.lineTo(-arrowSize/3, arrowSize/2); // Bottom back
+        ctx.moveTo(arrowSize, 0); // Arrow tip (pointing right = direction of rotation)
+        ctx.lineTo(-arrowSize/2, -arrowSize/2); // Top back
+        ctx.lineTo(-arrowSize/2, arrowSize/2); // Bottom back
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
 
         ctx.restore();
 
-        // Distance text with background for better visibility
-        const distText = `${Math.round(distance)}u`;
-        ctx.font = 'bold 18px system-ui';
+        // Distance text in center of compass
+        const distText = `${Math.round(distance2D)}u`;
+        ctx.font = 'bold 24px system-ui';
         ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
-        const textY = arrowCenterY + arrowSize + 15;
-
-        // Text background
-        const textWidth = ctx.measureText(distText).width;
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        ctx.fillRect(arrowCenterX - textWidth/2 - 8, textY - 2, textWidth + 16, 24);
-
-        // Text
+        ctx.textBaseline = 'middle';
         ctx.fillStyle = '#ffffff';
-        ctx.fillText(distText, arrowCenterX, textY);
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 4;
+        ctx.strokeText(distText, compassCenterX, compassCenterY);
+        ctx.fillText(distText, compassCenterX, compassCenterY);
       }
     }
   }
@@ -3651,14 +3849,30 @@ function drawRingModeHUD() {
     }
 
     ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-    ctx.fillRect(0, innerHeight / 2 - 60, innerWidth, 120);
+    ctx.fillRect(0, innerHeight / 2 - 100, innerWidth, 200);
     ctx.fillStyle = '#ff5c5c';
     ctx.font = 'bold 48px system-ui';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('GAME OVER', innerWidth / 2, innerHeight / 2 - 20);
+    ctx.fillText('GAME OVER', innerWidth / 2, innerHeight / 2 - 50);
     ctx.font = 'bold 24px system-ui';
-    ctx.fillText(`Final Score: ${ringModeScore}`, innerWidth / 2, innerHeight / 2 + 30);
+    ctx.fillText(`Final Score: ${ringModeScore}`, innerWidth / 2, innerHeight / 2 - 5);
+
+    // Draw retry button
+    const retryButtonWidth = 200;
+    const retryButtonHeight = 50;
+    const retryButtonX = innerWidth / 2 - retryButtonWidth / 2;
+    const retryButtonY = innerHeight / 2 + 30;
+
+    ctx.fillStyle = '#4c8dff';
+    ctx.fillRect(retryButtonX, retryButtonY, retryButtonWidth, retryButtonHeight);
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(retryButtonX, retryButtonY, retryButtonWidth, retryButtonHeight);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 24px system-ui';
+    ctx.fillText('RETRY', innerWidth / 2, retryButtonY + retryButtonHeight / 2);
   } else if (ringModePaused) {
     ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
     ctx.fillRect(0, innerHeight / 2 - 40, innerWidth, 80);
