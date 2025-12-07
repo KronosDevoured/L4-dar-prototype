@@ -1135,7 +1135,8 @@ function saveSettings() {
       brightnessDark, brightnessLight,
       gpEnabled, gpBindings,
       showArrow, showCircle,
-      ringModeHighScore
+      ringModeHighScore,
+      lastActiveAirRoll
     };
 
     // Only save these if the elements exist
@@ -1217,7 +1218,7 @@ arrowSlider.value = arrowScale;
 /* Air Roll System */
 // Air roll values: -1 = left, 0 = off, +1 = right, 2 = free
 let airRoll = savedSettings.airRoll ?? 0; // default to off
-let lastActiveAirRoll = airRoll !== 0 ? airRoll : -1; // Remember last active for DAR toggle
+let lastActiveAirRoll = savedSettings.lastActiveAirRoll ?? -1; // Remember last active for DAR toggle (default to Air Roll Left)
 // Default: toggle for keyboard (gpEnabled=false), hold for gamepad (gpEnabled=true)
 let airRollIsToggle = savedSettings.airRollIsToggle ?? (savedSettings.gpEnabled === false);
 
@@ -1248,12 +1249,16 @@ function setRoll(dir, skipSave = false){
   airRoll = dir;
   // Remember last active air roll for DAR toggle (but not 0)
   if(dir !== 0) lastActiveAirRoll = dir;
-  document.getElementById('rollL').classList.toggle('active', dir === -1); // Air Roll Left = -1
-  document.getElementById('rollR').classList.toggle('active', dir === 1);  // Air Roll Right = 1
-  document.getElementById('rollFree').classList.toggle('active', dir === 2);
   // Sync darOn with air roll state (on if any air roll is active)
   darOn = (dir !== 0);
   if (!skipSave) saveSettings();
+}
+
+function updateMenuButtonStyling(){
+  // Menu buttons show which air roll is SELECTED (not active)
+  document.getElementById('rollL').classList.toggle('active', lastActiveAirRoll === -1);
+  document.getElementById('rollR').classList.toggle('active', lastActiveAirRoll === 1);
+  document.getElementById('rollFree').classList.toggle('active', lastActiveAirRoll === 2);
 }
 
 function toggleRoll(dir){
@@ -1270,9 +1275,16 @@ function toggleRoll(dir){
   }
 }
 
-document.getElementById('rollL').addEventListener('click', () => toggleRoll(-1)); // Air Roll Left
-document.getElementById('rollR').addEventListener('click', () => toggleRoll(1));  // Air Roll Right
-document.getElementById('rollFree').addEventListener('click', () => toggleRoll(2));
+function selectAirRoll(dir){
+  // Menu buttons: just select which air roll to use (don't activate it)
+  lastActiveAirRoll = dir;
+  updateMenuButtonStyling();
+  saveSettings();
+}
+
+document.getElementById('rollL').addEventListener('click', () => selectAirRoll(-1)); // Air Roll Left
+document.getElementById('rollR').addEventListener('click', () => selectAirRoll(1));  // Air Roll Right
+document.getElementById('rollFree').addEventListener('click', () => selectAirRoll(2));
 
 // Reset Physics to Defaults button
 document.getElementById('resetPhysicsDefaults').addEventListener('click', () => {
@@ -3455,6 +3467,9 @@ if (presets[savedCarBody]) {
 } else {
   buildCar(presets.octane, "octane");
 }
+
+// Set initial menu button styling based on saved selection
+updateMenuButtonStyling();
 
 // Set initial rotation: roof facing camera, nose pointing up
 // X: +270°, Y: 0°, Z: +180°
