@@ -934,34 +934,44 @@ function findClosestElementInDirection(direction) {
   if (menuFocusableElements.length === 0) return menuFocusIndex;
 
   const currentEl = menuFocusableElements[menuFocusIndex];
+  const isHeader = currentEl.tagName === 'H3';
 
-  // UP/DOWN: Navigate between cards (jump to next/previous card header)
+  // UP/DOWN behavior depends on what's focused
   if (direction === 'down' || direction === 'up') {
-    const currentCard = currentEl.closest('.card');
     const step = direction === 'down' ? 1 : -1;
+    const currentCard = currentEl.closest('.card');
 
-    // Find next/previous card header
-    for (let i = 1; i < menuFocusableElements.length; i++) {
-      const checkIndex = (menuFocusIndex + (i * step) + menuFocusableElements.length) % menuFocusableElements.length;
-      const checkEl = menuFocusableElements[checkIndex];
+    // If on a card header (H3), jump to next/previous card header
+    if (isHeader) {
+      for (let i = 1; i < menuFocusableElements.length; i++) {
+        const checkIndex = (menuFocusIndex + (i * step) + menuFocusableElements.length) % menuFocusableElements.length;
+        const checkEl = menuFocusableElements[checkIndex];
 
-      // Look for card headers (h3) or elements in different cards
-      if (checkEl.tagName === 'H3') {
-        return checkIndex;
+        if (checkEl.tagName === 'H3') {
+          return checkIndex;
+        }
       }
+    } else {
+      // If on a control (slider/button), navigate within the card
+      for (let i = 1; i < menuFocusableElements.length; i++) {
+        const checkIndex = (menuFocusIndex + (i * step) + menuFocusableElements.length) % menuFocusableElements.length;
+        const checkEl = menuFocusableElements[checkIndex];
+        const checkCard = checkEl.closest('.card');
 
-      // If we've moved to a different card, focus its header
-      const checkCard = checkEl.closest('.card');
-      if (checkCard && checkCard !== currentCard) {
-        // Find the h3 header of this card
+        // Stay within the same card
+        if (checkCard === currentCard) {
+          return checkIndex;
+        }
+
+        // If we've left the card, wrap to the card header
         const headerIndex = menuFocusableElements.findIndex(el =>
-          el.tagName === 'H3' && el.closest('.card') === checkCard
+          el.tagName === 'H3' && el.closest('.card') === currentCard
         );
         if (headerIndex !== -1) return headerIndex;
       }
     }
 
-    // Fallback to sequential navigation if no card found
+    // Fallback
     return (menuFocusIndex + step + menuFocusableElements.length) % menuFocusableElements.length;
   }
 
