@@ -429,12 +429,12 @@
 <script type="module">
 // Version: 2025-11-29-v2 (localStorage persistence fix)
 import * as THREE from "three";
-import { GLTFLoader } from "https://unpkg.com/three@0.164.0/examples/jsm/loaders/GLTFLoader.js";
 
 // Import modular components
 import * as CONST from './js/modules/constants.js';
 import * as Audio from './js/modules/audio.js';
 import * as Settings from './js/modules/settings.js';
+import * as Car from './js/modules/car.js';
 
 /* ====== Renderer / Scene / Camera ====== */
 const gl = document.getElementById('gl');
@@ -453,8 +453,7 @@ const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(0xeef1f6, 900, 2200);
 
 const camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 0.1, 5000);
-const CAM_BASE = { y: 280, z: 760 };
-camera.position.set(0, CAM_BASE.y, CAM_BASE.z);
+camera.position.set(0, CONST.CAM_BASE.y, CONST.CAM_BASE.z);
 scene.add(camera);
 
 /* Lights */
@@ -475,22 +474,6 @@ grid.add(gridMain);
 grid.rotation.x = -Math.PI/2;
 grid.position.y = -160;
 scene.add(grid);
-
-/* Colors */
-const COL_UP   = 0xff5c5c;
-const COL_RIGHT= 0x4c8dff;
-const COL_DOWN = 0x53d769;
-const COL_LEFT = 0xffd166;
-
-/* Materials */
-const MAT_BODY  = new THREE.MeshPhongMaterial({color: 0xdfe5ef, shininess: 50, specular: 0x666666});
-const MAT_GLASS = new THREE.MeshPhongMaterial({color: 0x9aa6b7, shininess: 40, specular: 0x222222, transparent:true, opacity:0.65});
-const MAT_ACCENT= new THREE.MeshPhongMaterial({color: 0xcbd3df, shininess: 35, specular: 0x222222});
-const MAT_DARK  = new THREE.MeshPhongMaterial({color: 0xaeb7c4, shininess: 28, specular: 0x222222});
-const MAT_EDGE  = (hex)=> new THREE.LineBasicMaterial({color: hex});
-const MAT_TIRE_F= new THREE.MeshLambertMaterial({color: 0x8a93a0});
-const MAT_TIRE_B= new THREE.MeshLambertMaterial({color: 0x808896});
-const MAT_HUB   = new THREE.MeshBasicMaterial({color: 0x5a6270});
 
 /* Theme configuration */
 let isDarkMode; // Will be initialized from localStorage
@@ -551,240 +534,7 @@ function applyTheme(dark) {
   renderer.setClearColor(theme.fog);
 
   // Update car materials for better visibility in day mode
-  if (!dark) {
-    // Day mode - brighten the car
-    MAT_BODY.color.setHex(0xf5f7fa);
-    MAT_GLASS.color.setHex(0xc5d0df);
-    MAT_ACCENT.color.setHex(0xe0e6ef);
-    MAT_DARK.color.setHex(0xd0d8e2);
-    MAT_TIRE_F.color.setHex(0xb0b8c5);
-    MAT_TIRE_B.color.setHex(0xa8b0be);
-    MAT_HUB.color.setHex(0x8a92a0);
-  } else {
-    // Night mode - brighter than original
-    MAT_BODY.color.setHex(0xecf0f5);
-    MAT_GLASS.color.setHex(0xb5c0d0);
-    MAT_ACCENT.color.setHex(0xdae0e8);
-    MAT_DARK.color.setHex(0xc5cdd8);
-    MAT_TIRE_F.color.setHex(0xa0a8b5);
-    MAT_TIRE_B.color.setHex(0x98a0ad);
-    MAT_HUB.color.setHex(0x7a8290);
-  }
-}
-
-/* Presets */
-const presets = {
-  placeholder: { hx:70, hy:28, hz:120 },
-  octane:      { hx:85.65, hy:36.8, hz:120 },
-  dominus:     { hx:77.9,  hy:29.3, hz:120 }
-};
-const gltfLoader = new GLTFLoader();
-
-function loadCarModel(presetName) {
-  const url = `models/${presetName}.glb`;
-  console.log("Loading GLB:", url);
-
-  gltfLoader.load(
-    url,
-    (gltf) => {
-      const model = gltf.scene;
-
-      model.traverse((o) => {
-        if (o.isMesh) {
-          o.castShadow = false;
-          o.receiveShadow = false;
-        }
-      });
-
-      // Center / height
-      model.position.set(0, -BOX.hy, 0);
-
-      // Scale the GLB
-      const CAR_SCALE = 1.6;
-      model.scale.set(CAR_SCALE, CAR_SCALE, CAR_SCALE);
-
-      // Rotate so nose points along +Z (toward camera)
-      // Dominus needs different rotation than Octane
-      if (presetName === 'dominus') {
-        model.rotation.y = 0; // No rotation - try straight
-      } else {
-        model.rotation.y = -Math.PI / 2; // -90 degrees (octane)
-      }
-
-      car.add(model);
-    },
-    undefined,
-    (err) => {
-      console.error("Failed to load", url, err);
-    }
-  );
-}
-
-
-/* Car builder */
-let car=null, BOX=null;
-let faceArrow=null, faceTip=null, tornadoCircle=null;
-
-function clearCar(){
-  if(!car) return;
-  scene.remove(car);
-  car.traverse(o=>{
-    if (o.geometry) o.geometry.dispose();
-    if (o.material) {
-      if (Array.isArray(o.material)) {
-        o.material.forEach(m => m.dispose && m.dispose());
-      } else {
-        o.material.dispose && o.material.dispose();
-      }
-    }
-  });
-  car = null;
-}
-function buildCar(boxDims, presetName="placeholder"){
-  console.log("buildCar preset:", presetName);
-
-  clearCar();
-  BOX = boxDims;
-  car = new THREE.Group();
-  car.position.y = 110;
-  scene.add(car);
-
-  if (presetName === "placeholder") {
-    // Hitbox body + fancy fake car
-    const body = new THREE.Mesh(
-      new THREE.BoxGeometry(BOX.hx*2, BOX.hy*2, BOX.hz*2),
-      MAT_BODY
-    );
-    car.add(body);
-    buildPlaceholderFancy();
-
-    // colored face edges ONLY for placeholder
-    const vFL = new THREE.Vector3(-BOX.hx, +BOX.hy, +BOX.hz);
-    const vFR = new THREE.Vector3(+BOX.hx, +BOX.hy, +BOX.hz);
-    const vBR = new THREE.Vector3(+BOX.hx, -BOX.hy, +BOX.hz);
-    const vBL = new THREE.Vector3(-BOX.hx, -BOX.hy, +BOX.hz);
-    addEdge(vFR, vFL, COL_UP);
-    addEdge(vBR, vFR, COL_LEFT);
-    addEdge(vBL, vBR, COL_DOWN);
-    addEdge(vFL, vBL, COL_RIGHT);
-  }
-
-  // GLB for octane/dominus (no hitbox body, no edges)
-  if (presetName === "octane" || presetName === "dominus") {
-    loadCarModel(presetName);
-  }
-
-  // arrow setup stays the same
-  const zFace = BOX.hz + 0.6;
-  const faceGeom = new THREE.BufferGeometry().setFromPoints([
-    new THREE.Vector3(0,0,zFace),
-    new THREE.Vector3(0,0,zFace)
-  ]);
-  faceArrow = new THREE.Line(faceGeom, new THREE.LineBasicMaterial({color: 0x333333}));
-  car.add(faceArrow);
-
-  faceTip = new THREE.Mesh(new THREE.ConeGeometry(6,12,12), new THREE.MeshBasicMaterial({color: 0x333333}));
-  faceTip.position.set(0,0,zFace);
-  car.add(faceTip);
-  faceArrow.visible = false;
-  faceTip.visible = false;
-
-  // Tornado circle visualizer
-  const circleGeom = new THREE.CircleGeometry(1, 64);
-  circleGeom.vertices = circleGeom.attributes.position.array;
-  const circleMat = new THREE.LineBasicMaterial({color: 0x00ff00, transparent: true, opacity: 0.9, linewidth: 2});
-  const circlePoints = [];
-  for (let i = 0; i <= 64; i++) {
-    const angle = (i / 64) * Math.PI * 2;
-    circlePoints.push(new THREE.Vector3(Math.cos(angle), Math.sin(angle), 0));
-  }
-  const circleLineGeom = new THREE.BufferGeometry().setFromPoints(circlePoints);
-  tornadoCircle = new THREE.Line(circleLineGeom, circleMat);
-  tornadoCircle.position.set(0, 0, zFace);
-  car.add(tornadoCircle);
-  tornadoCircle.visible = false;
-}
-function addEdge(a,b,color){
-  const geo = new THREE.BufferGeometry().setFromPoints([a,b]);
-  const line = new THREE.Line(geo, MAT_EDGE(color));
-  car.add(line);
-}
-function addWheel(x, z, r=18, w=12){
-  const g = new THREE.CylinderGeometry(r, r, w, 16);
-  const front = new THREE.Mesh(g, MAT_TIRE_F);
-  const back  = new THREE.Mesh(g, MAT_TIRE_B);
-  front.rotation.z = Math.PI/2; back.rotation.z  = Math.PI/2;
-  const y = -BOX.hy- r*0.55;
-  front.position.set(x, y, z + w/2);
-  back .position.set(x, y, z - w/2);
-  const hub = new THREE.Mesh(new THREE.CylinderGeometry(r*0.35, r*0.35, w*0.6, 10), MAT_HUB);
-  hub.rotation.z = Math.PI/2; hub.position.set(x, y, z);
-  const grp = new THREE.Group(); grp.add(back, front, hub); car.add(grp);
-}
-function addCabin(width, height, length, yOffset, zOffset){
-  const cabin = new THREE.Mesh(new THREE.BoxGeometry(width, height, length), MAT_GLASS);
-  cabin.position.set(0, yOffset, zOffset);
-  car.add(cabin);
-}
-function addSpoiler(width, thickness, depth, yOffset, zOffset){
-  const spoiler = new THREE.Mesh(new THREE.BoxGeometry(width, thickness, depth), MAT_ACCENT);
-  spoiler.position.set(0, yOffset, zOffset);
-  const st1 = new THREE.Mesh(new THREE.BoxGeometry(thickness, yOffset*0.5, thickness), MAT_ACCENT);
-  const st2 = st1.clone();
-  st1.position.set(-width*0.35, yOffset*0.25, zOffset - depth*0.2);
-  st2.position.set(+width*0.35, yOffset*0.25, zOffset - depth*0.2);
-  car.add(spoiler, st1, st2);
-}
-function addBumper(width, height, depth, yOffset, zOffset){
-  const bumper = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), MAT_DARK);
-  bumper.position.set(0, yOffset, zOffset);
-  car.add(bumper);
-}
-function addFlares(xw, zw, r=10, w=6){
-  const hemi = new THREE.CylinderGeometry(r, r, w, 10, 1, false, 0, Math.PI);
-  const mat = MAT_ACCENT;
-  const y = -BOX.hy + r*0.2;
-  function flare(px, pz, flip){
-    const f = new THREE.Mesh(hemi, mat);
-    f.rotation.z = Math.PI/2;
-    f.rotation.y = flip? Math.PI : 0;
-    f.position.set(px, y, pz);
-    car.add(f);
-  }
-  flare(+xw+6, +zw, false);
-  flare(-xw-6, +zw, true);
-  flare(+xw+6, -zw, true);
-  flare(-xw-6, -zw, false);
-}
-function buildPlaceholderFancy(){
-  const xOff = BOX.hx-10, zOff = BOX.hz*0.68;
-   addWheel(+xOff, -zOff);
-  addWheel(-xOff, -zOff);
-  addWheel(+xOff, +zOff);
-  addWheel(-xOff, +zOff);
-  
-  addFlares(xOff, zOff, 10, 6);
-  addCabin(BOX.hx*1.0, BOX.hy*0.9, BOX.hz*0.55, BOX.hy*0.65, -BOX.hz*0.1);
-  addSpoiler(BOX.hx*1.0, 6, 24, BOX.hy*0.8, -BOX.hz*0.95);
-  addBumper(BOX.hx*0.9, 10, 18, -BOX.hy*0.7, +BOX.hz*0.98);
-}
-function buildOctane(){
-  const xOff = BOX.hx-6, zOff = BOX.hz*0.64;
-  addWheel(+xOff, -zOff, 19, 12); addWheel(-xOff, -zOff, 19, 12);
-  addWheel(+xOff, +zOff, 18, 12); addWheel(-xOff, +zOff, 18, 12);
-  addFlares(xOff, zOff, 12, 7);
-  addCabin(BOX.hx*0.95, BOX.hy*1.1, BOX.hz*0.60, BOX.hy*0.85, -BOX.hz*0.05);
-  addSpoiler(BOX.hx*1.2, 6, 30, BOX.hy*0.9, -BOX.hz*1.02);
-  addBumper(BOX.hx*0.85, 12, 20, -BOX.hy*0.6, +BOX.hz*1.02);
-}
-function buildDominus(){
-  const xOff = BOX.hx-8, zOff = BOX.hz*0.70;
-  addWheel(+xOff, -zOff, 18, 12); addWheel(-xOff, -zOff, 18, 12);
-  addWheel(+xOff, +zOff, 18, 12); addWheel(-xOff, +zOff, 18, 12);
-  addFlares(xOff, zOff, 11, 6);
-  addCabin(BOX.hx*1.05, BOX.hy*0.75, BOX.hz*0.75, BOX.hy*0.6, -BOX.hz*0.05);
-  addSpoiler(BOX.hx*0.9, 5, 18, BOX.hy*0.72, -BOX.hz*1.0);
-  addBumper(BOX.hx*1.05, 10, 30, -BOX.hy*0.55, +BOX.hz*1.05);
+  Car.updateCarTheme(dark);
 }
 
 /* HUD utils */
@@ -1536,10 +1286,10 @@ function resetRingMode() {
   clearAllRings();
   clearBoostFlames();
 
-  if (car) {
-    car.quaternion.identity();
-    car.rotation.set(Math.PI * 1.5, 0, Math.PI);
-    car.position.set(0, 0, 0);
+  if (Car.car) {
+    Car.car.quaternion.identity();
+    Car.car.rotation.set(Math.PI * 1.5, 0, Math.PI);
+    Car.car.position.set(0, 0, 0);
   }
   w.set(0,0,0);
   orbitOn = false;
@@ -1607,7 +1357,7 @@ function preloadRingResources() {
   dummyLight.dispose();
 
   // Preload boost flame geometry/material (compile shaders)
-  if (!car) {
+  if (!Car.car) {
     console.warn('[Ring Mode] Car not loaded yet, skipping boost flame preload');
   } else {
     createBoostFlames();
@@ -1875,7 +1625,7 @@ function clearAllRings() {
 
 // Create boost flame effects
 function createBoostFlames() {
-  if (!car) return;
+  if (!Car.car) return;
 
   // Create two flame cones for the tailpipes
   const flameGeometry = new THREE.ConeGeometry(16, 60, 8); // 2x bigger (radius: 8->16, height: 30->60)
@@ -1901,7 +1651,7 @@ function createBoostFlames() {
     const light = new THREE.PointLight(0xff6600, 3, 80);
     flame.add(light);
 
-    car.add(flame); // Add as child of car so it moves with the car
+    Car.car.add(flame); // Add as child of car so it moves with the car
     boostFlames.push(flame);
   }
 }
@@ -1912,7 +1662,7 @@ function updateBoostFlames(active, forwardDir) {
     createBoostFlames();
   }
 
-  if (!car) return;
+  if (!Car.car) return;
 
   boostFlames.forEach((flame, i) => {
     flame.visible = active;
@@ -1966,10 +1716,10 @@ document.getElementById('ringMode').addEventListener('click', () => {
     // Resources already preloaded at startup, just spawn first ring
     spawnRing();
 
-    if (car) {
-      car.quaternion.identity();
-      car.rotation.set(Math.PI * 1.5, 0, Math.PI); // X: +270°, Y: 0°, Z: +180°
-      car.position.set(0, 0, 0); // Lock car to origin in Ring Mode
+    if (Car.car) {
+      Car.car.quaternion.identity();
+      Car.car.rotation.set(Math.PI * 1.5, 0, Math.PI); // X: +270°, Y: 0°, Z: +180°
+      Car.car.position.set(0, 0, 0); // Lock car to origin in Ring Mode
     }
     w.set(0,0,0);
     orbitOn = false;
@@ -1982,7 +1732,7 @@ document.getElementById('ringMode').addEventListener('click', () => {
     ringModePosition.set(0, 0);
     clearAllRings();
     clearBoostFlames();
-    if (car) car.position.set(0, 0, 0);
+    if (Car.car) Car.car.position.set(0, 0, 0);
 
     // Stop background music when exiting Ring Mode
     Audio.stopBackgroundMusic();
@@ -2059,9 +1809,9 @@ toggleMusicBtn.addEventListener('click', () => {
 });
 
 document.getElementById('restart').addEventListener('click',()=>{
-  if (car) {
-    car.quaternion.identity();
-    car.rotation.set(Math.PI * 1.5, 0, Math.PI); // X: +270°, Y: 0°, Z: +180°
+  if (Car.car) {
+    Car.car.quaternion.identity();
+    Car.car.rotation.set(Math.PI * 1.5, 0, Math.PI); // X: +270°, Y: 0°, Z: +180°
   }
   w.set(0,0,0);
   orbitOn = false;
@@ -2071,8 +1821,8 @@ document.getElementById('restart').addEventListener('click',()=>{
   orbitPhase = 0;
   camera.position.set(0, 220, 650);
   camera.lookAt(0,0,0);
-  if (faceArrow) faceArrow.visible = false;
-  if (faceTip)   faceTip.visible   = false;
+  if (Car.faceArrow) Car.faceArrow.visible = false;
+  if (Car.faceTip)   Car.faceTip.visible   = false;
 
   // Reset Ring Mode if active
   if(ringModeActive){
@@ -2287,9 +2037,9 @@ brightnessSlider.addEventListener('input',()=>{
 });
 presetSel .addEventListener('change',()=>{
   const name = presetSel.value;
-  buildCar(presets[name], name);
-  car.quaternion.identity();
-  car.rotation.set(Math.PI * 1.5, 0, Math.PI); // X: +270°, Y: 0°, Z: +180°
+  Car.buildCar(CONST.CAR_PRESETS[name], name, scene);
+  Car.car.quaternion.identity();
+  Car.car.rotation.set(Math.PI * 1.5, 0, Math.PI); // X: +270°, Y: 0°, Z: +180°
   w.set(0,0,0);
   saveSettings(); // Save selected car body
 });
@@ -2633,9 +2383,9 @@ function execBinding(action){
       toggleRoll(2);
       break;
     case 'restart': {
-      if (car) {
-        car.quaternion.identity();
-        car.rotation.set(Math.PI * 1.5, 0, Math.PI); // X: +270°, Y: 0°, Z: +180°
+      if (Car.car) {
+        Car.car.quaternion.identity();
+        Car.car.rotation.set(Math.PI * 1.5, 0, Math.PI); // X: +270°, Y: 0°, Z: +180°
       }
       w.set(0,0,0);
       orbitOn = false;
@@ -2645,8 +2395,8 @@ function execBinding(action){
       orbitPhase = 0;
       camera.position.set(0, 220, 650);
       camera.lookAt(0,0,0);
-      if (faceArrow) faceArrow.visible = false;
-      if (faceTip)   faceTip.visible   = false;
+      if (Car.faceArrow) Car.faceArrow.visible = false;
+      if (Car.faceTip)   Car.faceTip.visible   = false;
 
       // Reset Ring Mode if active
       if (ringModeActive) {
@@ -3124,7 +2874,7 @@ function integrate(dt) {
   if (ringModeActive && !ringModePaused && ringModeLives > 0) {
     // Get car's forward direction from quaternion
     const forward = new THREE.Vector3(0, 0, 1); // Car's local forward (flipped from -1 to 1)
-    forward.applyQuaternion(car.quaternion);
+    forward.applyQuaternion(Car.car.quaternion);
 
     // Project onto XY plane for 2D movement
     const boostDirX = forward.x;
@@ -3198,50 +2948,50 @@ function integrate(dt) {
   }
 
   // --- 2. Front-face arrow (same behavior as before, just using ux,uy,eff) ---
-  if (faceArrow && faceTip) {
+  if (Car.faceArrow && Car.faceTip) {
     const show = showArrow && eff > 0.02;
-    faceArrow.visible = show;
-    faceTip.visible   = show;
+    Car.faceArrow.visible = show;
+    Car.faceTip.visible   = show;
 
     if (show) {
-      const lenMax = Math.min(BOX.hx, BOX.hy) * 0.95;
+      const lenMax = Math.min(Car.BOX.hx, Car.BOX.hy) * 0.95;
       const len    = Math.max(10, lenMax * eff * (arrowScale || 1));
-      const zFace  = BOX.hz + 0.6;
+      const zFace  = Car.BOX.hz + 0.6;
 
       const x2 = ux * len;
       const y2 = -uy * len;
 
-      const pos = faceArrow.geometry.attributes.position.array;
+      const pos = Car.faceArrow.geometry.attributes.position.array;
       pos[0] = 0;  pos[1] = 0;  pos[2] = zFace;
       pos[3] = x2; pos[4] = y2; pos[5] = zFace;
-      faceArrow.geometry.attributes.position.needsUpdate = true;
+      Car.faceArrow.geometry.attributes.position.needsUpdate = true;
 
       const col = (Math.abs(x2) > Math.abs(y2))
-        ? (x2 >= 0 ? COL_LEFT : COL_RIGHT)
-        : (uy >= 0 ? COL_DOWN : COL_UP);
-      faceArrow.material.color.setHex(col);
-      faceTip.material.color.setHex(col);
+        ? (x2 >= 0 ? CONST.COL_LEFT : CONST.COL_RIGHT)
+        : (uy >= 0 ? CONST.COL_DOWN : CONST.COL_UP);
+      Car.faceArrow.material.color.setHex(col);
+      Car.faceTip.material.color.setHex(col);
 
-      faceTip.position.set(x2, y2, zFace);
+      Car.faceTip.position.set(x2, y2, zFace);
       const ang = Math.atan2(x2, -y2) + Math.PI;
-      faceTip.rotation.set(0, 0, ang);
+      Car.faceTip.rotation.set(0, 0, ang);
       const s = 0.95 * (arrowScale || 1);
-      faceTip.scale.set(s, s, 1);
+      Car.faceTip.scale.set(s, s, 1);
     }
   }
 
   // --- 2b. Tornado circle visualizer (shows DAR cone path) ---
-  if (tornadoCircle) {
+  if (Car.tornadoCircle) {
     // Circle only shows for Air Roll Left/Right (not Free), when DAR is active
     const isDAR = (airRoll === -1 || airRoll === 1);
     const shouldShowCircle = showCircle && isDAR && darOn && eff > 0.02;
-    tornadoCircle.visible = shouldShowCircle;
+    Car.tornadoCircle.visible = shouldShowCircle;
 
     if (shouldShowCircle) {
-      const zFace = BOX.hz + 0.6;
+      const zFace = Car.BOX.hz + 0.6;
 
       // Calculate circle radius based on stick input
-      const baseRadius = Math.min(BOX.hx, BOX.hy) * 0.95;
+      const baseRadius = Math.min(Car.BOX.hx, Car.BOX.hy) * 0.95;
       const arrowLength = baseRadius * eff * (arrowScale || 1);
 
       // Circle scale controlled by circleScale slider
@@ -3257,14 +3007,14 @@ function integrate(dt) {
       const centerX = Math.sin(perpAngle) * circleRadius;
       const centerY = -Math.cos(perpAngle) * circleRadius;
 
-      tornadoCircle.scale.set(circleRadius, circleRadius, 1);
-      tornadoCircle.position.set(centerX, centerY, zFace);
+      Car.tornadoCircle.scale.set(circleRadius, circleRadius, 1);
+      Car.tornadoCircle.position.set(centerX, centerY, zFace);
 
       // Update circle color based on stick direction (same as arrow)
       const col = (Math.abs(ux) > Math.abs(uy))
-        ? (ux >= 0 ? COL_LEFT : COL_RIGHT)
-        : (uy >= 0 ? COL_DOWN : COL_UP);
-      tornadoCircle.material.color.setHex(col);
+        ? (ux >= 0 ? CONST.COL_LEFT : CONST.COL_RIGHT)
+        : (uy >= 0 ? CONST.COL_DOWN : CONST.COL_UP);
+      Car.tornadoCircle.material.color.setHex(col);
 
       // Apply tilt rotation toward the car
       // Calculate modifier strength: 0 at stable points (every 45°), 1.0 at unstable points (between 45° marks)
@@ -3278,11 +3028,11 @@ function integrate(dt) {
       const tiltRad = (totalTilt * Math.PI) / 180;
 
       // Reset rotation first
-      tornadoCircle.rotation.set(0, 0, 0);
+      Car.tornadoCircle.rotation.set(0, 0, 0);
 
       // Rotate around the axis perpendicular to the arrow (makes circle tilt toward car)
       // Negative tiltRad to tilt toward car instead of away
-      tornadoCircle.rotateOnAxis(
+      Car.tornadoCircle.rotateOnAxis(
         new THREE.Vector3(-Math.cos(perpAngle), -Math.sin(perpAngle), 0).normalize(),
         -tiltRad
       );
@@ -3366,7 +3116,7 @@ function integrate(dt) {
 
   // --- 9. Quaternion integration (unchanged) ---
   const wx = w.x, wy = w.y, wz = w.z, halfdt = 0.5 * dt;
-  const q = car.quaternion;
+  const q = Car.car.quaternion;
   const rw = -q.x * wx - q.y * wy - q.z * wz;
   const rx =  q.w * wx + q.y * wz - q.z * wy;
   const ry =  q.w * wy + q.z * wx - q.x * wz;
@@ -3380,10 +3130,10 @@ function integrate(dt) {
   // === RING MODE: Override car position and update rings ===
   if (ringModeActive) {
     // Override car position to stay on grid
-    if (car) {
-      car.position.x = ringModePosition.x;
-      car.position.y = ringModePosition.y;
-      car.position.z = 0; // Locked to 2D plane
+    if (Car.car) {
+      Car.car.position.x = ringModePosition.x;
+      Car.car.position.y = ringModePosition.y;
+      Car.car.position.z = 0; // Locked to 2D plane
     }
 
     // Find the closest ring and the next ring ahead of the car (negative Z)
@@ -3416,7 +3166,7 @@ function integrate(dt) {
 
     // Smooth camera path following system - interpolate between multiple rings
     let cameraOffsetX = 0;
-    let cameraOffsetY = CAM_BASE.y;
+    let cameraOffsetY = CONST.CAM_BASE.y;
 
     if (targetRing) {
       // Calculate weighted average position of next 2-3 upcoming rings
@@ -3477,7 +3227,7 @@ function integrate(dt) {
 
           // Camera aims to keep path visible
           cameraOffsetX = -dirX * orbitRadius;
-          cameraOffsetY = CAM_BASE.y - dirY * 100;
+          cameraOffsetY = CONST.CAM_BASE.y - dirY * 100;
         }
       }
     }
@@ -3485,7 +3235,7 @@ function integrate(dt) {
     // Smoothly move camera to target offset position
     const targetCamX = ringModePosition.x + cameraOffsetX;
     const targetCamY = ringModePosition.y + cameraOffsetY;
-    const targetCamZ = CAM_BASE.z;
+    const targetCamZ = CONST.CAM_BASE.z;
 
     // Lerp camera position for smooth movement
     camera.position.x += (targetCamX - camera.position.x) * ringCameraSpeed;
@@ -3619,23 +3369,23 @@ let orbitPhase=0;
 
 function applyZoom(){
   const f = Math.max(0.7, Math.min(1.6, zoom||1));
-  const dist = CAM_BASE.z / f;
-  const h = CAM_BASE.y / f;
+  const dist = CONST.CAM_BASE.z / f;
+  const h = CONST.CAM_BASE.y / f;
   if(!orbitOn){
     camera.position.set(0, h, dist);
-    camera.lookAt(0, car ? car.position.y : 0, 0);
+    camera.lookAt(0, Car.car ? Car.car.position.y : 0, 0);
   }
 }
 
 function orbitStep(t){
   const f = Math.max(0.7, Math.min(1.6, zoom||1));
-  const R = (CAM_BASE.z / f);
-  const h = (CAM_BASE.y / f);
+  const R = (CONST.CAM_BASE.z / f);
+  const h = (CONST.CAM_BASE.y / f);
   const sp = 0.35 * orbitDir;
   const x = Math.sin(t*sp)*R;
   const z = Math.cos(t*sp)*R;
   camera.position.set(x, h, z);
-  camera.lookAt(0, car ? car.position.y : 0, 0);
+  camera.lookAt(0, Car.car ? Car.car.position.y : 0, 0);
 }
 
 /* XYZ Gizmo */
@@ -3933,8 +3683,8 @@ function tick(){
   renderer.setViewport(0,0,innerWidth,innerHeight);
   renderer.render(scene, camera);
 
-  if(car){
-    gizmoTarget.quaternion.copy(car.quaternion);
+  if(Car.car){
+    gizmoTarget.quaternion.copy(Car.car.quaternion);
     gizmoAxes.quaternion.copy(gizmoTarget.quaternion);
   }
   const gf = document.getElementById('gizmoFrame').getBoundingClientRect();
@@ -3961,11 +3711,11 @@ addEventListener('resize', resize);
 
 // Restore saved car body or default to octane
 const savedCarBody = savedSettings.selectedCarBody || 'octane';
-if (presets[savedCarBody]) {
-  buildCar(presets[savedCarBody], savedCarBody);
+if (CONST.CAR_PRESETS[savedCarBody]) {
+  Car.buildCar(CONST.CAR_PRESETS[savedCarBody], savedCarBody, scene);
   presetSel.value = savedCarBody;
 } else {
-  buildCar(presets.octane, "octane");
+  Car.buildCar(CONST.CAR_PRESETS.octane, "octane", scene);
 }
 
 // Set initial menu button styling based on saved selection
@@ -3973,8 +3723,8 @@ updateMenuButtonStyling();
 
 // Set initial rotation: roof facing camera, nose pointing up
 // X: +270°, Y: 0°, Z: +180°
-if (car) {
-  car.rotation.set(Math.PI * 1.5, 0, Math.PI); // X: +270°, Y: 0°, Z: +180°
+if (Car.car) {
+  Car.car.rotation.set(Math.PI * 1.5, 0, Math.PI); // X: +270°, Y: 0°, Z: +180°
 }
 
 // Preload Ring Mode resources after car is ready (prevents lag on first ring spawn)
