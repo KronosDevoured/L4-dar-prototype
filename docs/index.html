@@ -1478,6 +1478,35 @@ function playRingPassSound() {
   }
 }
 
+function playRingMissSound() {
+  try {
+    // Create audio context on first use (user interaction required)
+    if (!audioContext) {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+
+    // Create an obnoxious high-pitched "ding" sound
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+
+    // High frequency for bright ding (E6 note = 1318.5 Hz)
+    oscillator.frequency.setValueAtTime(1318.5, audioContext.currentTime);
+    oscillator.type = 'sine'; // Bright, sharp tone
+
+    // Sharp attack and longer decay for "ding" effect
+    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.3);
+  } catch (e) {
+    console.warn('Audio playback failed:', e);
+  }
+}
+
 // Camera smooth path tracking
 let cameraTargetX = 0; // Smooth interpolated camera target position
 let cameraTargetY = 0;
@@ -3425,12 +3454,16 @@ function integrate(dt) {
             // Hit the edge of the ring
             ring.missed = true;
             console.log('Hit ring edge! Heart damage');
+            // Audio feedback - play miss sound
+            playRingMissSound();
             // TODO: Apply heart damage
           } else {
             // Completely missed the ring
             ring.missed = true;
             ringModeLives--;
             console.log('Missed ring! Lives:', ringModeLives);
+            // Audio feedback - play miss sound
+            playRingMissSound();
             // TODO: Check if game over
           }
         }
@@ -3441,6 +3474,8 @@ function integrate(dt) {
           if (!ring.passed && !ring.missed) {
             ringModeLives--;
             console.log('Ring passed without going through! Lives:', ringModeLives);
+            // Audio feedback - play miss sound
+            playRingMissSound();
           }
           scene.remove(ring.mesh);
           ring.mesh.geometry.dispose();
