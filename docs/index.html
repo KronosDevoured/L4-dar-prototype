@@ -337,6 +337,15 @@
         <div class="card">
           <h3>Ring Mode</h3>
 
+          <div class="row">
+            <label for="ringDifficulty">Difficulty</label>
+            <select id="ringDifficulty">
+              <option value="easy">Easy</option>
+              <option value="normal" selected>Normal</option>
+              <option value="hard">Hard</option>
+            </select>
+          </div>
+
           <div class="row sl">
             <label for="ringCameraSpeed">Camera Transition Speed</label>
             <input id="ringCameraSpeed" type="range" min="0.01" max="0.5" step="0.01" value="0.1" />
@@ -345,6 +354,11 @@
 
           <div class="tip">
             <b>Ring Mode:</b> Navigate through rings using boost. Lower camera speed = slower, smoother transitions to next ring.
+            <br><br>
+            <b>Difficulty:</b><br>
+            • Easy: Large rings, slower speed, simple patterns<br>
+            • Normal: Balanced challenge<br>
+            • Hard: Smaller rings, faster speed, complex patterns
           </div>
         </div>
 
@@ -1136,7 +1150,8 @@ function saveSettings() {
       gpEnabled, gpBindings,
       showArrow, showCircle,
       ringModeHighScore,
-      lastActiveAirRoll
+      lastActiveAirRoll,
+      ringDifficulty: currentDifficulty
     };
 
     // Only save these if the elements exist
@@ -1467,6 +1482,60 @@ const RING_BASE_SPAWN_INTERVAL = 3.0; // Base seconds between ring spawns
 let ringSpawnTimer = 0;
 let ringSpawnIndex = 0; // Track spawn order for camera focusing
 
+// Difficulty settings
+const DIFFICULTY_SETTINGS = {
+  easy: {
+    // Ring properties
+    sizeMultiplier: 1.5,        // 50% larger rings
+    speedMultiplier: 0.7,        // 30% slower
+    spawnIntervalMultiplier: 1.3, // More time between rings
+
+    // Progression
+    progressionRate: 0,          // No difficulty increase
+
+    // Patterns
+    allowedPatterns: ['horizontal_line', 'vertical_line'], // Only straight lines
+    patternAmplitudeMultiplier: 1.0,
+
+    // Other
+    initialLives: 7              // More forgiving
+  },
+  normal: {
+    // Ring properties
+    sizeMultiplier: 1.0,         // Default size
+    speedMultiplier: 1.0,        // Default speed
+    spawnIntervalMultiplier: 1.0, // Default spacing
+
+    // Progression
+    progressionRate: 1.0,        // Normal progression
+
+    // Patterns
+    allowedPatterns: null,       // All patterns (progressive unlock)
+    patternAmplitudeMultiplier: 1.0,
+
+    // Other
+    initialLives: 5              // Default
+  },
+  hard: {
+    // Ring properties
+    sizeMultiplier: 0.7,         // 30% smaller rings
+    speedMultiplier: 1.3,        // 30% faster
+    spawnIntervalMultiplier: 0.75, // Less time between rings
+
+    // Progression
+    progressionRate: 1.5,        // Faster progression
+
+    // Patterns
+    allowedPatterns: null,       // All patterns (immediate unlock)
+    patternAmplitudeMultiplier: 1.4, // Wider patterns
+
+    // Other
+    initialLives: 3              // Less forgiving
+  }
+};
+
+let currentDifficulty = savedSettings.ringDifficulty ?? 'normal';
+
 // Preload ring resources to prevent lag on first spawn
 function preloadRingResources() {
   if (ringResourcesPreloaded) return;
@@ -1573,27 +1642,33 @@ let patternFrequency = 0.5; // Oscillation frequency
 let patternPhase = 0; // Starting phase offset
 
 function selectNewPattern() {
-  // Progressive difficulty based on rings completed
-  const difficultyLevel = Math.floor(ringModeRingCount / 5); // Increase every 5 rings
+  const settings = DIFFICULTY_SETTINGS[currentDifficulty];
 
-  // Start with easier patterns, unlock harder ones as you progress
-  let availablePatterns = PATTERN_TYPES;
-  if (difficultyLevel < 2) {
-    // First 10 rings: easier straight/simple patterns
-    availablePatterns = ['horizontal_line', 'vertical_line', 'sine_horizontal', 'sine_vertical'];
-  } else if (difficultyLevel < 4) {
-    // Rings 10-20: introduce more complex patterns
-    availablePatterns = ['sine_horizontal', 'sine_vertical', 'wave_combo', 'helix', 'spiral'];
+  // Progressive difficulty based on rings completed (affected by difficulty setting)
+  const difficultyLevel = Math.floor(ringModeRingCount / 5 * settings.progressionRate); // Increase every 5 rings
+
+  // Use difficulty-specific allowed patterns or progressive unlock
+  let availablePatterns = settings.allowedPatterns || PATTERN_TYPES;
+
+  // If no specific pattern restriction, use progressive unlock (Normal mode)
+  if (!settings.allowedPatterns) {
+    if (difficultyLevel < 2) {
+      // First 10 rings: easier straight/simple patterns
+      availablePatterns = ['horizontal_line', 'vertical_line', 'sine_horizontal', 'sine_vertical'];
+    } else if (difficultyLevel < 4) {
+      // Rings 10-20: introduce more complex patterns
+      availablePatterns = ['sine_horizontal', 'sine_vertical', 'wave_combo', 'helix', 'spiral'];
+    }
+    // After 20 rings: all patterns available including 'random' for cross-map leaps
   }
-  // After 20 rings: all patterns available including 'random' for cross-map leaps
 
   currentPattern = availablePatterns[Math.floor(Math.random() * availablePatterns.length)];
   patternRingCount = 0;
   patternLength = 8 + Math.floor(Math.random() * 12); // 8-20 rings per pattern
 
-  // Progressive amplitude and frequency increase
-  const baseAmplitude = 200 + (difficultyLevel * 100); // Starts at 200, increases by 100 every 5 rings
-  const amplitudeVariance = 200 + (difficultyLevel * 50); // More variance as difficulty increases
+  // Progressive amplitude and frequency increase (affected by difficulty)
+  const baseAmplitude = (200 + (difficultyLevel * 100)) * settings.patternAmplitudeMultiplier;
+  const amplitudeVariance = (200 + (difficultyLevel * 50)) * settings.patternAmplitudeMultiplier;
   patternAmplitude = Math.min(baseAmplitude + Math.random() * amplitudeVariance, RING_GRID_BOUNDS * 0.9);
 
   const baseFrequency = 0.3 + (difficultyLevel * 0.1); // Faster oscillations as difficulty increases
@@ -1687,16 +1762,18 @@ function spawnRing() {
 
   patternRingCount++;
 
-  // Calculate progression based on ring count (every 10 rings)
-  const progressionLevel = Math.floor(ringModeRingCount / 10);
+  const settings = DIFFICULTY_SETTINGS[currentDifficulty];
 
-  // Size: -5% every 10 rings (max 50% reduction)
+  // Calculate progression based on ring count (every 10 rings, affected by difficulty)
+  const progressionLevel = Math.floor(ringModeRingCount / 10 * settings.progressionRate);
+
+  // Size: -5% every 10 rings (max 50% reduction), then apply difficulty multiplier
   const sizeReduction = progressionLevel * 0.05;
-  const ringSize = INITIAL_RING_SIZE * (1 - Math.min(sizeReduction, 0.5));
+  const ringSize = INITIAL_RING_SIZE * (1 - Math.min(sizeReduction, 0.5)) * settings.sizeMultiplier;
 
-  // Speed: +5% every 10 rings (max 50% increase)
+  // Speed: +5% every 10 rings (max 50% increase), then apply difficulty multiplier
   const speedIncrease = progressionLevel * 0.05;
-  const ringSpeed = RING_BASE_SPEED * (1 + Math.min(speedIncrease, 0.5));
+  const ringSpeed = RING_BASE_SPEED * (1 + Math.min(speedIncrease, 0.5)) * settings.speedMultiplier;
 
   const ring = createRing(spawnX, spawnY, spawnZ, ringSize, ringSpeed, ringSpawnIndex++);
   rings.push(ring);
@@ -1794,7 +1871,7 @@ document.getElementById('ringMode').addEventListener('click', () => {
   if(ringModeActive){
     // Initialize Ring Mode
     ringModeScore = 0;
-    ringModeLives = 5;
+    ringModeLives = DIFFICULTY_SETTINGS[currentDifficulty].initialLives;
     ringModeRingCount = 0;
     ringModeVelocity.set(0, 0);
     ringModePosition.set(0, 0);
@@ -1835,6 +1912,28 @@ ringCameraSpeedSlider.addEventListener('input', () => {
   ringCameraSpeedVal.textContent = ringCameraSpeed.toFixed(2);
 });
 
+// Ring Mode difficulty selector
+const ringDifficultySelector = document.getElementById('ringDifficulty');
+ringDifficultySelector.addEventListener('change', () => {
+  currentDifficulty = ringDifficultySelector.value;
+  saveSettings();
+  console.log('Ring Mode difficulty changed to:', currentDifficulty);
+
+  // If Ring Mode is active, restart it with new difficulty
+  if (ringModeActive) {
+    ringModeScore = 0;
+    ringModeLives = DIFFICULTY_SETTINGS[currentDifficulty].initialLives;
+    ringModeRingCount = 0;
+    ringModeVelocity.set(0, 0);
+    ringModePosition.set(0, 0);
+    ringSpawnTimer = 0;
+    ringSpawnIndex = 0;
+    patternRingCount = 0;
+    clearAllRings();
+    console.log('Ring Mode restarted with new difficulty');
+  }
+});
+
 document.getElementById('restart').addEventListener('click',()=>{
   if (car) {
     car.quaternion.identity();
@@ -1854,7 +1953,7 @@ document.getElementById('restart').addEventListener('click',()=>{
   // Reset Ring Mode if active
   if(ringModeActive){
     ringModeScore = 0;
-    ringModeLives = 5;
+    ringModeLives = DIFFICULTY_SETTINGS[currentDifficulty].initialLives;
     ringModeRingCount = 0;
   }
 });
@@ -2064,7 +2163,17 @@ hud.addEventListener('pointerdown',(e)=>{
   // Track this pointer
   activePointers.set(e.pointerId, {x: e.clientX, y: e.clientY});
 
+  // Multi-touch: assign this pointer to a specific control FIRST (before checking relocation)
+  if(showBoostButton && inBoost(e.clientX,e.clientY)){
+    boostPointerId = e.pointerId;
+    if(ringModeActive){
+      ringModeBoostActive = true;
+    }
+    e.preventDefault(); return;
+  }
+
   // Check for two-finger gesture outside buttons (for boost relocation)
+  // IMPORTANT: Only check this AFTER we've checked if user pressed boost button
   if(activePointers.size === 2){
     const pointers = Array.from(activePointers.values());
     const allOutsideButtons = pointers.every(p =>
@@ -2074,15 +2183,6 @@ hud.addEventListener('pointerdown',(e)=>{
       boostRelocating = true;
       e.preventDefault(); return;
     }
-  }
-
-  // Multi-touch: assign this pointer to a specific control
-  if(showBoostButton && inBoost(e.clientX,e.clientY)){
-    boostPointerId = e.pointerId;
-    if(ringModeActive){
-      ringModeBoostActive = true;
-    }
-    e.preventDefault(); return;
   }
 
   if(inDAR(e.clientX,e.clientY)){
@@ -2405,7 +2505,7 @@ function execBinding(action){
         ringModeVelocity.set(0, 0);
         ringModePosition.set(0, 0);
         ringModeScore = 0;
-        ringModeLives = 5;
+        ringModeLives = DIFFICULTY_SETTINGS[currentDifficulty].initialLives;
         ringModeRingCount = 0;
         ringModeStarted = false;
         ringSpawnIndex = 0; // Reset spawn order tracking
@@ -3307,9 +3407,10 @@ function integrate(dt) {
         }
       }
 
-      // Spawn new rings periodically
+      // Spawn new rings periodically (affected by difficulty)
       ringSpawnTimer += dt;
-      if(ringSpawnTimer >= RING_BASE_SPAWN_INTERVAL) {
+      const spawnInterval = RING_BASE_SPAWN_INTERVAL * DIFFICULTY_SETTINGS[currentDifficulty].spawnIntervalMultiplier;
+      if(ringSpawnTimer >= spawnInterval) {
         spawnRing();
         ringSpawnTimer = 0;
       }
@@ -3522,6 +3623,11 @@ toggleModeBtn.textContent = airRollIsToggle ? 'Toggle' : 'Hold';
 // Restore gamepad enabled button state
 gpEnableBtn.classList.toggle('active', gpEnabled);
 gpStatusTag.textContent = gpEnabled ? 'Enabled (waiting for gamepad)' : 'Disabled';
+
+// Restore Ring Mode difficulty selector
+if (ringDifficultySelector) {
+  ringDifficultySelector.value = currentDifficulty;
+}
 
 requestAnimationFrame(tick);
 </script>
