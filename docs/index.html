@@ -1635,12 +1635,12 @@ function startBoostRumble() {
     boostRumbleOscillator.connect(boostRumbleGain);
     boostRumbleGain.connect(audioContext.destination);
 
-    // Very low frequency for rumble (A1 note = 55 Hz)
-    boostRumbleOscillator.frequency.setValueAtTime(55, audioContext.currentTime);
+    // Very low frequency for deep rumble (30 Hz - sub-bass)
+    boostRumbleOscillator.frequency.setValueAtTime(30, audioContext.currentTime);
     boostRumbleOscillator.type = 'sawtooth'; // Rough, engine-like sound
 
     // Low volume so it doesn't drown out ring sounds
-    boostRumbleGain.gain.setValueAtTime(0.08, audioContext.currentTime);
+    boostRumbleGain.gain.setValueAtTime(0.12, audioContext.currentTime); // Slightly louder since it's lower freq
 
     boostRumbleOscillator.start(audioContext.currentTime);
   } catch (e) {
