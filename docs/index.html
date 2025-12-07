@@ -4030,6 +4030,58 @@ function drawRingModeHUD() {
     ctx.fillText('♥', 20, 20 + i * heartSpacing);
   }
 
+  // Ring landing indicator - blinking hollow circle on grid
+  if (ringModeStarted && !ringModePaused && ringModeLives > 0 && rings.length > 0) {
+    // Find the target ring (oldest unpassed ring)
+    const targetRing = rings.find(r => !r.passed && !r.missed);
+
+    if (targetRing) {
+      // Convert ring position to screen coordinates
+      const playerScreenX = innerWidth / 2;
+      const playerScreenY = innerHeight / 2;
+      const ringScreenX = playerScreenX + (targetRing.mesh.position.x - ringModePosition.x);
+      const ringScreenY = playerScreenY - (targetRing.mesh.position.y - ringModePosition.y);
+
+      // Calculate time until ring reaches grid (Z = 0)
+      const timeToGrid = Math.abs(targetRing.mesh.position.z) / targetRing.speed;
+
+      // Blink frequency increases as ring gets closer
+      // At 3+ seconds away: blink every 1 second
+      // At 0 seconds: blink very fast (10 times per second)
+      const maxTime = 3; // Time in seconds when blinking starts
+      const minBlinkInterval = 0.1; // Fastest blink (10 Hz)
+      const maxBlinkInterval = 1.0; // Slowest blink (1 Hz)
+
+      const blinkInterval = maxBlinkInterval - (Math.min(timeToGrid, maxTime) / maxTime) * (maxBlinkInterval - minBlinkInterval);
+      const blinkPhase = (currentTime / 1000) % blinkInterval;
+      const isVisible = blinkPhase < (blinkInterval * 0.5); // On for half the interval
+
+      if (isVisible) {
+        // Get ring color from material
+        const ringColor = targetRing.mesh.material.color;
+        const ringRadius = targetRing.size / 2;
+
+        ctx.save();
+
+        // Draw hollow circle with ring's color
+        ctx.strokeStyle = `rgb(${ringColor.r * 255}, ${ringColor.g * 255}, ${ringColor.b * 255})`;
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.arc(ringScreenX, ringScreenY, ringRadius, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Add subtle glow
+        ctx.strokeStyle = `rgba(${ringColor.r * 255}, ${ringColor.g * 255}, ${ringColor.b * 255}, 0.3)`;
+        ctx.lineWidth = 10;
+        ctx.beginPath();
+        ctx.arc(ringScreenX, ringScreenY, ringRadius, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.restore();
+      }
+    }
+  }
+
   // Directional arrow compass for distant rings
   if (ringModeStarted && !ringModePaused && ringModeLives > 0 && rings.length > 0) {
     // Find the target ring (oldest unpassed ring)
