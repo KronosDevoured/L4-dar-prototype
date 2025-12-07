@@ -599,5 +599,10 @@ export function getIsDesktop() {
   return isDesktop;
 }
 
+// Menu state
+export function getChromeShown() {
+  return chromeShown;
+}
+
 // Constants
 export const STICK_DEADZONE = TouchInput.STICK_DEADZONE;

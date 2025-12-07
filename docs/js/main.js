@@ -398,7 +398,7 @@ export function init() {
   const menuOverlay = document.getElementById('menuOverlay');
   const menuCloseBtn = document.getElementById('menuCloseBtn');
 
-  menuBtn.addEventListener('click',()=> chromeShown ? closeMenu() : openMenu());
+  menuBtn.addEventListener('click',()=> Input.getChromeShown() ? closeMenu() : openMenu());
   menuCloseBtn.addEventListener('click', closeMenu);
   menuOverlay.addEventListener('click',(e)=>{ if(e.target===menuOverlay) closeMenu(); });
 
