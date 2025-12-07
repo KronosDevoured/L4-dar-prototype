@@ -612,6 +612,12 @@ export function init() {
 
   // Initialize Input module with callbacks
   Input.initInput(hud, {
+    savedGpBindings: savedSettings.gpBindings,
+    savedAirRollState: {
+      airRoll: savedSettings.airRoll,
+      lastActiveAirRoll: savedSettings.lastActiveAirRoll,
+      airRollIsToggle: savedSettings.airRollIsToggle
+    },
     execBinding: (action) => {
       // Handle gamepad button actions
       switch(action) {
