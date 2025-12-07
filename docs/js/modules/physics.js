@@ -317,7 +317,8 @@ export function updatePhysics(dt, settings, chromeShown) {
   }
 
   // === RING MODE: Calculate movement forces (normal rotation physics will run below) ===
-  if (RingMode.getRingModeActive() && !RingMode.getRingModePaused() && RingMode.getRingModeLives() > 0) {
+  if (RingMode.getRingModeActive()) {
+    // Always call updateRingModePhysics so it can handle game-over logic (like stopping boost sound)
     RingMode.updateRingModePhysics(dt, {
       boostActive: Input.getRingModeBoostActive()
     }, Car.car.quaternion);

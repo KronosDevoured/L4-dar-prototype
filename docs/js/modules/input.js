@@ -623,7 +623,12 @@ function onPointerDown(e) {
     if (e.clientX >= retryButtonX && e.clientX <= retryButtonX + retryButtonWidth &&
       e.clientY >= retryButtonY && e.clientY <= retryButtonY + retryButtonHeight) {
       // Trigger retry callback
-      if (retryCallback) retryCallback();
+      console.log('Retry button clicked! Calling retry callback...');
+      if (retryCallback) {
+        retryCallback();
+      } else {
+        console.error('retryCallback is not defined!');
+      }
       e.preventDefault();
       return;
     }

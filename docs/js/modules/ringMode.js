@@ -8,6 +8,7 @@ import * as THREE from 'three';
 import * as CONST from './constants.js';
 import * as Car from './car.js';
 import * as Audio from './audio.js';
+import * as Physics from './physics.js';
 import { settings, saveSettings } from './settings.js';
 
 // ============================================================================
@@ -210,6 +211,7 @@ function preloadRingResources() {
  * Reset Ring Mode (for retry button)
  */
 export function resetRingMode() {
+  console.log('resetRingMode() called - resetting game');
   ringModeScore = 0;
   ringModeLives = CONST.DIFFICULTY_SETTINGS[currentDifficulty].initialLives;
   ringModeRingCount = 0;
@@ -234,9 +236,8 @@ export function resetRingMode() {
   }
 
   // Reset external physics state
-  if (externalW) {
-    externalW.set(0, 0, 0);
-  }
+  Physics.resetAngularVelocity();
+
   if (externalOrbitOn) {
     externalOrbitOn.value = false;
   }
@@ -280,9 +281,8 @@ export function startRingMode() {
   }
 
   // Reset external physics state
-  if (externalW) {
-    externalW.set(0, 0, 0);
-  }
+  Physics.resetAngularVelocity();
+
   if (externalOrbitOn) {
     externalOrbitOn.value = false;
   }
@@ -693,6 +693,9 @@ function clearBoostFlames() {
  */
 export function updateRingModePhysics(dt, inputState, carQuaternion) {
   if (!ringModeActive || ringModePaused || ringModeLives <= 0) {
+    // Stop boost sound when game is over or paused
+    if (ringModeLives <= 0) console.log('Game over - stopping boost sound');
+    Audio.stopBoostRumble();
     return;
   }
 
