@@ -3508,9 +3508,19 @@ function integrate(dt) {
     // Check out of bounds (player went too far)
     if (Math.abs(ringModePosition.x) >= RING_GRID_BOUNDS ||
         Math.abs(ringModePosition.y) >= RING_GRID_BOUNDS) {
-      // Out of bounds - respawn at center
+      // Out of bounds - respawn at next ring position
       ringModeVelocity.set(0, 0);
-      ringModePosition.set(0, 0);
+
+      // Find next unpassed ring to respawn at
+      const nextRing = rings.find(r => !r.passed && !r.missed);
+      if (nextRing) {
+        // Respawn at the ring's X/Y position
+        ringModePosition.set(nextRing.mesh.position.x, nextRing.mesh.position.y);
+      } else {
+        // No rings available, respawn at center
+        ringModePosition.set(0, 0);
+      }
+
       ringModeStarted = false; // Wait for boost before falling
       ringModeLives--; // Lose a life
       console.log('Out of bounds! Lives:', ringModeLives);
