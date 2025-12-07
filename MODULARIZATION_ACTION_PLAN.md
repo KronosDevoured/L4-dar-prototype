@@ -5,7 +5,7 @@
 **Status:** In Progress
 **Created:** 2025-12-07
 **Last Updated:** 2025-12-07
-**Current Phase:** Phase 1 COMPLETE ✅ - Ready for Phase 2
+**Current Phase:** Phase 2 COMPLETE ✅ - Ready for Phase 3
 
 ---
 
@@ -592,14 +592,19 @@ Test module interactions:
   - [x] Step 1.3: Refactor RingMode module
   - [x] Step 1.4: Update main.js
   - [x] Step 1.5: Testing
+- [x] **Phase 2: Split main.js into Managers** (Completed 2025-12-07)
+  - [x] Step 2.1: Create SceneManager module
+  - [x] Step 2.2: Create ThemeManager module
+  - [x] Step 2.3: Create UIManager module
+  - [x] Step 2.4: Create CameraController module
+  - [x] Step 2.5: Refactor main.js to use managers
 
 ### In Progress 🔄
 
-- [ ] **Phase 2: Split main.js** ⬅️ READY TO START
+- [ ] **Phase 3: Split Input module** ⬅️ READY TO START
 
 ### Planned 📋
 
-- [ ] Phase 2: Split main.js
 - [ ] Phase 3: Split Input module
 - [ ] Phase 4: Improve State Management
 - [ ] Phase 5: Add Error Handling & Tests
@@ -611,14 +616,14 @@ Test module interactions:
 
 ### Current State (Before Optimization)
 
-| Metric | Value | Target |
-|--------|-------|--------|
-| Modularization Quality | 7.5/10 | 9.0/10 |
-| Circular Dependencies | 1 | 0 |
-| Modules > 500 LOC | 3 | 0 |
-| Test Coverage | 0% | 80%+ |
-| main.js Size | 1,129 lines | < 300 lines |
-| input.js Size | 1,376 lines | < 250 lines |
+| Metric | Before | Current | Target |
+|--------|--------|---------|--------|
+| Modularization Quality | 7.5/10 | 8.2/10 | 9.0/10 |
+| Circular Dependencies | 1 | 0 ✅ | 0 |
+| Modules > 500 LOC | 3 | 1 | 0 |
+| Test Coverage | 0% | 0% | 80%+ |
+| main.js Size | 1,129 lines | 677 lines ✅ | < 300 lines |
+| input.js Size | 1,376 lines | 1,376 lines | < 250 lines |
 
 ### Target State (After Optimization)
 
@@ -681,6 +686,18 @@ git tag phase-X-backup
 ---
 
 ## Notes & Lessons Learned
+
+### 2025-12-07 - Phase 2 Complete ✅
+- **Completed:** Phase 2 - Split main.js into manager modules
+- **Created:** 4 new manager modules:
+  - SceneManager.js (136 lines) - Scene, camera, renderer, lights, grid
+  - ThemeManager.js (137 lines) - Dark/light mode, brightness control
+  - UIManager.js (356 lines) - Menu, cards, tags, sliders
+  - CameraController.js (158 lines) - Zoom, orbital rotation
+- **Refactored:** main.js from 1,129 lines to 677 lines (40.7% reduction)
+- **Result:** Better separation of concerns, improved maintainability ✅
+- **Commit:** a2fe337
+- **Next:** Ready for Phase 3 (Split Input module - HIGH RISK)
 
 ### 2025-12-07 - Phase 1 Complete ✅
 - **Completed:** Phase 1 - Break circular dependency
