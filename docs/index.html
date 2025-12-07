@@ -4000,6 +4000,32 @@ function drawRingModeHUD() {
       const dy = targetRing.mesh.position.y - ringModePosition.y;
       const distance2D = Math.sqrt(dx*dx + dy*dy);
 
+      // Draw dashed trail from player to ring position on grid
+      // This shows the path you need to travel
+      if (distance2D > 200) { // Only show trail for distant rings
+        // Convert grid positions to screen positions
+        // Player is always at screen center
+        const playerScreenX = innerWidth / 2;
+        const playerScreenY = innerHeight / 2;
+
+        // Ring position relative to player (offset from center)
+        // Screen Y is inverted (positive = down), so negate dy
+        const ringScreenX = playerScreenX + dx;
+        const ringScreenY = playerScreenY - dy;
+
+        // Draw dashed line
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255, 92, 92, 0.6)'; // Semi-transparent red
+        ctx.lineWidth = 3;
+        ctx.setLineDash([15, 10]); // Dashed pattern: 15px dash, 10px gap
+        ctx.beginPath();
+        ctx.moveTo(playerScreenX, playerScreenY);
+        ctx.lineTo(ringScreenX, ringScreenY);
+        ctx.stroke();
+        ctx.setLineDash([]); // Reset dash pattern
+        ctx.restore();
+      }
+
       // Show arrow if ring is far away - keep on screen longer (5 seconds worth of distance)
       // At max speed ~1400 units/s, 5 seconds = ~7000 units, use 3000 to be visible earlier
       if (distance2D > 800) {
