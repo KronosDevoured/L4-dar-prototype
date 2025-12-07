@@ -445,8 +445,11 @@ const renderer = new THREE.WebGLRenderer({canvas: gl, antialias: true});
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
 
-// Device detection managed by Input module
-console.log('Device type:', Input.getIsMobile() ? 'Mobile/Tablet' : 'Desktop');
+// Detect if on mobile/tablet or desktop
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+  || (navigator.maxTouchPoints && navigator.maxTouchPoints > 2);
+const isDesktop = !isMobile;
+console.log('Device type:', isMobile ? 'Mobile/Tablet' : 'Desktop');
 
 const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(0xeef1f6, 900, 2200);
@@ -550,71 +553,14 @@ const menuOverlay=document.getElementById('menuOverlay');
 const menuCloseBtn=document.getElementById('menuCloseBtn');
 let chromeShown=false;
 
-// Collapsible cards initialization
-let cardsInitialized = false;
-function initCollapsibleCards() {
-  // Only initialize once to avoid duplicate event listeners
-  if (cardsInitialized) return;
-  cardsInitialized = true;
-
-  const cards = document.querySelectorAll('.card');
-  cards.forEach((card, index) => {
-    const h3 = card.querySelector('h3');
-    if (!h3) return;
-
-    // Wrap all content after h3 in a card-content div
-    if (!card.querySelector('.card-content')) {
-      const content = document.createElement('div');
-      content.className = 'card-content';
-
-      // Move all children after h3 into content div
-      const children = Array.from(card.children);
-      children.forEach(child => {
-        if (child !== h3) {
-          content.appendChild(child);
-        }
-      });
-      card.appendChild(content);
-
-      // Collapse all cards except the first one (Rotation)
-      const isRotationCard = h3.textContent.trim() === 'Rotation';
-      if (!isRotationCard) {
-        card.classList.add('collapsed');
-        content.style.maxHeight = '0';
-      } else {
-        content.style.maxHeight = content.scrollHeight + 'px';
-      }
-    }
-
-    // Add click handler to h3
-    h3.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const content = card.querySelector('.card-content');
-      const isCollapsed = card.classList.contains('collapsed');
-
-      if (isCollapsed) {
-        card.classList.remove('collapsed');
-        content.style.maxHeight = content.scrollHeight + 'px';
-      } else {
-        card.classList.add('collapsed');
-        content.style.maxHeight = '0';
-      }
-    });
-  });
-}
-
 function openMenu(){
   chromeShown=true;
+  Input.setChromeShown(true);
   menuBtn.classList.add('active');
   menuOverlay.style.display='block';
 
   // Initialize collapsible cards on first open
   initCollapsibleCards();
-
-  // Initialize Input module menu navigation after DOM is visible
-  setTimeout(() => {
-    Input.setChromeShown(true);
-  }, 10);
 }
 function closeMenu(){
   chromeShown=false;
@@ -650,7 +596,9 @@ const presetSel=document.getElementById('presetSel');
 // Load settings from Settings module
 const savedSettings = Settings.loadSettings();
 
-// Gamepad bindings managed by Input module
+// Initialize gamepad bindings early (will be properly set later)
+let gpEnabled = savedSettings.gpEnabled ?? true;
+let gpBindings = savedSettings.gpBindings ?? null; // Will be set to defaultGpBindings later if still null
 
 // Restore theme mode (default to true = dark mode)
 isDarkMode = savedSettings.isDarkMode ?? true;
@@ -687,17 +635,18 @@ Audio.setGameMusicEnabled(gameMusicEnabled);
 // Wrapper function to save settings to Settings module
 function saveSettings() {
   // Collect current settings
-  // Note: Input-related settings (airRoll, gpEnabled, etc.) are saved by Input module automatically
   const currentSettings = {
     maxAccelPitch, maxAccelYaw, maxAccelRoll,
     inputPow, damp, dampDAR, brakeOnRelease,
     wMax, wMaxPitch, wMaxYaw, wMaxRoll,
     circleTiltAngle, circleTiltModifier, circleScale,
     zoom, arrowScale,
-    isDarkMode,
+    isDarkMode, airRollIsToggle,
     brightnessDark, brightnessLight,
+    gpEnabled, gpBindings,
     showArrow, showCircle,
     ringModeHighScore,
+    lastActiveAirRoll,
     ringDifficulty: currentDifficulty,
     gameSoundsEnabled,
     gameMusicEnabled
@@ -892,7 +841,7 @@ let ringCameraSpeed = 0.1;
 // Ring Mode Physics
 let ringModeVelocity = new THREE.Vector2(0, 0); // XY velocity only
 let ringModePosition = new THREE.Vector2(0, 0); // Car position in 2D plane
-// ringModeBoostActive managed by Input module
+let ringModeBoostActive = false;
 let ringModeStarted = false; // Track if player has started (boosted at least once)
 let ringModePaused = false; // Track pause state
 
@@ -1581,7 +1530,7 @@ accelRollTag.textContent=maxAccelRoll.toFixed(0);
   circleTiltTag.textContent=`${circleTiltAngle.toFixed(0)}°`;
   circleTiltModifierTag.textContent=`${circleTiltModifier.toFixed(0)}°`;
   circleScaleTag.textContent=`${circleScale.toFixed(2)}×`;
-  stickVal.textContent = String(Math.round(Input.getJoyBaseR()));
+  stickVal.textContent = String(Math.round(JOY_BASE_R));
   zoomVal.textContent = `${(zoom||1).toFixed(2)}×`;
   arrowVal.textContent = `${(arrowScale||1).toFixed(2)}×`;
   const currentBrightness = isDarkMode ? brightnessDark : brightnessLight;
@@ -1656,7 +1605,7 @@ wmaxRollRange.addEventListener('input',()=>{wMaxRoll=parseFloat(wmaxRollRange.va
 circleTiltRange.addEventListener('input',()=>{circleTiltAngle=parseFloat(circleTiltRange.value)||38; syncTags(); saveSettings();});
 circleTiltModifierRange.addEventListener('input',()=>{circleTiltModifier=parseFloat(circleTiltModifierRange.value)||0; syncTags(); saveSettings();});
 circleScaleRange.addEventListener('input',()=>{circleScale=parseFloat(circleScaleRange.value)||0.3; syncTags(); saveSettings();});
-sizeSlider.addEventListener('input',()=>{Input.getJoyBaseR()=parseInt(stickSizeSlider.value,10)||100; Input.getJoyKnobR()=Math.round(Input.getJoyBaseR()*0.32); clampJoyCenter(); positionHints(); syncTags();});
+sizeSlider.addEventListener('input',()=>{JOY_BASE_R=parseInt(stickSizeSlider.value,10)||100; JOY_KNOB_R=Math.round(JOY_BASE_R*0.32); clampJoyCenter(); positionHints(); syncTags();});
 zoomSlider.addEventListener('input',()=>{zoom=parseFloat(zoomSlider.value)||1.0; applyZoom(); syncTags(); saveSettings();});
 arrowSlider.addEventListener('input',()=>{arrowScale=parseFloat(arrowSlider.value)||4.0; syncTags(); saveSettings();});
 brightnessSlider.addEventListener('input',()=>{
@@ -1682,7 +1631,7 @@ presetSel .addEventListener('change',()=>{
 
 /* Physics (independent caps for Pitch/Yaw) */
 let w = new THREE.Vector3(0,0,0);
-const STICK_DEADZONE = 0.02; // Local deadzone constant
+const STICK_DEADZONE = STICK_MIN;
 const KP_ROLL = 3.2, KD_ROLL = 0.25;
 
 // === NEW VARIABLES - Add these here ===
@@ -1726,17 +1675,19 @@ function integrate(dt) {
     return;
   }
 
-  // --- 1. Get smoothed joystick position from Input module ---
-  const joyVec = Input.getJoyVec();
-  const jx = joyVec.x / Input.getJoyBaseR();
-  const jy = -joyVec.y / Input.getJoyBaseR(); // up is positive
+  // --- 1. Smooth joystick position ---
+  const a = 1 - Math.exp(-(dt * 1000) / Math.max(1, STICK_TAU_MS));
+  smJoy.lerp(joyVec, a);
+
+  const jx = smJoy.x / JOY_BASE_R;
+  const jy = -smJoy.y / JOY_BASE_R; // up is positive
   let mag = Math.hypot(jx, jy);
 
   let eff = 0;
   let ux = 0, uy = 0;
 
-  if (mag > Input.STICK_DEADZONE) {
-    const m2 = (mag - Input.STICK_DEADZONE) / (1 - Input.STICK_DEADZONE);
+  if (mag > STICK_DEADZONE) {
+    const m2 = (mag - STICK_DEADZONE) / (1 - STICK_DEADZONE);
     const shaped = Math.pow(Math.max(0, m2), inputPow || 1.0); // 0..1
     eff = shaped;
 
@@ -1755,12 +1706,12 @@ function integrate(dt) {
     const boostDirY = forward.y;
 
     // Track if game has started (first boost press)
-    if (Input.getRingModeBoostActive() && !ringModeStarted) {
+    if (ringModeBoostActive && !ringModeStarted) {
       ringModeStarted = true;
     }
 
     // Boost rumble sound control
-    if (Input.getRingModeBoostActive()) {
+    if (ringModeBoostActive) {
       Audio.startBoostRumble();
     } else {
       Audio.stopBoostRumble();
@@ -1770,14 +1721,14 @@ function integrate(dt) {
     let accelX = 0;
     let accelY = ringModeStarted ? CONST.RING_GRAVITY : 0; // Only apply gravity after first boost
 
-    if (Input.getRingModeBoostActive()) {
+    if (ringModeBoostActive) {
       // Boost in the direction car's nose is facing
       accelX += boostDirX * CONST.RING_BOOST_ACCEL;
       accelY += boostDirY * CONST.RING_BOOST_ACCEL;
     }
 
     // Update boost flame visibility and position
-    updateBoostFlames(Input.getRingModeBoostActive(), forward);
+    updateBoostFlames(ringModeBoostActive, forward);
 
     // Integrate velocity
     ringModeVelocity.x += accelX * dt;
@@ -1857,8 +1808,8 @@ function integrate(dt) {
   // --- 2b. Tornado circle visualizer (shows DAR cone path) ---
   if (Car.tornadoCircle) {
     // Circle only shows for Air Roll Left/Right (not Free), when DAR is active
-    const isDAR = (Input.getAirRoll() === -1 || Input.getAirRoll() === 1);
-    const shouldShowCircle = showCircle && isDAR && Input.getDarOn() && eff > 0.02;
+    const isDAR = (airRoll === -1 || airRoll === 1);
+    const shouldShowCircle = showCircle && isDAR && darOn && eff > 0.02;
     Car.tornadoCircle.visible = shouldShowCircle;
 
     if (shouldShowCircle) {
@@ -1872,10 +1823,10 @@ function integrate(dt) {
       const circleRadius = arrowLength * (circleScale || 0.3);
 
       // The circle should be offset perpendicular to the arrow direction
-      // Air Roll Left (Input.getAirRoll() = -1): offset +90 degrees (counter-clockwise)
-      // Air Roll Right (Input.getAirRoll() = +1): offset -90 degrees (clockwise)
+      // Air Roll Left (airRoll = -1): offset +90 degrees (counter-clockwise)
+      // Air Roll Right (airRoll = +1): offset -90 degrees (clockwise)
       const arrowAngle = Math.atan2(ux, uy); // angle of the arrow in XY plane
-      const perpAngle = arrowAngle + (Input.getAirRoll() * Math.PI / 2); // offset 90 degrees based on roll direction
+      const perpAngle = arrowAngle + (airRoll * Math.PI / 2); // offset 90 degrees based on roll direction
 
       // Position circle center perpendicular to arrow, distance = circle radius
       const centerX = Math.sin(perpAngle) * circleRadius;
@@ -1919,7 +1870,7 @@ function integrate(dt) {
   let maxAccelRollRad  = (maxAccelRoll  * Math.PI) / 180;
 
   // --- 3.5. DAR acceleration multipliers (from RL measurements) ---
-  if (Input.getDarOn()) {
+  if (darOn) {
     maxAccelPitchRad *= 0.997;  // DAR: 714→712 deg/s²
     maxAccelYawRad *= 1.00;      // DAR: 521→522 deg/s² (no change)
     maxAccelRollRad *= 0.98;     // DAR: 2153→2110 deg/s²
@@ -1931,13 +1882,13 @@ function integrate(dt) {
   let targetRollSpeed = 0;        // rad/s
 
   // Check if using Air Roll (Free) mode
-  const isAirRollFree = (Input.getAirRoll() === 2);
+  const isAirRollFree = (airRoll === 2);
 
   // DAR tornado spin (measured from Rocket League)
-  if (Input.getDarOn() && !isAirRollFree) {
+  if (darOn && !isAirRollFree) {
     // RL tornado spin: 0.74 seconds per rotation
     const RL_TORNADO_PERIOD = 0.74;  // seconds
-    targetRollSpeed = Input.getAirRoll() * (2 * Math.PI) / RL_TORNADO_PERIOD;  // Input.getAirRoll() = ±1 for Left/Right
+    targetRollSpeed = airRoll * (2 * Math.PI) / RL_TORNADO_PERIOD;  // airRoll = ±1 for Left/Right
   }
 
   // stick → desired spin rates
@@ -1973,8 +1924,8 @@ function integrate(dt) {
   // CRITICAL: Damping only applies when inputs are released!
   const noStick = eff < 0.08;
   if (noStick) {
-    const baseDamp = Input.getDarOn() ? dampDAR : damp;
-    const dampEff = (baseDamp || 0) + ((!Input.getDarOn()) ? (brakeOnRelease || 0) : 0);
+    const baseDamp = darOn ? dampDAR : damp;
+    const dampEff = (baseDamp || 0) + ((!darOn) ? (brakeOnRelease || 0) : 0);
     const scale = Math.exp(-dampEff * dt);
     w.multiplyScalar(scale);
   }
@@ -2278,33 +2229,15 @@ gizmoAxes.position.copy(gizmoTarget.position);
 function renderHUD(){
   Rendering.renderHUD({
     // Joystick state
-    JOY_CENTER: Input.getJoyCenter(),
-    JOY_BASE_R: Input.getJoyBaseR(),
-    JOY_KNOB_R: Input.getJoyKnobR(),
-    joyVec: Input.getJoyVec(),
-    COLS,
+    JOY_CENTER, JOY_BASE_R, JOY_KNOB_R, joyVec, COLS,
     // DAR button state
-    DAR_CENTER: Input.getDarCenter(),
-    DAR_R: Input.getDarR(),
-    darOn: Input.getDarOn(),
-    airRoll: Input.getAirRoll(),
+    DAR_CENTER, DAR_R, darOn, airRoll,
     // Boost button state
-    BOOST_CENTER: Input.getBoostCenter(),
-    BOOST_R: Input.getBoostR(),
-    ringModeBoostActive: Input.getRingModeBoostActive(),
-    showBoostButton: Input.getShowBoostButton(),
+    BOOST_CENTER, BOOST_R, ringModeBoostActive, showBoostButton,
     // Ring Mode state
-    ringModeActive,
-    ringModeStarted,
-    ringModePaused,
-    ringModeLives,
-    ringModeScore,
-    ringModeHighScore,
-    ringModeRingCount,
-    ringModePosition,
-    rings,
-    isMobile: Input.getIsMobile(),
-    currentDifficulty
+    ringModeActive, ringModeStarted, ringModePaused,
+    ringModeLives, ringModeScore, ringModeHighScore, ringModeRingCount,
+    ringModePosition, rings, isMobile, currentDifficulty
   });
 }
 
@@ -2356,82 +2289,6 @@ addEventListener('resize', resize);
 
 // Initialize Input module with callbacks
 Input.initInput(hud, {
-  execBinding: (action) => {
-    // Handle gamepad button actions
-    switch(action) {
-      case 'toggleDAR':
-        // Toggle DAR with last active air roll
-        const currentAirRoll = Input.getAirRoll();
-        const lastActive = Input.getLastActiveAirRoll();
-        if (currentAirRoll === 0) {
-          // Turn on DAR with last active direction
-          Input.selectAirRoll(lastActive);
-        } else {
-          // Turn off DAR
-          Input.selectAirRoll(0);
-        }
-        break;
-      case 'rollLeft':
-      case 'rollRight':
-      case 'rollFree':
-        // These are handled internally by Input module
-        break;
-      case 'boost':
-        // Boost handled internally by Input module
-        break;
-      case 'pause':
-        if (ringModeActive) {
-          ringModePaused = !ringModePaused;
-          Input.setRingModePaused(ringModePaused);
-        }
-        break;
-      case 'restart':
-        if (ringModeActive && ringModeLives <= 0) {
-          resetRingMode();
-        }
-        break;
-      case 'orbitCW':
-        if (orbitOn && orbitDir === 1) {
-          // Turn off if already orbiting CW
-          orbitOn = false;
-        } else {
-          // If switching from CCW to CW, maintain camera position
-          if (orbitOn && orbitDir === -1) {
-            orbitPhase = -orbitPhase;
-          }
-          // Turn on CW orbit
-          orbitOn = true;
-          orbitDir = 1;
-        }
-        break;
-      case 'orbitCCW':
-        if (orbitOn && orbitDir === -1) {
-          // Turn off if already orbiting CCW
-          orbitOn = false;
-        } else {
-          // If switching from CW to CCW, maintain camera position
-          if (orbitOn && orbitDir === 1) {
-            orbitPhase = -orbitPhase;
-          }
-          // Turn on CCW orbit
-          orbitOn = true;
-          orbitDir = -1;
-        }
-        break;
-      case 'toggleTheme':
-        isDarkMode = !isDarkMode;
-        applyTheme(isDarkMode);
-        saveSettings();
-        break;
-      case 'openMenu':
-        if (!chromeShown) {
-          openMenu();
-        } else {
-          closeMenu();
-        }
-        break;
-    }
-  },
   openMenu: openMenu,
   closeMenu: closeMenu,
   retry: resetRingMode,
@@ -2459,7 +2316,10 @@ if (Car.car) {
 // Preload Ring Mode resources after car is ready (prevents lag on first ring spawn)
 preloadRingResources();
 
-// Air roll state and hint positioning managed by Input module
+// Restore saved air roll (skipSave = true to avoid overwriting localStorage on load)
+setRoll(airRoll, true);
+
+positionHints();
 applyZoom();
 applyTheme(isDarkMode); // Initialize theme
 
@@ -2478,10 +2338,12 @@ circleToggleBtn.textContent = showCircle ? 'Show Circle' : 'Hide Circle';
 
 // Restore toggle/hold mode button state
 const toggleModeBtn = document.getElementById('toggleMode');
-toggleModeBtn.classList.toggle('active', Input.getAirRollIsToggle());
-toggleModeBtn.textContent = Input.getAirRollIsToggle() ? 'Toggle' : 'Hold';
+toggleModeBtn.classList.toggle('active', airRollIsToggle);
+toggleModeBtn.textContent = airRollIsToggle ? 'Toggle' : 'Hold';
 
-// Gamepad state managed by Input module
+// Restore gamepad enabled button state
+gpEnableBtn.classList.toggle('active', gpEnabled);
+gpStatusTag.textContent = gpEnabled ? 'Enabled (waiting for gamepad)' : 'Disabled';
 
 // Restore Ring Mode difficulty selector
 if (ringDifficultySelector) {

@@ -445,8 +445,11 @@ const renderer = new THREE.WebGLRenderer({canvas: gl, antialias: true});
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
 
-// Device detection managed by Input module
-console.log('Device type:', Input.getIsMobile() ? 'Mobile/Tablet' : 'Desktop');
+// Detect if on mobile/tablet or desktop
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+  || (navigator.maxTouchPoints && navigator.maxTouchPoints > 2);
+const isDesktop = !isMobile;
+console.log('Device type:', isMobile ? 'Mobile/Tablet' : 'Desktop');
 
 const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(0xeef1f6, 900, 2200);
@@ -550,7 +553,187 @@ const menuOverlay=document.getElementById('menuOverlay');
 const menuCloseBtn=document.getElementById('menuCloseBtn');
 let chromeShown=false;
 
-// Collapsible cards initialization
+// Controller menu navigation
+let menuFocusIndex = 0;
+let menuFocusableElements = [];
+let menuNavigationCooldown = 0;
+const MENU_NAV_COOLDOWN = 200; // ms between navigation inputs
+
+function updateMenuFocusableElements() {
+  // Get all interactive elements in the menu, including card headers
+  menuFocusableElements = Array.from(document.querySelectorAll(
+    '#menuPanel .card h3, #menuPanel button, #menuPanel input[type="range"], #menuPanel select'
+  )).filter(el => {
+    // Only include visible elements
+    // For elements inside collapsed cards, check if parent card is collapsed
+    const card = el.closest('.card');
+    if (card && card.classList.contains('collapsed') && el.tagName !== 'H3') {
+      return false; // Don't include elements in collapsed cards
+    }
+    return el.offsetParent !== null;
+  });
+}
+
+function findClosestElementInDirection(direction) {
+  if (menuFocusableElements.length === 0) return menuFocusIndex;
+
+  const currentEl = menuFocusableElements[menuFocusIndex];
+  const isHeader = currentEl.tagName === 'H3';
+
+  // UP/DOWN behavior depends on what's focused
+  if (direction === 'down' || direction === 'up') {
+    const step = direction === 'down' ? 1 : -1;
+    const currentCard = currentEl.closest('.card');
+
+    // If on a card header (H3), jump to next/previous card header
+    if (isHeader) {
+      for (let i = 1; i < menuFocusableElements.length; i++) {
+        const checkIndex = (menuFocusIndex + (i * step) + menuFocusableElements.length) % menuFocusableElements.length;
+        const checkEl = menuFocusableElements[checkIndex];
+
+        if (checkEl.tagName === 'H3') {
+          return checkIndex;
+        }
+      }
+    } else {
+      // If on a control (slider/button), navigate within the card
+      for (let i = 1; i < menuFocusableElements.length; i++) {
+        const checkIndex = (menuFocusIndex + (i * step) + menuFocusableElements.length) % menuFocusableElements.length;
+        const checkEl = menuFocusableElements[checkIndex];
+        const checkCard = checkEl.closest('.card');
+
+        // Stay within the same card
+        if (checkCard === currentCard) {
+          return checkIndex;
+        }
+
+        // If we've left the card, wrap to the card header
+        const headerIndex = menuFocusableElements.findIndex(el =>
+          el.tagName === 'H3' && el.closest('.card') === currentCard
+        );
+        if (headerIndex !== -1) return headerIndex;
+      }
+    }
+
+    // Fallback
+    return (menuFocusIndex + step + menuFocusableElements.length) % menuFocusableElements.length;
+  }
+
+  // LEFT/RIGHT: Navigate within current card (sequential)
+  if (direction === 'left' || direction === 'right') {
+    const step = direction === 'right' ? 1 : -1;
+    const currentCard = currentEl.closest('.card');
+
+    // Try to find next/previous element in same card
+    for (let i = 1; i < menuFocusableElements.length; i++) {
+      const checkIndex = (menuFocusIndex + (i * step) + menuFocusableElements.length) % menuFocusableElements.length;
+      const checkEl = menuFocusableElements[checkIndex];
+      const checkCard = checkEl.closest('.card');
+
+      // If still in same card, return this element
+      if (checkCard === currentCard) {
+        return checkIndex;
+      }
+
+      // If we've left the card, wrap back to start/end of current card
+      if (direction === 'right') {
+        // Wrap to first element in card
+        return menuFocusableElements.findIndex(el => el.closest('.card') === currentCard);
+      } else {
+        // Wrap to last element in card
+        for (let j = menuFocusableElements.length - 1; j >= 0; j--) {
+          if (menuFocusableElements[j].closest('.card') === currentCard) {
+            return j;
+          }
+        }
+      }
+    }
+
+    // Fallback to sequential
+    return (menuFocusIndex + step + menuFocusableElements.length) % menuFocusableElements.length;
+  }
+
+  return menuFocusIndex;
+}
+
+function focusMenuElement(index) {
+  // Remove previous focus styling
+  menuFocusableElements.forEach(el => {
+    el.style.outline = '';
+    el.style.boxShadow = '';
+  });
+
+  if (menuFocusableElements.length === 0) return;
+
+  // Wrap index
+  menuFocusIndex = ((index % menuFocusableElements.length) + menuFocusableElements.length) % menuFocusableElements.length;
+
+  // Add focus styling to current element
+  const focusedEl = menuFocusableElements[menuFocusIndex];
+  focusedEl.style.outline = '3px solid #4c8dff';
+  focusedEl.style.boxShadow = '0 0 12px rgba(76, 141, 255, 0.6)';
+
+  // Scroll into view - use 'center' to ensure it's fully visible
+  // Use setTimeout to ensure it happens after any layout changes
+  setTimeout(() => {
+    focusedEl.scrollIntoView({
+      block: 'center',
+      inline: 'nearest',
+      behavior: 'smooth'
+    });
+  }, 10);
+}
+
+function activateMenuElement() {
+  if (menuFocusableElements.length === 0) return;
+  const el = menuFocusableElements[menuFocusIndex];
+
+  if (el.tagName === 'H3') {
+    // Toggle collapse/expand for card headers
+    el.click();
+  } else if (el.tagName === 'BUTTON') {
+    el.click();
+  } else if (el.tagName === 'INPUT' && el.type === 'range') {
+    // For sliders, we'll allow left/right to adjust them
+    // Clicking just focuses it for now
+  } else if (el.tagName === 'SELECT') {
+    // For select, X button does nothing - use left/right to change options
+  }
+}
+
+function adjustSliderValue(direction) {
+  if (menuFocusableElements.length === 0) return;
+  const el = menuFocusableElements[menuFocusIndex];
+
+  if (el.tagName === 'INPUT' && el.type === 'range') {
+    const step = parseFloat(el.step) || 1;
+    const currentValue = parseFloat(el.value);
+    const newValue = currentValue + (direction * step);
+    const min = parseFloat(el.min);
+    const max = parseFloat(el.max);
+
+    el.value = Math.max(min, Math.min(max, newValue));
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+}
+
+function adjustSelectValue(direction) {
+  if (menuFocusableElements.length === 0) return;
+  const el = menuFocusableElements[menuFocusIndex];
+
+  if (el.tagName === 'SELECT') {
+    const currentIndex = el.selectedIndex;
+    const newIndex = currentIndex + direction;
+
+    // Clamp to valid range
+    if (newIndex >= 0 && newIndex < el.options.length) {
+      el.selectedIndex = newIndex;
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  }
+}
+
+// Initialize collapsible cards
 let cardsInitialized = false;
 function initCollapsibleCards() {
   // Only initialize once to avoid duplicate event listeners
@@ -586,9 +769,9 @@ function initCollapsibleCards() {
       }
     }
 
-    // Add click handler to h3
+    // Add click handler to h3 (includes the arrow indicator)
     h3.addEventListener('click', (e) => {
-      e.stopPropagation();
+      e.stopPropagation(); // Prevent event bubbling
       const content = card.querySelector('.card-content');
       const isCollapsed = card.classList.contains('collapsed');
 
@@ -599,6 +782,11 @@ function initCollapsibleCards() {
         card.classList.add('collapsed');
         content.style.maxHeight = '0';
       }
+
+      // Update focusable elements after collapse/expand
+      setTimeout(() => {
+        updateMenuFocusableElements();
+      }, 50);
     });
   });
 }
@@ -611,16 +799,29 @@ function openMenu(){
   // Initialize collapsible cards on first open
   initCollapsibleCards();
 
-  // Initialize Input module menu navigation after DOM is visible
-  setTimeout(() => {
-    Input.setChromeShown(true);
-  }, 10);
+  // Initialize menu navigation
+  updateMenuFocusableElements();
+  menuFocusIndex = 0;
+  if (menuFocusableElements.length > 0) {
+    focusMenuElement(0);
+  }
 }
 function closeMenu(){
   chromeShown=false;
-  Input.setChromeShown(false);
   menuBtn.classList.remove('active');
   menuOverlay.style.display='none';
+
+  // Clear focus styling
+  menuFocusableElements.forEach(el => {
+    el.style.outline = '';
+    el.style.boxShadow = '';
+  });
+
+  // CRITICAL: Clear gamepad button state for air roll actions to prevent
+  // stale button presses from being processed when menu closes
+  gpPrevActionPressed['rollLeft'] = false;
+  gpPrevActionPressed['rollRight'] = false;
+  gpPrevActionPressed['rollFree'] = false;
 }
 menuBtn.addEventListener('click',()=> chromeShown ? closeMenu() : openMenu());
 menuCloseBtn.addEventListener('click', closeMenu);
@@ -650,7 +851,9 @@ const presetSel=document.getElementById('presetSel');
 // Load settings from Settings module
 const savedSettings = Settings.loadSettings();
 
-// Gamepad bindings managed by Input module
+// Initialize gamepad bindings early (will be properly set later)
+let gpEnabled = savedSettings.gpEnabled ?? true;
+let gpBindings = savedSettings.gpBindings ?? null; // Will be set to defaultGpBindings later if still null
 
 // Restore theme mode (default to true = dark mode)
 isDarkMode = savedSettings.isDarkMode ?? true;
@@ -687,17 +890,18 @@ Audio.setGameMusicEnabled(gameMusicEnabled);
 // Wrapper function to save settings to Settings module
 function saveSettings() {
   // Collect current settings
-  // Note: Input-related settings (airRoll, gpEnabled, etc.) are saved by Input module automatically
   const currentSettings = {
     maxAccelPitch, maxAccelYaw, maxAccelRoll,
     inputPow, damp, dampDAR, brakeOnRelease,
     wMax, wMaxPitch, wMaxYaw, wMaxRoll,
     circleTiltAngle, circleTiltModifier, circleScale,
     zoom, arrowScale,
-    isDarkMode,
+    isDarkMode, airRollIsToggle,
     brightnessDark, brightnessLight,
+    gpEnabled, gpBindings,
     showArrow, showCircle,
     ringModeHighScore,
+    lastActiveAirRoll,
     ringDifficulty: currentDifficulty,
     gameSoundsEnabled,
     gameMusicEnabled
@@ -736,43 +940,63 @@ circleScaleRange.value = circleScale;
 zoomSlider.value = zoom;
 arrowSlider.value = arrowScale;
 
-/* Air Roll System - managed by Input module */
+/* Air Roll System - state managed by Input module */
+// Air roll helper functions - will be refactored to use Input module in Phase 4B
 
-// Helper function to update menu button styling based on Input module state
-function updateMenuButtonStyling(){
-  const lastActive = Input.getLastActiveAirRoll();
-  document.getElementById('rollL').classList.toggle('active', lastActive === -1);
-  document.getElementById('rollR').classList.toggle('active', lastActive === 1);
-  document.getElementById('rollFree').classList.toggle('active', lastActive === 2);
+function setRoll(dir, skipSave = false){
+  // This function will be refactored in Phase 4B to use Input module
+  // For now, keeping stub for compatibility
+  if (!skipSave) saveSettings();
 }
 
-// Menu button click handlers - delegate to Input module
-document.getElementById('rollL').addEventListener('click', () => {
-  Input.selectAirRoll(-1);
+function updateMenuButtonStyling(){
+  // Menu buttons show which air roll is SELECTED (not active)
+  document.getElementById('rollL').classList.toggle('active', lastActiveAirRoll === -1);
+  document.getElementById('rollR').classList.toggle('active', lastActiveAirRoll === 1);
+  document.getElementById('rollFree').classList.toggle('active', lastActiveAirRoll === 2);
+}
+
+function toggleRoll(dir){
+  // For toggle mode: tap to activate, tap again to deactivate
+  if(airRollIsToggle){
+    if(airRoll === dir){
+      setRoll(0); // Turn off if already active
+    } else {
+      setRoll(dir); // Switch to this mode
+    }
+  } else {
+    // For hold mode: handled by gamepad button state
+    setRoll(dir);
+  }
+}
+
+function selectAirRoll(dir){
+  // Menu buttons: just select which air roll to use (don't activate it)
+  lastActiveAirRoll = dir;
   updateMenuButtonStyling();
-});
-document.getElementById('rollR').addEventListener('click', () => {
-  Input.selectAirRoll(1);
-  updateMenuButtonStyling();
-});
-document.getElementById('rollFree').addEventListener('click', () => {
-  Input.selectAirRoll(2);
-  updateMenuButtonStyling();
-});
+  saveSettings();
+}
+
+document.getElementById('rollL').addEventListener('click', () => selectAirRoll(-1)); // Air Roll Left
+document.getElementById('rollR').addEventListener('click', () => selectAirRoll(1));  // Air Roll Right
+document.getElementById('rollFree').addEventListener('click', () => selectAirRoll(2));
 
 // Reset Physics to Defaults button
 document.getElementById('resetPhysicsDefaults').addEventListener('click', () => {
+  // Clear settings via Settings module
   Settings.clearAllSettings();
+
+  // Reload the page to apply defaults
   location.reload();
 });
 
 // Toggle/Hold mode button
 document.getElementById('toggleMode').addEventListener('click', () => {
-  const newMode = !Input.getAirRollIsToggle();
-  Input.setAirRollIsToggle(newMode);
+  airRollIsToggle = !airRollIsToggle;
   const btn = document.getElementById('toggleMode');
-  btn.classList.toggle('active', newMode);
-  btn.textContent = newMode ? 'Toggle' : 'Hold';
+  btn.classList.toggle('active', airRollIsToggle);
+  btn.textContent = airRollIsToggle ? 'Toggle' : 'Hold';
+  saveSettings();
 });
 
 /* Ring Mode */
@@ -892,7 +1116,7 @@ let ringCameraSpeed = 0.1;
 // Ring Mode Physics
 let ringModeVelocity = new THREE.Vector2(0, 0); // XY velocity only
 let ringModePosition = new THREE.Vector2(0, 0); // Car position in 2D plane
-// ringModeBoostActive managed by Input module
+let ringModeBoostActive = false;
 let ringModeStarted = false; // Track if player has started (boosted at least once)
 let ringModePaused = false; // Track pause state
 
@@ -1581,7 +1805,7 @@ accelRollTag.textContent=maxAccelRoll.toFixed(0);
   circleTiltTag.textContent=`${circleTiltAngle.toFixed(0)}°`;
   circleTiltModifierTag.textContent=`${circleTiltModifier.toFixed(0)}°`;
   circleScaleTag.textContent=`${circleScale.toFixed(2)}×`;
-  stickVal.textContent = String(Math.round(Input.getJoyBaseR()));
+  stickVal.textContent = String(Math.round(JOY_BASE_R));
   zoomVal.textContent = `${(zoom||1).toFixed(2)}×`;
   arrowVal.textContent = `${(arrowScale||1).toFixed(2)}×`;
   const currentBrightness = isDarkMode ? brightnessDark : brightnessLight;
@@ -1656,7 +1880,7 @@ wmaxRollRange.addEventListener('input',()=>{wMaxRoll=parseFloat(wmaxRollRange.va
 circleTiltRange.addEventListener('input',()=>{circleTiltAngle=parseFloat(circleTiltRange.value)||38; syncTags(); saveSettings();});
 circleTiltModifierRange.addEventListener('input',()=>{circleTiltModifier=parseFloat(circleTiltModifierRange.value)||0; syncTags(); saveSettings();});
 circleScaleRange.addEventListener('input',()=>{circleScale=parseFloat(circleScaleRange.value)||0.3; syncTags(); saveSettings();});
-sizeSlider.addEventListener('input',()=>{Input.getJoyBaseR()=parseInt(stickSizeSlider.value,10)||100; Input.getJoyKnobR()=Math.round(Input.getJoyBaseR()*0.32); clampJoyCenter(); positionHints(); syncTags();});
+sizeSlider.addEventListener('input',()=>{JOY_BASE_R=parseInt(stickSizeSlider.value,10)||100; JOY_KNOB_R=Math.round(JOY_BASE_R*0.32); clampJoyCenter(); positionHints(); syncTags();});
 zoomSlider.addEventListener('input',()=>{zoom=parseFloat(zoomSlider.value)||1.0; applyZoom(); syncTags(); saveSettings();});
 arrowSlider.addEventListener('input',()=>{arrowScale=parseFloat(arrowSlider.value)||4.0; syncTags(); saveSettings();});
 brightnessSlider.addEventListener('input',()=>{
@@ -1679,10 +1903,769 @@ presetSel .addEventListener('change',()=>{
   saveSettings(); // Save selected car body
 });
 
+/* Pointer handlers */
+hud.addEventListener('pointerdown',(e)=>{
+  try{hud.setPointerCapture(e.pointerId);}catch(_){}
+
+  // Track this pointer
+  activePointers.set(e.pointerId, {x: e.clientX, y: e.clientY});
+
+  // Check for retry button click on game over screen
+  if(ringModeActive && ringModeLives <= 0){
+    const retryButtonWidth = 200;
+    const retryButtonHeight = 50;
+    const retryButtonX = innerWidth / 2 - retryButtonWidth / 2;
+    const retryButtonY = innerHeight / 2 + 30;
+
+    if(e.clientX >= retryButtonX && e.clientX <= retryButtonX + retryButtonWidth &&
+       e.clientY >= retryButtonY && e.clientY <= retryButtonY + retryButtonHeight){
+      resetRingMode();
+      e.preventDefault(); return;
+    }
+  }
+
+  // Multi-touch: assign this pointer to a specific control FIRST (before checking relocation)
+  if(showBoostButton && inBoost(e.clientX,e.clientY)){
+    boostPointerId = e.pointerId;
+    // ringModeBoostActive is now set in updateKeyboardInput() based on boostPointerId
+    e.preventDefault(); return;
+  }
+
+  // Check for two-finger gesture outside buttons (for boost relocation)
+  // IMPORTANT: Only check this AFTER we've checked if user pressed boost button
+  if(activePointers.size === 2){
+    const pointers = Array.from(activePointers.values());
+    const allOutsideButtons = pointers.every(p =>
+      (showBoostButton ? !inBoost(p.x, p.y) : true) && !inDAR(p.x, p.y) && !inJoyLoose(p.x, p.y)
+    );
+    if(allOutsideButtons){
+      boostRelocating = true;
+      e.preventDefault(); return;
+    }
+  }
+
+  if(inDAR(e.clientX,e.clientY)){
+    darPointerId = e.pointerId;
+    darPressT = performance.now();
+
+    // In toggle mode: toggle on press
+    if(airRollIsToggle){
+      if(airRoll === 0){
+        setRoll(lastActiveAirRoll);
+      } else {
+        setRoll(0);
+      }
+      darOn = (airRoll !== 0);
+    } else {
+      // In hold mode: activate immediately on press
+      if(airRoll === 0){
+        setRoll(lastActiveAirRoll);
+      }
+      darOn = true;
+    }
+
+    clearTimeout(darHoldTimer);
+    darHoldTimer = setTimeout(()=>{
+      if(darPointerId===e.pointerId){
+        darRelocating = true; showHint(darHint, 2000);
+      }
+    }, RELOCATE_HOLD_MS);
+    e.preventDefault(); return;
+  }
+
+  if(inJoyLoose(e.clientX,e.clientY)){
+    joyPointerId = e.pointerId;
+    joyActive=true;
+    joyVec = vecFromJoyPx(e.clientX,e.clientY);
+    e.preventDefault(); return;
+  }
+
+  // If not on any control, set as active for relocation
+  if(!chromeShown){
+    activeId = e.pointerId;
+    clearTimeout(holdTimer);
+    holdTimer = setTimeout(()=>{
+      if(activeId===e.pointerId && !chromeShown){
+        relocating = true; showHint(joyHint, 1800);
+      }
+    }, RELOCATE_HOLD_MS);
+  }
+  e.preventDefault();
+},{passive:false});
+hud.addEventListener('pointermove',(e)=>{
+  // Update pointer position in tracking
+  if(activePointers.has(e.pointerId)){
+    activePointers.set(e.pointerId, {x: e.clientX, y: e.clientY});
+  }
+
+  // Handle each pointer independently based on what it's controlling
+  if(e.pointerId === joyPointerId && joyActive){
+    joyVec = vecFromJoyPx(e.clientX,e.clientY);
+    e.preventDefault();
+  }
+
+  // DAR relocation uses darPointerId
+  if(e.pointerId === darPointerId && darRelocating){
+    DAR_CENTER.set(e.clientX,e.clientY);
+    clampDARCenter();
+    positionHints();
+    e.preventDefault();
+  }
+
+  // Joystick and boost relocation use activeId
+  if(e.pointerId === activeId){
+    if(boostRelocating){ BOOST_CENTER.set(e.clientX,e.clientY); clampBoostCenter(); }
+    else if(relocating){ JOY_CENTER.set(e.clientX,e.clientY); clampJoyCenter(); positionHints(); }
+    e.preventDefault();
+  }
+},{passive:false});
+function endPtr(e){
+  // Remove pointer from tracking
+  activePointers.delete(e.pointerId);
+
+  // If we were relocating boost and lost a finger, stop relocating
+  if(boostRelocating && activePointers.size < 2){
+    boostRelocating = false;
+  }
+
+  try{hud.releasePointerCapture(e.pointerId);}catch(_){}
+
+  // Handle each pointer release independently
+  if(e.pointerId === boostPointerId){
+    // ringModeBoostActive is now automatically cleared in updateKeyboardInput() when boostPointerId = null
+    boostPointerId = null;
+  }
+
+  if(e.pointerId === darPointerId){
+    if(!darRelocating && inDAR(e.clientX,e.clientY)){
+      const heldMs = performance.now() - darPressT;
+      if(heldMs < RELOCATE_HOLD_MS){
+        // In toggle mode: nothing to do (already toggled on press)
+        // In hold mode: deactivate on release
+        if(!airRollIsToggle){
+          setRoll(0);
+          darOn = false;
+        }
+      }
+    }
+    clearTimeout(darHoldTimer);
+    darRelocating = false;
+    darPointerId = null;
+  }
+
+  if(e.pointerId === joyPointerId){
+    joyActive = false;
+    joyVec.set(0,0);
+    joyPointerId = null;
+  }
+
+  if(e.pointerId === activeId){
+    clearTimeout(holdTimer);
+    relocating = false;
+    activeId = null;
+  }
+
+  e.preventDefault();
+}
+hud.addEventListener('pointerup',endPtr,{passive:false});
+hud.addEventListener('pointercancel',endPtr,{passive:false});
+
+/* ====== GAMEPAD SUPPORT (PS5 / Generic, remappable) ====== */
+const gpEnableBtn = document.getElementById('gpEnable');
+const gpStatusTag = document.getElementById('gpStatus');
+const gpPresetSel = document.getElementById('gpPreset');
+const gpActionSel = document.getElementById('gpAction');
+const gpRemapBtn  = document.getElementById('gpRemap');
+const gpBindLabel = document.getElementById('gpBindLabel');
+
+// Gamepad state variables (gpEnabled and gpBindings initialized earlier)
+let gpIndex   = -1;
+let gpRemapping = false;
+let gpRemapReady = false;  // true when all buttons/axes are released and ready to capture
+let gpPrevActionPressed = {};
+const GP_DEADZONE = 0.15;
+
+const defaultGpBindings = {
+  toggleDAR:   { kind:'button', index: 1 },
+  rollLeft:    { kind:'button', index: 4 },
+  rollRight:   { kind:'button', index: 5 },
+  rollFree:    { kind:'button', index: 7 },
+  boost:       { kind:'button', index: 0 },
+  pause:       { kind:'button', index: 9 },  // Options/Start button
+  restart:     { kind:'button', index: 10 }, // Moved from 9
+  orbitCW:     { kind:'button', index: 2 },
+  orbitCCW:    { kind:'button', index: 3 },
+  toggleTheme: { kind:'button', index: 8 },
+  openMenu:    { kind:'button', index: 6 }
+};
+
+// Set default bindings if not loaded from savedSettings
+if (!gpBindings) {
+  gpBindings = defaultGpBindings;
+}
+console.log('Loaded gamepad bindings:', gpBindings);
+
+// Restore gamepad preset selection
+if (savedSettings.gpPreset) {
+  gpPresetSel.value = savedSettings.gpPreset;
+  console.log('Restored preset:', savedSettings.gpPreset);
+}
+
+const GP_PRESETS = {
+  ps5: {
+    toggleDAR:   { kind:'button', index: 0 },  // Cross (X)
+    rollLeft:    { kind:'button', index: 2 },  // Square
+    rollRight:   { kind:'button', index: 1 },  // Circle
+    rollFree:    { kind:'button', index: 4 },  // L1
+    boost:       { kind:'button', index: 5 },  // R1
+    pause:       { kind:'button', index: 12 }, // D-pad Up
+    restart:     { kind:'button', index: 13 }, // D-pad Down
+    orbitCW:     { kind:'button', index: 15 }, // D-pad Right
+    orbitCCW:    { kind:'button', index: 14 }, // D-pad Left
+    toggleTheme: { kind:'button', index: 8 },  // Share/Select
+    openMenu:    { kind:'button', index: 9 }   // Options/Start
+  },
+  xinput: {
+    toggleDAR:   { kind:'button', index: 1 },  // B
+    rollLeft:    { kind:'button', index: 4 },  // LB
+    rollRight:   { kind:'button', index: 5 },  // RB
+    rollFree:    { kind:'button', index: 7 },  // RT
+    boost:       { kind:'button', index: 0 },  // A
+    pause:       { kind:'button', index: 9 },  // Start
+    restart:     { kind:'button', index: 10 }, // Xbox button
+    orbitCW:     { kind:'button', index: 2 },  // X
+    orbitCCW:    { kind:'button', index: 3 },  // Y
+    toggleTheme: { kind:'button', index: 8 },  // Back
+    openMenu:    { kind:'button', index: 6 }   // LT
+  }
+};
+
+function bindingToLabel(b){
+  if(!b) return '—';
+  if(b.kind==='button') return `Button ${b.index}`;
+  const d = b.dir>0 ? '+' : '−';
+  return `Axis ${b.axis}${d}`;
+}
+function setBindingPreset(name){
+  // Apply preset without confirmation
+  const p = GP_PRESETS[name] || GP_PRESETS.ps5;
+  gpBindings = JSON.parse(JSON.stringify(p));
+  updateBindLabel();
+  saveSettings();
+}
+function updateBindLabel(){
+  const act = gpActionSel.value;
+  gpBindLabel.textContent = bindingToLabel(gpBindings[act]);
+}
+
+gpEnableBtn.addEventListener('click',()=>{
+  gpEnabled = !gpEnabled;
+  gpEnableBtn.classList.toggle('active', gpEnabled);
+  gpStatusTag.textContent = gpEnabled ? 'Enabled' : 'Disabled';
+  saveSettings();
+});
+gpPresetSel.addEventListener('change', ()=> setBindingPreset(gpPresetSel.value));
+gpActionSel.addEventListener('change', updateBindLabel);
+gpRemapBtn.addEventListener('click',()=>{
+  gpRemapping = true;
+  gpBindLabel.textContent = 'Press button / move axis…';
+});
+document.getElementById('gpResetDefaults').addEventListener('click',()=>{
+  setBindingPreset(gpPresetSel.value);
+  gpStatusTag.textContent = 'Bindings reset to defaults';
+  setTimeout(() => {
+    const { pad } = readPads();
+    if (pad) gpStatusTag.textContent = `Connected: ${pad.id}`;
+    else gpStatusTag.textContent = gpEnabled ? 'Enabled (waiting for gamepad)' : 'No gamepad';
+  }, 2000);
+});
+
+// Only set default preset if no saved bindings exist (don't reset user's custom bindings!)
+if (!savedSettings.gpBindings) {
+  setBindingPreset('ps5');
+}
+updateBindLabel();
+
+addEventListener('gamepadconnected', (e)=>{
+  if(gpIndex<0){ gpIndex = e.gamepad.index; }
+  gpStatusTag.textContent = `Connected: ${e.gamepad.id}`;
+});
+addEventListener('gamepaddisconnected', (e)=>{
+  if(e.gamepad.index===gpIndex){ gpIndex=-1; }
+  gpStatusTag.textContent = gpEnabled ? 'Enabled (waiting for gamepad)' : 'No gamepad';
+});
+
+function readPads(){
+  const arr = (navigator.getGamepads?.() || []);
+  if(gpIndex<0){
+    for(let i=0;i<arr.length;i++){
+      const p = arr[i];
+      if(p && p.mapping==='standard'){ gpIndex=i; break; }
+    }
+  }
+  return { pad: (gpIndex>=0 ? arr[gpIndex] : null), all: arr };
+}
+
+function isPressedForBinding(pad, binding){
+  if(!binding || !pad) return false;
+  if(binding.kind==='button'){
+    const b = pad.buttons[binding.index];
+    return !!(b && (b.value||0) > 0.5);
+  }
+  if(binding.kind==='axis'){
+    const v = pad.axes[binding.axis] || 0;
+    return binding.dir>0 ? (v>0.6) : (v<-0.6);
+  }
+  return false;
+}
+
+function execBinding(action){
+  switch(action){
+    case 'toggleDAR':
+      // Toggle the currently selected air roll on/off
+      if(airRoll === 0){
+        // If no air roll active, activate the last active one
+        setRoll(lastActiveAirRoll);
+      } else {
+        // If air roll active, deactivate it
+        setRoll(0);
+      }
+      darOn = (airRoll !== 0); // Update darOn to match air roll state
+      break;
+    case 'rollLeft':
+      toggleRoll(-1);
+      break;
+    case 'rollRight':
+      toggleRoll(+1);
+      break;
+    case 'rollFree':
+      toggleRoll(2);
+      break;
+    case 'restart': {
+      if (Car.car) {
+        Car.car.quaternion.identity();
+        Car.car.rotation.set(Math.PI * 1.5, 0, Math.PI); // X: +270°, Y: 0°, Z: +180°
+      }
+      w.set(0,0,0);
+      orbitOn = false;
+      orbitDir = 1;
+      document.getElementById('orbitCW').classList.remove('active');
+      document.getElementById('orbitCCW').classList.remove('active');
+      orbitPhase = 0;
+      camera.position.set(0, 220, 650);
+      camera.lookAt(0,0,0);
+      if (Car.faceArrow) Car.faceArrow.visible = false;
+      if (Car.faceTip)   Car.faceTip.visible   = false;
+
+      // Reset Ring Mode if active
+      if (ringModeActive) {
+        ringModeVelocity.set(0, 0);
+        ringModePosition.set(0, 0);
+        ringModeScore = 0;
+        ringModeLives = CONST.DIFFICULTY_SETTINGS[currentDifficulty].initialLives;
+        ringModeRingCount = 0;
+        ringModeStarted = false;
+        ringSpawnIndex = 0; // Reset spawn order tracking
+        clearAllRings();
+        console.log('Ring Mode restarted');
+      }
+      break;
+    }
+    case 'orbitToggle':
+      orbitOn = !orbitOn;
+      orbitDir = orbitOn ? 1 : 1;
+      if (orbitOn) {
+        document.getElementById('orbitCW').classList.add('active');
+        document.getElementById('orbitCCW').classList.remove('active');
+      } else {
+        document.getElementById('orbitCW').classList.remove('active');
+        document.getElementById('orbitCCW').classList.remove('active');
+      }
+      break;
+    case 'orbitCW':
+      // Toggle orbit CW
+      if (orbitOn && orbitDir === 1) {
+        orbitOn = false;
+        document.getElementById('orbitCW').classList.remove('active');
+      } else {
+        orbitOn = true;
+        orbitDir = 1;
+        document.getElementById('orbitCW').classList.add('active');
+        document.getElementById('orbitCCW').classList.remove('active');
+      }
+      break;
+    case 'orbitCCW':
+      // Toggle orbit CCW
+      if (orbitOn && orbitDir === -1) {
+        orbitOn = false;
+        document.getElementById('orbitCCW').classList.remove('active');
+      } else {
+        orbitOn = true;
+        orbitDir = -1;
+        document.getElementById('orbitCCW').classList.add('active');
+        document.getElementById('orbitCW').classList.remove('active');
+      }
+      break;
+    case 'toggleTheme':
+      isDarkMode = !isDarkMode;
+      applyTheme(isDarkMode);
+      const themeBtn = document.getElementById('themeBtn');
+      themeBtn.textContent = isDarkMode ? '🌙' : '☀️';
+      syncTags();
+      saveSettings();
+      break;
+    case 'pause':
+      if (ringModeActive) {
+        ringModePaused = !ringModePaused;
+        if (ringModePaused) {
+          openMenu(); // Open menu when paused
+        }
+      }
+      break;
+    case 'openMenu':
+      if (chromeShown) closeMenu();
+      else openMenu();
+      break;
+    default: break;
+  }
+}
+
+function handleRemap(pad){
+  if(!gpRemapping || !pad) return;
+
+  // First, wait for all buttons and axes to be released
+  if(!gpRemapReady){
+    let allReleased = true;
+
+    // Check if any button is pressed
+    for(let i=0; i<pad.buttons.length; i++){
+      if(pad.buttons[i] && (pad.buttons[i].value||0) > 0.5){
+        allReleased = false;
+        break;
+      }
+    }
+
+    // Check if any axis is deflected
+    if(allReleased){
+      for(let a=0; a<pad.axes.length; a++){
+        const v = pad.axes[a] || 0;
+        if(Math.abs(v) > 0.6){
+          allReleased = false;
+          break;
+        }
+      }
+    }
+
+    if(allReleased){
+      gpRemapReady = true;
+      gpBindLabel.textContent = 'Ready! Press button / move axis…';
+    }
+    return;
+  }
+
+  // Now we're ready to capture the new binding
+  for(let i=0;i<pad.buttons.length;i++){
+    if(pad.buttons[i] && (pad.buttons[i].value||0) > 0.5){
+      const action = gpActionSel.value;
+      gpBindings[action] = { kind:'button', index:i };
+      console.log(`Remapped ${action} to button ${i}`);
+      console.log('Current gpBindings:', JSON.parse(JSON.stringify(gpBindings)));
+      gpRemapping = false;
+      gpRemapReady = false;
+      updateBindLabel();
+      saveSettings();
+      console.log('saveSettings() called after remapping');
+      return;
+    }
+  }
+  for(let a=0;a<pad.axes.length;a++){
+    const v = pad.axes[a] || 0;
+    if(Math.abs(v) > 0.6){
+      const action = gpActionSel.value;
+      gpBindings[action] = { kind:'axis', axis:a, dir: (v>0? +1 : -1) };
+      console.log(`Remapped ${action} to axis ${a} dir ${v>0?'+':'-'}`);
+      console.log('Current gpBindings:', JSON.parse(JSON.stringify(gpBindings)));
+      gpRemapping = false;
+      gpRemapReady = false;
+      updateBindLabel();
+      saveSettings();
+      console.log('saveSettings() called after remapping');
+      return;
+    }
+  }
+}
+
+// Helper: Check if gamepad is currently pressing any air roll buttons
+function isGamepadPressingAirRoll(){
+  if(!gpEnabled) return false;
+  const { pad } = readPads();
+  if(!pad) return false;
+
+  // Check if any air roll bindings are currently pressed
+  if(gpBindings.rollLeft && isPressedForBinding(pad, gpBindings.rollLeft)) return true;
+  if(gpBindings.rollRight && isPressedForBinding(pad, gpBindings.rollRight)) return true;
+  if(gpBindings.rollFree && isPressedForBinding(pad, gpBindings.rollFree)) return true;
+
+  return false;
+}
+
+function updateKeyboardInput(){
+  // Keyboard controls: W/A/S/D = movement, Q/E = air roll, Shift = free roll, Space = boost
+  // I = menu toggle, Esc = pause (Ring Mode only)
+
+  // Handle menu toggle (I key) - must be before early return
+  if(keyJustPressed('KeyI')){
+    if(chromeShown){
+      closeMenu();
+    } else {
+      openMenu();
+    }
+  }
+
+  // Update previous key state for next frame (MUST be done every frame!)
+  keyState.forEach((value, key) => {
+    keyPrevState.set(key, value);
+  });
+
+  // If menu is open, don't process game input
+  if(chromeShown) return;
+
+  // Handle pause (Esc key - Ring Mode only)
+  if(keyJustPressed('Escape') && ringModeActive){
+    ringModePaused = !ringModePaused;
+    console.log('Ring Mode paused:', ringModePaused);
+  }
+
+  // Movement (WASD) - only when not dragging joystick manually
+  if(!joyActive && !relocating && !darRelocating){
+    let kx = 0, ky = 0;
+
+    if(keyHeld('KeyW')) ky -= 1; // Up
+    if(keyHeld('KeyS')) ky += 1; // Down
+    if(keyHeld('KeyA')) kx -= 1; // Left
+    if(keyHeld('KeyD')) kx += 1; // Right
+
+    // Normalize diagonal movement
+    const mag = Math.hypot(kx, ky);
+    if(mag > 0){
+      kx /= mag;
+      ky /= mag;
+      joyVec.set(kx * JOY_BASE_R, ky * JOY_BASE_R);
+    } else if(!gpEnabled || !readPads().pad){
+      // Only clear joystick if no gamepad input either
+      joyVec.set(0, 0);
+    }
+  }
+
+  // Keyboard air roll handling depends on mode
+  if(airRollIsToggle){
+    // Toggle mode: toggle on key press (edge detection)
+    if(keyJustPressed('KeyQ')){
+      toggleRoll(-1);
+    }
+    if(keyJustPressed('KeyE')){
+      toggleRoll(1);
+    }
+    if(keyJustPressed('ShiftLeft') || keyJustPressed('ShiftRight')){
+      toggleRoll(2);
+    }
+  } else {
+    // Hold mode: keyboard activates while held, deactivates when released
+    const gpControllingAirRoll = isGamepadPressingAirRoll();
+    const darButtonPressed = (darPointerId !== null);
+
+    // Air Roll Left (Q)
+    if(keyHeld('KeyQ')){
+      if(airRoll !== -1) setRoll(-1);
+    } else if(!keyHeld('KeyE') && !keyHeld('ShiftLeft') && !keyHeld('ShiftRight') && !gpControllingAirRoll && !darButtonPressed){
+      // Only release if no other air roll keys are held AND gamepad/DAR button isn't controlling it
+      if(airRoll === -1) setRoll(0);
+    }
+
+    // Air Roll Right (E)
+    if(keyHeld('KeyE')){
+      if(airRoll !== 1) setRoll(1);
+    } else if(!keyHeld('KeyQ') && !keyHeld('ShiftLeft') && !keyHeld('ShiftRight') && !gpControllingAirRoll && !darButtonPressed){
+      if(airRoll === 1) setRoll(0);
+    }
+
+    // Air Roll Free (Shift)
+    if(keyHeld('ShiftLeft') || keyHeld('ShiftRight')){
+      if(airRoll !== 2) setRoll(2);
+    } else if(!keyHeld('KeyQ') && !keyHeld('KeyE') && !gpControllingAirRoll && !darButtonPressed){
+      if(airRoll === 2) setRoll(0);
+    }
+  }
+
+  // Boost (Space) - for Ring Mode
+  // Combine keyboard and touch input (touch is handled separately in pointerdown/up)
+  const keyboardBoost = keyHeld('Space');
+  const touchBoost = (boostPointerId !== null); // If pointer assigned to boost, it's being held
+  ringModeBoostActive = keyboardBoost || touchBoost;
+}
+
+function updateGamepadInput(){
+  if(!gpEnabled) return;
+  const { pad } = readPads();
+  if(!pad){
+    gpStatusTag.textContent = 'Enabled (waiting for gamepad)';
+    return;
+  }
+  gpStatusTag.textContent = `Connected: ${pad.id}`;
+
+  // If remapping, ONLY handle remapping - block everything else
+  if(gpRemapping){
+    handleRemap(pad);
+    return; // Don't process any other input while remapping
+  }
+
+  // Handle menu navigation when menu is open (but not while remapping)
+  if(chromeShown && menuFocusableElements.length > 0){
+    const currentTime = Date.now();
+
+    // D-pad and left stick navigation
+    const dpadUp = pad.buttons[12]?.pressed || false;
+    const dpadDown = pad.buttons[13]?.pressed || false;
+    const dpadLeft = pad.buttons[14]?.pressed || false;
+    const dpadRight = pad.buttons[15]?.pressed || false;
+
+    const lx = pad.axes[0] || 0;
+    const ly = pad.axes[1] || 0;
+    const stickUp = ly < -0.5;
+    const stickDown = ly > 0.5;
+    const stickLeft = lx < -0.5;
+    const stickRight = lx > 0.5;
+
+    const focusedEl = menuFocusableElements[menuFocusIndex];
+
+    // Check if enough time has passed since last navigation
+    if(currentTime - menuNavigationCooldown >= MENU_NAV_COOLDOWN){
+      const isSlider = focusedEl && focusedEl.tagName === 'INPUT' && focusedEl.type === 'range';
+      const isSelect = focusedEl && focusedEl.tagName === 'SELECT';
+
+      // Handle UP/DOWN navigation (always navigates, never adjusts values)
+      if(dpadUp || stickUp){
+        const newIndex = findClosestElementInDirection('up');
+        focusMenuElement(newIndex);
+        menuNavigationCooldown = currentTime;
+      } else if(dpadDown || stickDown){
+        const newIndex = findClosestElementInDirection('down');
+        focusMenuElement(newIndex);
+        menuNavigationCooldown = currentTime;
+      } else if(dpadLeft || stickLeft){
+        // Left: adjust slider/select if focused on one, otherwise navigate
+        if(isSlider){
+          adjustSliderValue(-1);
+        } else if(isSelect){
+          adjustSelectValue(-1);
+        } else {
+          const newIndex = findClosestElementInDirection('left');
+          focusMenuElement(newIndex);
+        }
+        menuNavigationCooldown = currentTime;
+      } else if(dpadRight || stickRight){
+        // Right: adjust slider/select if focused on one, otherwise navigate
+        if(isSlider){
+          adjustSliderValue(1);
+        } else if(isSelect){
+          adjustSelectValue(1);
+        } else {
+          const newIndex = findClosestElementInDirection('right');
+          focusMenuElement(newIndex);
+        }
+        menuNavigationCooldown = currentTime;
+      }
+    }
+
+    // X button (Cross) to activate/select (button 0)
+    const xPressed = pad.buttons[0]?.pressed || false;
+    const xWasPressed = !!gpPrevActionPressed['menu_x'];
+    if(xPressed && !xWasPressed){
+      activateMenuElement();
+    }
+    gpPrevActionPressed['menu_x'] = xPressed;
+
+    // Circle button to close menu (button 1)
+    const circlePressed = pad.buttons[1]?.pressed || false;
+    const circleWasPressed = !!gpPrevActionPressed['menu_circle'];
+    if(circlePressed && !circleWasPressed){
+      closeMenu();
+    }
+    gpPrevActionPressed['menu_circle'] = circlePressed;
+
+    // Check for openMenu binding to allow closing menu with it
+    if(gpBindings.openMenu){
+      const openMenuPressed = isPressedForBinding(pad, gpBindings.openMenu);
+      const openMenuWasPressed = !!gpPrevActionPressed['openMenu'];
+      if(openMenuPressed && !openMenuWasPressed){
+        closeMenu();
+      }
+      gpPrevActionPressed['openMenu'] = openMenuPressed;
+    }
+
+    // Don't process normal game input when menu is open
+    return;
+  }
+
+  // Left stick → on-screen stick (natural Y: up=up)
+  if(!joyActive && !relocating && !darRelocating){
+    const lx = pad.axes[0] || 0;
+    const ly = pad.axes[1] || 0;
+    const mag = Math.hypot(lx, ly);
+    let nx = 0, ny = 0;
+    if(mag > GP_DEADZONE){
+      const k = (mag - GP_DEADZONE) / (1 - GP_DEADZONE);
+      nx = (lx / (mag||1)) * k;
+      ny = (ly / (mag||1)) * k;
+    }
+    joyVec.set(nx * JOY_BASE_R, ny * JOY_BASE_R);
+  }
+
+  // Check boost button state (hold-based, not toggle)
+  if(gpBindings.boost){
+    ringModeBoostActive = isPressedForBinding(pad, gpBindings.boost);
+  }
+
+  // Fire actions on rising edge (or handle hold mode for air rolls)
+  for(const action of Object.keys(gpBindings)){
+    const nowPressed = isPressedForBinding(pad, gpBindings[action]);
+    const wasPressed = !!gpPrevActionPressed[action];
+
+    // Boost is handled separately (hold-based)
+    if(action === 'boost'){
+      gpPrevActionPressed[action] = nowPressed;
+      continue;
+    }
+
+    // Air roll buttons have special hold/toggle behavior
+    const isAirRollAction = (action === 'rollLeft' || action === 'rollRight' || action === 'rollFree');
+
+    if(isAirRollAction && !airRollIsToggle){
+      // Hold mode: activate on press, deactivate on release
+      if(nowPressed && !wasPressed){
+        // Just pressed - activate this air roll
+        const dir = action === 'rollLeft' ? -1 : action === 'rollRight' ? 1 : 2;
+        setRoll(dir);
+      } else if(!nowPressed && wasPressed && darPointerId === null){
+        // Just released - deactivate if this was the active one
+        // BUT don't deactivate if DAR button is currently being held
+        const dir = action === 'rollLeft' ? -1 : action === 'rollRight' ? 1 : 2;
+        if(airRoll === dir){
+          setRoll(0);
+        }
+      }
+    } else {
+      // Normal toggle behavior for air rolls in toggle mode, or all other actions
+      if(nowPressed && !wasPressed){ execBinding(action); }
+    }
+
+    gpPrevActionPressed[action] = nowPressed;
+  }
+}
 
 /* Physics (independent caps for Pitch/Yaw) */
 let w = new THREE.Vector3(0,0,0);
-const STICK_DEADZONE = 0.02; // Local deadzone constant
+const STICK_DEADZONE = STICK_MIN;
 const KP_ROLL = 3.2, KD_ROLL = 0.25;
 
 // === NEW VARIABLES - Add these here ===
@@ -1726,17 +2709,19 @@ function integrate(dt) {
     return;
   }
 
-  // --- 1. Get smoothed joystick position from Input module ---
-  const joyVec = Input.getJoyVec();
-  const jx = joyVec.x / Input.getJoyBaseR();
-  const jy = -joyVec.y / Input.getJoyBaseR(); // up is positive
+  // --- 1. Smooth joystick position ---
+  const a = 1 - Math.exp(-(dt * 1000) / Math.max(1, STICK_TAU_MS));
+  smJoy.lerp(joyVec, a);
+
+  const jx = smJoy.x / JOY_BASE_R;
+  const jy = -smJoy.y / JOY_BASE_R; // up is positive
   let mag = Math.hypot(jx, jy);
 
   let eff = 0;
   let ux = 0, uy = 0;
 
-  if (mag > Input.STICK_DEADZONE) {
-    const m2 = (mag - Input.STICK_DEADZONE) / (1 - Input.STICK_DEADZONE);
+  if (mag > STICK_DEADZONE) {
+    const m2 = (mag - STICK_DEADZONE) / (1 - STICK_DEADZONE);
     const shaped = Math.pow(Math.max(0, m2), inputPow || 1.0); // 0..1
     eff = shaped;
 
@@ -1755,12 +2740,12 @@ function integrate(dt) {
     const boostDirY = forward.y;
 
     // Track if game has started (first boost press)
-    if (Input.getRingModeBoostActive() && !ringModeStarted) {
+    if (ringModeBoostActive && !ringModeStarted) {
       ringModeStarted = true;
     }
 
     // Boost rumble sound control
-    if (Input.getRingModeBoostActive()) {
+    if (ringModeBoostActive) {
       Audio.startBoostRumble();
     } else {
       Audio.stopBoostRumble();
@@ -1770,14 +2755,14 @@ function integrate(dt) {
     let accelX = 0;
     let accelY = ringModeStarted ? CONST.RING_GRAVITY : 0; // Only apply gravity after first boost
 
-    if (Input.getRingModeBoostActive()) {
+    if (ringModeBoostActive) {
       // Boost in the direction car's nose is facing
       accelX += boostDirX * CONST.RING_BOOST_ACCEL;
       accelY += boostDirY * CONST.RING_BOOST_ACCEL;
     }
 
     // Update boost flame visibility and position
-    updateBoostFlames(Input.getRingModeBoostActive(), forward);
+    updateBoostFlames(ringModeBoostActive, forward);
 
     // Integrate velocity
     ringModeVelocity.x += accelX * dt;
@@ -1857,8 +2842,8 @@ function integrate(dt) {
   // --- 2b. Tornado circle visualizer (shows DAR cone path) ---
   if (Car.tornadoCircle) {
     // Circle only shows for Air Roll Left/Right (not Free), when DAR is active
-    const isDAR = (Input.getAirRoll() === -1 || Input.getAirRoll() === 1);
-    const shouldShowCircle = showCircle && isDAR && Input.getDarOn() && eff > 0.02;
+    const isDAR = (airRoll === -1 || airRoll === 1);
+    const shouldShowCircle = showCircle && isDAR && darOn && eff > 0.02;
     Car.tornadoCircle.visible = shouldShowCircle;
 
     if (shouldShowCircle) {
@@ -1872,10 +2857,10 @@ function integrate(dt) {
       const circleRadius = arrowLength * (circleScale || 0.3);
 
       // The circle should be offset perpendicular to the arrow direction
-      // Air Roll Left (Input.getAirRoll() = -1): offset +90 degrees (counter-clockwise)
-      // Air Roll Right (Input.getAirRoll() = +1): offset -90 degrees (clockwise)
+      // Air Roll Left (airRoll = -1): offset +90 degrees (counter-clockwise)
+      // Air Roll Right (airRoll = +1): offset -90 degrees (clockwise)
       const arrowAngle = Math.atan2(ux, uy); // angle of the arrow in XY plane
-      const perpAngle = arrowAngle + (Input.getAirRoll() * Math.PI / 2); // offset 90 degrees based on roll direction
+      const perpAngle = arrowAngle + (airRoll * Math.PI / 2); // offset 90 degrees based on roll direction
 
       // Position circle center perpendicular to arrow, distance = circle radius
       const centerX = Math.sin(perpAngle) * circleRadius;
@@ -1919,7 +2904,7 @@ function integrate(dt) {
   let maxAccelRollRad  = (maxAccelRoll  * Math.PI) / 180;
 
   // --- 3.5. DAR acceleration multipliers (from RL measurements) ---
-  if (Input.getDarOn()) {
+  if (darOn) {
     maxAccelPitchRad *= 0.997;  // DAR: 714→712 deg/s²
     maxAccelYawRad *= 1.00;      // DAR: 521→522 deg/s² (no change)
     maxAccelRollRad *= 0.98;     // DAR: 2153→2110 deg/s²
@@ -1931,13 +2916,13 @@ function integrate(dt) {
   let targetRollSpeed = 0;        // rad/s
 
   // Check if using Air Roll (Free) mode
-  const isAirRollFree = (Input.getAirRoll() === 2);
+  const isAirRollFree = (airRoll === 2);
 
   // DAR tornado spin (measured from Rocket League)
-  if (Input.getDarOn() && !isAirRollFree) {
+  if (darOn && !isAirRollFree) {
     // RL tornado spin: 0.74 seconds per rotation
     const RL_TORNADO_PERIOD = 0.74;  // seconds
-    targetRollSpeed = Input.getAirRoll() * (2 * Math.PI) / RL_TORNADO_PERIOD;  // Input.getAirRoll() = ±1 for Left/Right
+    targetRollSpeed = airRoll * (2 * Math.PI) / RL_TORNADO_PERIOD;  // airRoll = ±1 for Left/Right
   }
 
   // stick → desired spin rates
@@ -1973,8 +2958,8 @@ function integrate(dt) {
   // CRITICAL: Damping only applies when inputs are released!
   const noStick = eff < 0.08;
   if (noStick) {
-    const baseDamp = Input.getDarOn() ? dampDAR : damp;
-    const dampEff = (baseDamp || 0) + ((!Input.getDarOn()) ? (brakeOnRelease || 0) : 0);
+    const baseDamp = darOn ? dampDAR : damp;
+    const dampEff = (baseDamp || 0) + ((!darOn) ? (brakeOnRelease || 0) : 0);
     const scale = Math.exp(-dampEff * dt);
     w.multiplyScalar(scale);
   }
@@ -2278,33 +3263,15 @@ gizmoAxes.position.copy(gizmoTarget.position);
 function renderHUD(){
   Rendering.renderHUD({
     // Joystick state
-    JOY_CENTER: Input.getJoyCenter(),
-    JOY_BASE_R: Input.getJoyBaseR(),
-    JOY_KNOB_R: Input.getJoyKnobR(),
-    joyVec: Input.getJoyVec(),
-    COLS,
+    JOY_CENTER, JOY_BASE_R, JOY_KNOB_R, joyVec, COLS,
     // DAR button state
-    DAR_CENTER: Input.getDarCenter(),
-    DAR_R: Input.getDarR(),
-    darOn: Input.getDarOn(),
-    airRoll: Input.getAirRoll(),
+    DAR_CENTER, DAR_R, darOn, airRoll,
     // Boost button state
-    BOOST_CENTER: Input.getBoostCenter(),
-    BOOST_R: Input.getBoostR(),
-    ringModeBoostActive: Input.getRingModeBoostActive(),
-    showBoostButton: Input.getShowBoostButton(),
+    BOOST_CENTER, BOOST_R, ringModeBoostActive, showBoostButton,
     // Ring Mode state
-    ringModeActive,
-    ringModeStarted,
-    ringModePaused,
-    ringModeLives,
-    ringModeScore,
-    ringModeHighScore,
-    ringModeRingCount,
-    ringModePosition,
-    rings,
-    isMobile: Input.getIsMobile(),
-    currentDifficulty
+    ringModeActive, ringModeStarted, ringModePaused,
+    ringModeLives, ringModeScore, ringModeHighScore, ringModeRingCount,
+    ringModePosition, rings, isMobile, currentDifficulty
   });
 }
 
@@ -2317,9 +3284,8 @@ function tick(){
 
   if(orbitOn){ orbitPhase += dt; orbitStep(orbitPhase); }
 
-  // Update input state from Input module
-  Input.updateInput(dt);
-
+  updateKeyboardInput();
+  updateGamepadInput();
   integrate(dt);
 
   renderer.setScissorTest(false);
@@ -2348,95 +3314,9 @@ function resize(){
   renderer.setSize(innerWidth, innerHeight);
   camera.aspect = innerWidth/innerHeight;
   camera.updateProjectionMatrix();
-  Rendering.sizeHud();
-  Input.handleResize();
-  applyZoom();
+  Rendering.sizeHud(); clampJoyCenter(); clampDARCenter(); clampBoostCenter(); positionHints(); applyZoom();
 }
 addEventListener('resize', resize);
-
-// Initialize Input module with callbacks
-Input.initInput(hud, {
-  execBinding: (action) => {
-    // Handle gamepad button actions
-    switch(action) {
-      case 'toggleDAR':
-        // Toggle DAR with last active air roll
-        const currentAirRoll = Input.getAirRoll();
-        const lastActive = Input.getLastActiveAirRoll();
-        if (currentAirRoll === 0) {
-          // Turn on DAR with last active direction
-          Input.selectAirRoll(lastActive);
-        } else {
-          // Turn off DAR
-          Input.selectAirRoll(0);
-        }
-        break;
-      case 'rollLeft':
-      case 'rollRight':
-      case 'rollFree':
-        // These are handled internally by Input module
-        break;
-      case 'boost':
-        // Boost handled internally by Input module
-        break;
-      case 'pause':
-        if (ringModeActive) {
-          ringModePaused = !ringModePaused;
-          Input.setRingModePaused(ringModePaused);
-        }
-        break;
-      case 'restart':
-        if (ringModeActive && ringModeLives <= 0) {
-          resetRingMode();
-        }
-        break;
-      case 'orbitCW':
-        if (orbitOn && orbitDir === 1) {
-          // Turn off if already orbiting CW
-          orbitOn = false;
-        } else {
-          // If switching from CCW to CW, maintain camera position
-          if (orbitOn && orbitDir === -1) {
-            orbitPhase = -orbitPhase;
-          }
-          // Turn on CW orbit
-          orbitOn = true;
-          orbitDir = 1;
-        }
-        break;
-      case 'orbitCCW':
-        if (orbitOn && orbitDir === -1) {
-          // Turn off if already orbiting CCW
-          orbitOn = false;
-        } else {
-          // If switching from CW to CCW, maintain camera position
-          if (orbitOn && orbitDir === 1) {
-            orbitPhase = -orbitPhase;
-          }
-          // Turn on CCW orbit
-          orbitOn = true;
-          orbitDir = -1;
-        }
-        break;
-      case 'toggleTheme':
-        isDarkMode = !isDarkMode;
-        applyTheme(isDarkMode);
-        saveSettings();
-        break;
-      case 'openMenu':
-        if (!chromeShown) {
-          openMenu();
-        } else {
-          closeMenu();
-        }
-        break;
-    }
-  },
-  openMenu: openMenu,
-  closeMenu: closeMenu,
-  retry: resetRingMode,
-  getRingModeLives: () => ringModeLives
-});
 
 // Restore saved car body or default to octane
 const savedCarBody = savedSettings.selectedCarBody || 'octane';
@@ -2459,7 +3339,10 @@ if (Car.car) {
 // Preload Ring Mode resources after car is ready (prevents lag on first ring spawn)
 preloadRingResources();
 
-// Air roll state and hint positioning managed by Input module
+// Restore saved air roll (skipSave = true to avoid overwriting localStorage on load)
+setRoll(airRoll, true);
+
+positionHints();
 applyZoom();
 applyTheme(isDarkMode); // Initialize theme
 
@@ -2478,10 +3361,12 @@ circleToggleBtn.textContent = showCircle ? 'Show Circle' : 'Hide Circle';
 
 // Restore toggle/hold mode button state
 const toggleModeBtn = document.getElementById('toggleMode');
-toggleModeBtn.classList.toggle('active', Input.getAirRollIsToggle());
-toggleModeBtn.textContent = Input.getAirRollIsToggle() ? 'Toggle' : 'Hold';
+toggleModeBtn.classList.toggle('active', airRollIsToggle);
+toggleModeBtn.textContent = airRollIsToggle ? 'Toggle' : 'Hold';
 
-// Gamepad state managed by Input module
+// Restore gamepad enabled button state
+gpEnableBtn.classList.toggle('active', gpEnabled);
+gpStatusTag.textContent = gpEnabled ? 'Enabled (waiting for gamepad)' : 'Disabled';
 
 // Restore Ring Mode difficulty selector
 if (ringDifficultySelector) {
