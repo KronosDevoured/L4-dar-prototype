@@ -57,8 +57,16 @@ const GP_PRESETS = {
 // INITIALIZATION
 // ============================================================================
 
-export function initGamepad(savedBindings, savedEnabled) {
-  gpBindings = savedBindings || { ...defaultGpBindings };
+export function initGamepad(savedBindings, savedEnabled, savedPreset) {
+  // Use saved bindings if available, otherwise use preset, otherwise use defaults
+  if (savedBindings) {
+    gpBindings = { ...savedBindings };
+  } else if (savedPreset && GP_PRESETS[savedPreset]) {
+    gpBindings = { ...GP_PRESETS[savedPreset] };
+  } else {
+    gpBindings = { ...defaultGpBindings };
+  }
+
   if (savedEnabled !== undefined) {
     gpEnabled = savedEnabled;
   }

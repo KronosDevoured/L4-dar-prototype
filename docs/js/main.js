@@ -614,6 +614,7 @@ export function init() {
   Input.initInput(hud, {
     savedGpBindings: savedSettings.gpBindings,
     savedGpEnabled: savedSettings.gpEnabled,
+    savedGpPreset: savedSettings.gpPreset,
     savedAirRollState: {
       airRoll: savedSettings.airRoll,
       lastActiveAirRoll: savedSettings.lastActiveAirRoll,
