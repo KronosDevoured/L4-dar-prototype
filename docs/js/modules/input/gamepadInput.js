@@ -131,7 +131,9 @@ function isPressedForBinding(binding, pad) {
 // ============================================================================
 
 export function updateGamepad(chromeShown, callbacks) {
-  if (!gpEnabled) return;
+  if (!gpEnabled) {
+    return;
+  }
 
   const { pad } = readPads();
   if (!pad) {
@@ -159,7 +161,7 @@ export function updateGamepad(chromeShown, callbacks) {
 
   // Left stick for movement - always send stick position (even if in deadzone)
   // The physics module will handle deadzone processing
-  callbacks?.onGamepadStick?.({ x: lx, y: ly });
+  callbacks?.onGamepadStick?.({ x: lx, ly });
 
   // Process button bindings
   Object.keys(gpBindings).forEach(action => {
