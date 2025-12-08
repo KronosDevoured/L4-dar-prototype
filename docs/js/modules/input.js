@@ -310,17 +310,8 @@ function handleGamepadStick(stick) {
   const JOY_BASE_R = TouchInput.getJoyBaseR();
   const joyActive = TouchInput.getJoyActive();
 
-  // DEBUG: Log when handler is called
-  if (Math.abs(stick.x) > 0.1 || Math.abs(stick.y) > 0.1) {
-    console.log('handleGamepadStick called:', stick, 'joyActive:', joyActive, 'JOY_BASE_R:', JOY_BASE_R);
-  }
-
   if (!joyActive) {
     TouchInput.setJoyVec(stick.x * JOY_BASE_R, stick.y * JOY_BASE_R);
-    // DEBUG: Log what we're setting
-    if (Math.abs(stick.x) > 0.1 || Math.abs(stick.y) > 0.1) {
-      console.log('Setting joyVec to:', stick.x * JOY_BASE_R, stick.y * JOY_BASE_R);
-    }
   }
 }
 

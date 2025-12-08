@@ -261,12 +261,18 @@ export function endPtr(id, callbacks) {
 // ============================================================================
 
 export function updateTouch(dt) {
-  // Smooth joystick interpolation
-  // Note: Always smooth joyVec, even if on-screen joystick isn't active
-  // (keyboard/gamepad set joyVec via setJoyVec)
-  const a = Math.exp(-dt * 1000 / STICK_TAU_MS);
-  smJoy.x = a * smJoy.x + (1 - a) * joyVec.x;
-  smJoy.y = a * smJoy.y + (1 - a) * joyVec.y;
+  // Smooth joystick interpolation ONLY for on-screen touch joystick
+  // Keyboard/gamepad get direct response (no smoothing lag)
+  if (joyActive) {
+    // Touch joystick: smooth to reduce finger jitter
+    const a = Math.exp(-dt * 1000 / STICK_TAU_MS);
+    smJoy.x = a * smJoy.x + (1 - a) * joyVec.x;
+    smJoy.y = a * smJoy.y + (1 - a) * joyVec.y;
+  } else {
+    // Keyboard/gamepad: direct, instant response
+    smJoy.x = joyVec.x;
+    smJoy.y = joyVec.y;
+  }
 }
 
 // ============================================================================
