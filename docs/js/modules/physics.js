@@ -327,6 +327,11 @@ export function updatePhysics(dt, settings, chromeShown) {
   const jy = -joyVec.y / Input.getJoyBaseR(); // up is positive
   let mag = Math.hypot(jx, jy);
 
+  // DEBUG: Log what physics receives
+  if (mag > 0.1) {
+    console.log('Physics received joyVec:', joyVec, 'normalized:', { jx, jy, mag }, 'deadzone:', Input.STICK_DEADZONE);
+  }
+
   let eff = 0;
   let ux = 0, uy = 0;
 

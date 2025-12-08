@@ -262,13 +262,11 @@ export function endPtr(id, callbacks) {
 
 export function updateTouch(dt) {
   // Smooth joystick interpolation
-  if (joyActive) {
-    const a = Math.exp(-dt * 1000 / STICK_TAU_MS);
-    smJoy.x = a * smJoy.x + (1 - a) * joyVec.x;
-    smJoy.y = a * smJoy.y + (1 - a) * joyVec.y;
-  } else {
-    smJoy.set(0, 0);
-  }
+  // Note: Always smooth joyVec, even if on-screen joystick isn't active
+  // (keyboard/gamepad set joyVec via setJoyVec)
+  const a = Math.exp(-dt * 1000 / STICK_TAU_MS);
+  smJoy.x = a * smJoy.x + (1 - a) * joyVec.x;
+  smJoy.y = a * smJoy.y + (1 - a) * joyVec.y;
 }
 
 // ============================================================================
