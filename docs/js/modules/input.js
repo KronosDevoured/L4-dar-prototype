@@ -246,14 +246,14 @@ function handleGamepadAirRollButtons(rollStates) {
   if (!airRollIsToggle) {
     // Hold mode: activate while held, deactivate when released
     if (rollStates.rollLeft) {
-      if (currentAirRoll !== -1) AirRollController.setRoll(-1);
+      if (currentAirRoll !== -1) AirRollController.setRoll(-1, true);
     } else if (rollStates.rollRight) {
-      if (currentAirRoll !== 1) AirRollController.setRoll(1);
+      if (currentAirRoll !== 1) AirRollController.setRoll(1, true);
     } else if (rollStates.rollFree) {
-      if (currentAirRoll !== 2) AirRollController.setRoll(2);
+      if (currentAirRoll !== 2) AirRollController.setRoll(2, true);
     } else {
       // No air roll buttons held - deactivate
-      if (currentAirRoll !== 0) AirRollController.setRoll(0);
+      if (currentAirRoll !== 0) AirRollController.setRoll(0, true);
     }
   }
   // In toggle mode, air roll is handled by execBinding callback
@@ -274,9 +274,9 @@ function handleBindingExecution(action) {
     // Toggle between last active air roll and off
     const currentAirRoll = AirRollController.getAirRoll();
     if (currentAirRoll === 0) {
-      AirRollController.setRoll(AirRollController.getLastActiveAirRoll());
+      AirRollController.setRoll(AirRollController.getLastActiveAirRoll(), true);
     } else {
-      AirRollController.setRoll(0);
+      AirRollController.setRoll(0, true);
     }
   } else {
     // Forward all other actions to the main callback
@@ -325,14 +325,14 @@ function handleDARPress(pressed) {
     // Toggle mode: toggle between last active and off
     const currentAirRoll = AirRollController.getAirRoll();
     if (currentAirRoll === 0) {
-      AirRollController.setRoll(AirRollController.getLastActiveAirRoll());
+      AirRollController.setRoll(AirRollController.getLastActiveAirRoll(), true);
     } else {
-      AirRollController.setRoll(0);
+      AirRollController.setRoll(0, true);
     }
   } else {
     // Hold mode: activate on press
     if (AirRollController.getAirRoll() === 0) {
-      AirRollController.setRoll(AirRollController.getLastActiveAirRoll());
+      AirRollController.setRoll(AirRollController.getLastActiveAirRoll(), true);
     }
   }
 }
@@ -345,7 +345,7 @@ function handleDARRelease() {
 
   // Release: only deactivate in hold mode
   if (!airRollIsToggle) {
-    AirRollController.setRoll(0);
+    AirRollController.setRoll(0, true);
   }
 }
 
@@ -420,14 +420,14 @@ function handleKeyboardAirRoll(airRollKeys) {
 
   // Activate whichever key is held
   if (airRollKeys.rollLeft) {
-    if (currentAirRoll !== -1) AirRollController.setRoll(-1);
+    if (currentAirRoll !== -1) AirRollController.setRoll(-1, true);
   } else if (airRollKeys.rollRight) {
-    if (currentAirRoll !== 1) AirRollController.setRoll(1);
+    if (currentAirRoll !== 1) AirRollController.setRoll(1, true);
   } else if (airRollKeys.rollFree) {
-    if (currentAirRoll !== 2) AirRollController.setRoll(2);
+    if (currentAirRoll !== 2) AirRollController.setRoll(2, true);
   } else if (!gpPressingAirRoll && !darPressed) {
     // No keys held and neither gamepad nor DAR is active - deactivate
-    if (currentAirRoll !== 0) AirRollController.setRoll(0);
+    if (currentAirRoll !== 0) AirRollController.setRoll(0, true);
   }
 }
 

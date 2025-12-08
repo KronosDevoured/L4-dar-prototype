@@ -33,15 +33,16 @@ export function setRoll(dir, skipSave = false) {
 
 export function toggleRoll(dir) {
   // For toggle mode: tap to activate, tap again to deactivate
+  // Skip save - this is called during gameplay (gamepad/keyboard)
   if (airRollIsToggle) {
     if (airRoll === dir) {
-      setRoll(0); // Turn off if already active
+      setRoll(0, true); // Turn off if already active
     } else {
-      setRoll(dir); // Switch to this mode
+      setRoll(dir, true); // Switch to this mode
     }
   } else {
     // For hold mode: handled by button state
-    setRoll(dir);
+    setRoll(dir, true);
   }
 }
 
