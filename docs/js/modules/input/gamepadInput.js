@@ -161,7 +161,7 @@ export function updateGamepad(chromeShown, callbacks) {
 
   // Left stick for movement - always send stick position (even if in deadzone)
   // The physics module will handle deadzone processing
-  callbacks?.onGamepadStick?.({ x: lx, ly });
+  callbacks?.onGamepadStick?.({ x: lx, y: ly });
 
   // Process button bindings
   Object.keys(gpBindings).forEach(action => {
