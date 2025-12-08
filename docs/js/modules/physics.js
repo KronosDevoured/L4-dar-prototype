@@ -377,8 +377,14 @@ export function updatePhysics(dt, settings, chromeShown) {
   // Check if using Air Roll (Free) mode
   const isAirRollFree = (Input.getAirRoll() === 2);
 
-  // DAR tornado spin (measured from Rocket League)
-  if (Input.getDarOn() && !isAirRollFree) {
+  // Check if using directional air roll (Left/Right)
+  const isDirectionalAirRoll = (Input.getAirRoll() === -1 || Input.getAirRoll() === 1);
+
+  // Directional air roll tornado spin (measured from Rocket League)
+  // This activates when:
+  // 1. Air Roll Left/Right buttons are pressed (Square/Circle on gamepad, Q/E on keyboard)
+  // 2. DAR button is active with a selected direction in the menu
+  if ((isDirectionalAirRoll || Input.getDarOn()) && !isAirRollFree) {
     // RL tornado spin: 0.74 seconds per rotation
     const RL_TORNADO_PERIOD = 0.74;  // seconds
     targetRollSpeed = Input.getAirRoll() * (2 * Math.PI) / RL_TORNADO_PERIOD;  // Input.getAirRoll() = ±1 for Left/Right

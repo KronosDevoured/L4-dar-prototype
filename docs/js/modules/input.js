@@ -241,19 +241,18 @@ let getRingModeLives = () => 0;
  */
 function handleGamepadAirRollButtons(rollStates) {
   const airRollIsToggle = AirRollController.getAirRollIsToggle();
-  const currentAirRoll = AirRollController.getAirRoll();
 
   if (!airRollIsToggle) {
     // Hold mode: activate while held, deactivate when released
     if (rollStates.rollLeft) {
-      if (currentAirRoll !== -1) AirRollController.setRoll(-1, true);
+      AirRollController.setRoll(-1, true);
     } else if (rollStates.rollRight) {
-      if (currentAirRoll !== 1) AirRollController.setRoll(1, true);
+      AirRollController.setRoll(1, true);
     } else if (rollStates.rollFree) {
-      if (currentAirRoll !== 2) AirRollController.setRoll(2, true);
+      AirRollController.setRoll(2, true);
     } else {
       // No air roll buttons held - deactivate
-      if (currentAirRoll !== 0) AirRollController.setRoll(0, true);
+      AirRollController.setRoll(0, true);
     }
   }
   // In toggle mode, air roll is handled by execBinding callback
@@ -263,12 +262,23 @@ function handleGamepadAirRollButtons(rollStates) {
  * Execute a binding action (from gamepad or keyboard)
  */
 function handleBindingExecution(action) {
+  const airRollIsToggle = AirRollController.getAirRollIsToggle();
+
   // Handle air roll actions
+  // In toggle mode: use toggleRoll for all air roll actions
+  // In hold mode: only use toggleRoll for rollFree (since it has no continuous tracking)
   if (action === 'rollLeft') {
-    AirRollController.toggleRoll(-1);
+    if (airRollIsToggle) {
+      AirRollController.toggleRoll(-1);
+    }
+    // In hold mode, rollLeft is handled by handleGamepadAirRollButtons/handleKeyboardAirRoll
   } else if (action === 'rollRight') {
-    AirRollController.toggleRoll(1);
+    if (airRollIsToggle) {
+      AirRollController.toggleRoll(1);
+    }
+    // In hold mode, rollRight is handled by handleGamepadAirRollButtons/handleKeyboardAirRoll
   } else if (action === 'rollFree') {
+    // rollFree always uses toggleRoll (has continuous tracking in both modes)
     AirRollController.toggleRoll(2);
   } else if (action === 'toggleDAR') {
     // Toggle between last active air roll and off
@@ -412,22 +422,20 @@ export function initInput(hud, callbacks = {}) {
  * Handle keyboard air roll in hold mode
  */
 function handleKeyboardAirRoll(airRollKeys) {
-  const currentAirRoll = AirRollController.getAirRoll();
-
   // Check if gamepad or DAR button is also pressing
   const gpPressingAirRoll = GamepadInput.isGamepadPressingAirRoll();
   const darPressed = TouchInput.getDarOn();
 
   // Activate whichever key is held
   if (airRollKeys.rollLeft) {
-    if (currentAirRoll !== -1) AirRollController.setRoll(-1, true);
+    AirRollController.setRoll(-1, true);
   } else if (airRollKeys.rollRight) {
-    if (currentAirRoll !== 1) AirRollController.setRoll(1, true);
+    AirRollController.setRoll(1, true);
   } else if (airRollKeys.rollFree) {
-    if (currentAirRoll !== 2) AirRollController.setRoll(2, true);
+    AirRollController.setRoll(2, true);
   } else if (!gpPressingAirRoll && !darPressed) {
     // No keys held and neither gamepad nor DAR is active - deactivate
-    if (currentAirRoll !== 0) AirRollController.setRoll(0, true);
+    AirRollController.setRoll(0, true);
   }
 }
 
