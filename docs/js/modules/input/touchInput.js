@@ -318,16 +318,9 @@ export function initTouch(hud, callbacks = {}) {
 // ============================================================================
 
 export function getJoyVec() {
-  // Apply deadzone
-  const mag = smJoy.length();
-  if (mag < STICK_DEADZONE * JOY_BASE_R) {
-    return new THREE.Vector2(0, 0);
-  }
-  // Normalize and scale
-  const normalized = smJoy.clone().divideScalar(JOY_BASE_R);
-  // Remap from deadzone to 1.0
-  const remapped = (mag / JOY_BASE_R - STICK_DEADZONE) / (1 - STICK_DEADZONE);
-  return normalized.multiplyScalar(Math.min(1, remapped));
+  // Return raw smoothed joystick vector in pixels
+  // Physics module will handle deadzone and normalization
+  return smJoy.clone();
 }
 
 export function getJoyActive() {
