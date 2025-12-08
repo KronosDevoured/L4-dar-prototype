@@ -157,10 +157,9 @@ export function updateGamepad(chromeShown, callbacks) {
   const rx = pad.axes[2] || 0;
   const ry = pad.axes[3] || 0;
 
-  // Left stick for movement
-  if (Math.abs(lx) > GP_DEADZONE || Math.abs(ly) > GP_DEADZONE) {
-    callbacks?.onGamepadStick?.({ x: lx, y: ly });
-  }
+  // Left stick for movement - always send stick position (even if in deadzone)
+  // The physics module will handle deadzone processing
+  callbacks?.onGamepadStick?.({ x: lx, y: ly });
 
   // Process button bindings
   Object.keys(gpBindings).forEach(action => {
