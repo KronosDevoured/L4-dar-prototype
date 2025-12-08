@@ -33,6 +33,7 @@ let joyVec = new THREE.Vector2(0, 0);
 let smJoy = new THREE.Vector2(0, 0);
 let relocating = false;
 let holdTimer = null;
+let joyPressStartPos = new THREE.Vector2(0, 0);
 
 // DAR state
 let darOn = false;
@@ -144,9 +145,11 @@ export function onPointerDown(e, callbacks) {
     joyPointerId = id;
     joyActive = true;
     joyVec.copy(vecFromJoyPx(x, y));
+    joyPressStartPos.set(x, y);
 
     clearTimeout(holdTimer);
     holdTimer = setTimeout(() => {
+      // Only enable relocate if still active and timer wasn't cancelled by movement
       if (joyActive && !relocating) {
         relocating = true;
         callbacks?.showJoyHint?.();
@@ -193,6 +196,13 @@ export function onPointerMove(e, callbacks) {
 
   // Joystick movement
   if (id === joyPointerId) {
+    // Cancel relocate timer if pointer has moved significantly
+    const moved = joyPressStartPos.distanceTo(new THREE.Vector2(x, y));
+    if (moved > 10 && holdTimer) {
+      clearTimeout(holdTimer);
+      holdTimer = null;
+    }
+
     if (relocating) {
       JOY_CENTER.set(x, y);
       clampJoyCenter();
