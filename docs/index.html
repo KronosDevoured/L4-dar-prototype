@@ -190,8 +190,27 @@
             <button id="toggleMode" class="btn active" type="button">Toggle</button>
           </div>
 
+          <div class="row">
+            <label>Lock Axes:</label>
+            <button id="lockPitch" class="btn" type="button">Lock Pitch</button>
+            <button id="lockYaw" class="btn" type="button">Lock Yaw</button>
+            <button id="lockRoll" class="btn" type="button">Lock Roll</button>
+          </div>
+
           <div class="tip">
             <b>Tip:</b> With Air Roll Right, rotate the stick clockwise. With Air Roll Left, rotate the stick counter-clockwise.
+          </div>
+        </div>
+
+        <!-- Tornado Circle Axis Measurement -->
+        <div class="card">
+          <h3>Tornado Circle Measurement</h3>
+          <div class="row">
+            <button id="measureMinBtn" class="btn" type="button">Measure MIN (10%)</button>
+            <button id="measureMaxBtn" class="btn" type="button">Measure MAX (100%)</button>
+          </div>
+          <div class="tip">
+            <b>Instructions:</b> Click button, car will auto-spin with exact input. Wait for console message with results. MIN first, then MAX.
           </div>
         </div>
 

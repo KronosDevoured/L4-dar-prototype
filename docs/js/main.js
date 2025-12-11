@@ -13,6 +13,7 @@ import * as Settings from './modules/settings.js';
 import * as Car from './modules/car.js';
 import * as Rendering from './modules/rendering.js';
 import * as Input from './modules/input.js';
+import * as TouchInput from './modules/input/touchInput.js';
 import * as RingMode from './modules/ringMode.js';
 import * as Physics from './modules/physics.js';
 import { GameState } from './modules/gameState.js';
@@ -48,45 +49,30 @@ function closeMenu() {
 }
 
 // ============================================================================
-// SETTINGS VARIABLES
+// SETTINGS PROXY
 // ============================================================================
 
-// Settings object to hold all configuration
-const settings = {
-  // Physics
-  maxAccelPitch: 715,
-  maxAccelYaw: 565,
-  maxAccelRoll: 1030,
-  inputPow: 1.5,
-  damp: 2.96,
-  dampDAR: 4.35,
-  brakeOnRelease: 0.0,
-  wMax: 6.0,
-  wMaxPitch: 8.5,
-  wMaxYaw: 9.0,
-  wMaxRoll: 6.0,
-  // Visualization
-  circleTiltAngle: 34,
-  circleTiltModifier: 0,
-  circleScale: 0.3,
-  zoom: 1.0,
-  arrowScale: 4.0,
-  showArrow: true,
-  showCircle: true,
-  // Theme
-  isDarkMode: true,
-  brightnessDark: 1.0,
-  brightnessLight: 1.0,
-  // Audio
-  gameSoundsEnabled: true,
-  gameMusicEnabled: true
+// Create proxy that reads/writes from Settings module
+// This eliminates duplicate state while maintaining backward compatibility
+const settingsHandler = {
+  get(target, prop) {
+    return Settings.getSetting(prop);
+  },
+  set(target, prop, value) {
+    // Update in Settings module
+    const updates = { [prop]: value };
+    Settings.saveSettings(updates);
+    return true;
+  }
 };
+
+// Proxy object that delegates to Settings module
+const settings = new Proxy({}, settingsHandler);
 
 // Wrapper function to save settings to Settings module
 function saveSettings() {
-  // Collect current settings
-  const currentSettings = {
-    ...settings,
+  // Collect additional settings that aren't in the main settings object
+  const additionalSettings = {
     ringModeHighScore: RingMode.getRingModeHighScore(),
     ringDifficulty: RingMode.getCurrentDifficulty()
   };
@@ -94,16 +80,16 @@ function saveSettings() {
   // Add optional settings if elements exist
   const gpPresetEl = document.getElementById('gpPreset');
   if (gpPresetEl) {
-    currentSettings.gpPreset = gpPresetEl.value;
+    additionalSettings.gpPreset = gpPresetEl.value;
   }
 
   const presetSelEl = document.getElementById('presetSel');
   if (presetSelEl) {
-    currentSettings.selectedCarBody = presetSelEl.value;
+    additionalSettings.selectedCarBody = presetSelEl.value;
   }
 
-  // Save to Settings module
-  Settings.saveSettings(currentSettings);
+  // Save additional settings (main settings are already saved via proxy)
+  Settings.saveSettings(additionalSettings);
 }
 
 // Wrapper for syncTags that uses UIManager
@@ -159,7 +145,9 @@ function updateMenuButtonStyling() {
 
 function integrate(dt) {
   // Skip physics when menu is open OR when Ring Mode is paused
-  if (uiManager.getChromeShown() || (RingMode.getRingModeActive() && RingMode.getRingModePaused())) {
+  // EXCEPT during automated measurement mode
+  const allowMeasurement = window.measurementState && window.measurementState.active;
+  if (!allowMeasurement && (uiManager.getChromeShown() || (RingMode.getRingModeActive() && RingMode.getRingModePaused()))) {
     return;
   }
 
@@ -244,11 +232,40 @@ function tick(){
   const dt = Math.min(0.033, Math.max(0.001, t - lastT));
   lastT = t;
 
+  // Handle measurement mode timing
+  if (window.measurementState && window.measurementState.active) {
+    // Wait for warmup period
+    window.measurementState.warmupTime += dt;
+
+    if (window.measurementState.warmupTime < window.measurementState.warmupDuration) {
+      console.log(`Warmup: ${window.measurementState.warmupTime.toFixed(2)}s / ${window.measurementState.warmupDuration}s`);
+    } else if (window.measurementState.warmupTime >= window.measurementState.warmupDuration && !window.measurementState.started) {
+      // Warmup complete - start measurement
+      console.log('Warmup complete! Starting measurement...');
+      window.measurementState.started = true;
+      if (window.measurementState.targetMag === 0.10) {
+        Physics.measureMinAxis();
+      } else {
+        Physics.measureMaxAxis();
+      }
+    }
+  }
+
   // Update camera orbit
   cameraController.update(dt);
 
   // Update input state from Input module
   Input.updateInput(dt);
+
+  // Override input AFTER Input.updateInput() processes keyboard
+  if (window.measurementState && window.measurementState.active) {
+    const joyBaseR = TouchInput.getJoyBaseR();
+    const setX = window.measurementState.input.x * joyBaseR;
+    const setY = -window.measurementState.input.y * joyBaseR;
+    TouchInput.setJoyVec(setX, setY);
+    // Force immediate smJoy update with dt=0 to avoid smoothing lag
+    TouchInput.updateTouch(0);
+  }
 
   integrate(dt);
 
@@ -432,6 +449,27 @@ export function init() {
     const btn = document.getElementById('toggleMode');
     btn.classList.toggle('active', newMode);
     btn.textContent = newMode ? 'Toggle' : 'Hold';
+  });
+
+  // Lock Pitch button
+  document.getElementById('lockPitch').addEventListener('click', () => {
+    const locked = Physics.togglePitchLock();
+    const btn = document.getElementById('lockPitch');
+    btn.classList.toggle('active', locked);
+  });
+
+  // Lock Yaw button
+  document.getElementById('lockYaw').addEventListener('click', () => {
+    const locked = Physics.toggleYawLock();
+    const btn = document.getElementById('lockYaw');
+    btn.classList.toggle('active', locked);
+  });
+
+  // Lock Roll button
+  document.getElementById('lockRoll').addEventListener('click', () => {
+    const locked = Physics.toggleRollLock();
+    const btn = document.getElementById('lockRoll');
+    btn.classList.toggle('active', locked);
   });
 
   // Ring Mode button
@@ -781,5 +819,64 @@ export function init() {
   // Start game loop
   requestAnimationFrame(tick);
 
+  // Expose axis measurement functions
+  window.measureMinAxis = Physics.measureMinAxis;
+  window.measureMaxAxis = Physics.measureMaxAxis;
+  window.printAxisData = Physics.printAxisData;
+
+  // Measurement state
+  window.measurementState = {
+    active: false,
+    input: { x: 0, y: 0 },
+    warmupTime: 0,
+    warmupDuration: 1.0
+  };
+
+  document.getElementById('measureMinBtn').addEventListener('click', () => {
+    if (window.measurementState.active) {
+      console.log('Measurement already in progress!');
+      return;
+    }
+
+    // Close menu so input works
+    uiManager.closeMenu();
+
+    console.log('Starting MIN measurement (10% right input)...');
+    console.log('Warming up for 1 second to reach steady-state...');
+    window.measurementState.active = true;
+    window.measurementState.input.x = 0.10; // 10% right
+    window.measurementState.input.y = 0;
+    window.measurementState.warmupTime = 0;
+    window.measurementState.targetMag = 0.10;
+    window.measurementState.started = false;
+
+    // Enable DAR Right if not already
+    Input.selectAirRoll(1); // Air Roll Right
+  });
+
+  document.getElementById('measureMaxBtn').addEventListener('click', () => {
+    if (window.measurementState.active) {
+      console.log('Measurement already in progress!');
+      return;
+    }
+
+    // Close menu so input works
+    uiManager.closeMenu();
+
+    console.log('Starting MAX measurement (100% right input)...');
+    console.log('Warming up for 1 second to reach steady-state...');
+    window.measurementState.active = true;
+    window.measurementState.input.x = 1.0; // 100% right
+    window.measurementState.input.y = 0;
+    window.measurementState.warmupTime = 0;
+    window.measurementState.targetMag = 1.0;
+    window.measurementState.started = false;
+
+    // Enable DAR Right if not already
+    Input.selectAirRoll(1); // Air Roll Right
+  });
+
   console.log('Initialization complete!');
+  console.log('Tornado circle measurement buttons added!');
+  console.log('Click "Measure MIN (10%)" or "Measure MAX (100%)" to collect data');
 }

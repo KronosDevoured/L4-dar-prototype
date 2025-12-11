@@ -11,6 +11,7 @@ import * as TouchInput from './input/touchInput.js';
 import * as KeyboardInput from './input/keyboardInput.js';
 import * as GamepadInput from './input/gamepadInput.js';
 import * as AirRollController from './input/airRollController.js';
+import * as RingMode from './ringMode.js';
 
 /* ===========================
  * DEVICE DETECTION
@@ -55,38 +56,84 @@ function findClosestElementInDirection(direction) {
   const currentEl = menuFocusableElements[menuFocusIndex];
   const isHeader = currentEl.tagName === 'H3';
 
-  // UP/DOWN behavior depends on what's focused
+  // UP/DOWN behavior - NEW LOGIC for better navigation
   if (direction === 'down' || direction === 'up') {
     const step = direction === 'down' ? 1 : -1;
     const currentCard = currentEl.closest('.card');
 
-    // If on a card header (H3), jump to next/previous card header
     if (isHeader) {
-      for (let i = 1; i < menuFocusableElements.length; i++) {
-        const checkIndex = (menuFocusIndex + (i * step) + menuFocusableElements.length) % menuFocusableElements.length;
-        const checkEl = menuFocusableElements[checkIndex];
+      if (direction === 'down') {
+        // DOWN from header → Enter card ONLY if expanded, otherwise jump to next header
+        const isCardExpanded = currentCard && !currentCard.classList.contains('collapsed');
 
-        if (checkEl.tagName === 'H3') {
-          return checkIndex;
+        if (isCardExpanded) {
+          // Card is expanded → Try to enter card (find first non-header element)
+          for (let i = 1; i < menuFocusableElements.length; i++) {
+            const checkIndex = (menuFocusIndex + i) % menuFocusableElements.length;
+            const checkEl = menuFocusableElements[checkIndex];
+            const checkCard = checkEl.closest('.card');
+
+            // Found first element inside current card
+            if (checkCard === currentCard && checkEl.tagName !== 'H3') {
+              return checkIndex;
+            }
+
+            // Reached next card without finding elements → jump to next card header
+            if (checkCard !== currentCard) {
+              break;
+            }
+          }
+        }
+
+        // Card is collapsed OR has no elements → jump to next card header
+        for (let i = 1; i < menuFocusableElements.length; i++) {
+          const checkIndex = (menuFocusIndex + i) % menuFocusableElements.length;
+          const checkEl = menuFocusableElements[checkIndex];
+          if (checkEl.tagName === 'H3') {
+            return checkIndex;
+          }
+        }
+      } else {
+        // UP from header → Go to previous card header
+        for (let i = 1; i < menuFocusableElements.length; i++) {
+          const checkIndex = (menuFocusIndex - i + menuFocusableElements.length) % menuFocusableElements.length;
+          const checkEl = menuFocusableElements[checkIndex];
+          if (checkEl.tagName === 'H3') {
+            return checkIndex;
+          }
         }
       }
     } else {
-      // If on a control (slider/button), navigate within the card
-      for (let i = 1; i < menuFocusableElements.length; i++) {
-        const checkIndex = (menuFocusIndex + (i * step) + menuFocusableElements.length) % menuFocusableElements.length;
-        const checkEl = menuFocusableElements[checkIndex];
-        const checkCard = checkEl.closest('.card');
+      // Currently on a control element (button/slider/select)
+      if (direction === 'down') {
+        // DOWN from control → Next element in card OR next card header
+        for (let i = 1; i < menuFocusableElements.length; i++) {
+          const checkIndex = (menuFocusIndex + i) % menuFocusableElements.length;
+          const checkEl = menuFocusableElements[checkIndex];
+          const checkCard = checkEl.closest('.card');
 
-        // Stay within the same card
-        if (checkCard === currentCard) {
-          return checkIndex;
+          // Still in same card → move to next element
+          if (checkCard === currentCard && checkEl.tagName !== 'H3') {
+            return checkIndex;
+          }
+
+          // Left card → jump to next card header
+          if (checkCard !== currentCard && checkEl.tagName === 'H3') {
+            return checkIndex;
+          }
         }
+      } else {
+        // UP from control → Previous element in card OR card header
+        for (let i = 1; i < menuFocusableElements.length; i++) {
+          const checkIndex = (menuFocusIndex - i + menuFocusableElements.length) % menuFocusableElements.length;
+          const checkEl = menuFocusableElements[checkIndex];
+          const checkCard = checkEl.closest('.card');
 
-        // If we've left the card, wrap to the card header
-        const headerIndex = menuFocusableElements.findIndex(el =>
-          el.tagName === 'H3' && el.closest('.card') === currentCard
-        );
-        if (headerIndex !== -1) return headerIndex;
+          // Previous element in same card (including header)
+          if (checkCard === currentCard) {
+            return checkIndex;
+          }
+        }
       }
     }
 
@@ -166,6 +213,10 @@ function activateMenuElement() {
   if (el.tagName === 'H3') {
     // Toggle collapse/expand for card headers
     el.click();
+    // Refresh focusable elements after expanding/collapsing card
+    setTimeout(() => {
+      updateMenuFocusableElements();
+    }, 50);
   } else if (el.tagName === 'BUTTON') {
     el.click();
   } else if (el.tagName === 'INPUT' && el.type === 'range') {
@@ -214,12 +265,12 @@ function adjustSelectValue(direction) {
 
 // Ring Mode boost state
 let ringModeBoostActive = false;
+let keyboardBoostActive = false;
+let gamepadBoostActive = false;
 
-// Ring Mode pause state (needed for input handling)
-let ringModePaused = false;
-
-// Ring Mode active state (needed for input handling)
-let ringModeActive = false;
+// Toggle DAR active state (X button on gamepad)
+let toggleDARActive = false;
+let toggleDARPressTime = 0; // Track when button was pressed to prevent immediate release
 
 /* ===========================
  * CALLBACK REFERENCES
@@ -243,17 +294,18 @@ function handleGamepadAirRollButtons(rollStates) {
   const airRollIsToggle = AirRollController.getAirRollIsToggle();
 
   if (!airRollIsToggle) {
-    // Hold mode: activate while held, deactivate when released
+    // Hold mode: directional buttons have priority
     if (rollStates.rollLeft) {
       AirRollController.setRoll(-1, true);
     } else if (rollStates.rollRight) {
       AirRollController.setRoll(1, true);
     } else if (rollStates.rollFree) {
       AirRollController.setRoll(2, true);
-    } else {
-      // No air roll buttons held - deactivate
+    } else if (!toggleDARActive) {
+      // No directional buttons held AND toggleDAR is not active - deactivate
       AirRollController.setRoll(0, true);
     }
+    // If toggleDAR is active and no directional buttons held, leave it alone
   }
   // In toggle mode, air roll is handled by execBinding callback
 }
@@ -281,13 +333,21 @@ function handleBindingExecution(action) {
     // rollFree always uses toggleRoll (has continuous tracking in both modes)
     AirRollController.toggleRoll(2);
   } else if (action === 'toggleDAR') {
-    // Toggle between last active air roll and off
-    const currentAirRoll = AirRollController.getAirRoll();
-    if (currentAirRoll === 0) {
-      AirRollController.setRoll(AirRollController.getLastActiveAirRoll(), true);
-    } else {
-      AirRollController.setRoll(0, true);
+    // toggleDAR behavior depends on airRollIsToggle setting
+    if (airRollIsToggle) {
+      // Toggle mode: press once to activate, press again to deactivate
+      const currentAirRoll = AirRollController.getAirRoll();
+      const lastActive = AirRollController.getLastActiveAirRoll();
+      if (currentAirRoll === 0) {
+        AirRollController.setRoll(lastActive, true);
+        toggleDARActive = true;
+      } else {
+        AirRollController.setRoll(0, true);
+        toggleDARActive = false;
+      }
     }
+    // In hold mode: handled entirely by handleToggleDARState (continuous tracking)
+    // Don't activate here to avoid race condition with air roll button handler
   } else {
     // Forward all other actions to the main callback
     if (execBindingCallback) {
@@ -360,10 +420,52 @@ function handleDARRelease() {
 }
 
 /**
- * Handle boost button state changes
+ * Handle keyboard boost state changes
  */
-function handleBoostChange(active) {
+function handleKeyboardBoostChange(active) {
+  keyboardBoostActive = active;
+  // Combine keyboard and gamepad boost
+  ringModeBoostActive = keyboardBoostActive || gamepadBoostActive;
+}
+
+/**
+ * Handle gamepad boost state changes
+ */
+function handleGamepadBoostChange(active) {
+  gamepadBoostActive = active;
+  // Combine keyboard and gamepad boost
+  ringModeBoostActive = keyboardBoostActive || gamepadBoostActive;
+}
+
+/**
+ * Handle touch boost state changes
+ * Note: Touch boost is exclusive (only one input source active on mobile)
+ */
+function handleTouchBoostChange(active) {
+  // On mobile, touch is the primary input, so just set directly
   ringModeBoostActive = active;
+}
+
+/**
+ * Handle toggleDAR button state (continuous tracking for hold mode)
+ */
+function handleToggleDARState(pressed) {
+  const airRollIsToggle = AirRollController.getAirRollIsToggle();
+
+  // In hold mode, track current button state
+  if (!airRollIsToggle) {
+    if (pressed && !toggleDARActive) {
+      // Button just pressed - activate
+      const lastActive = AirRollController.getLastActiveAirRoll();
+      AirRollController.setRoll(lastActive, true);
+      toggleDARActive = true;
+    } else if (!pressed && toggleDARActive) {
+      // Button just released - deactivate
+      AirRollController.setRoll(0, true);
+      toggleDARActive = false;
+    }
+  }
+  // In toggle mode, button state is handled by edge detection in handleBindingExecution
 }
 
 /* ===========================
@@ -382,7 +484,7 @@ export function initInput(hud, callbacks = {}) {
   const touchCallbacks = {
     onDARPress: handleDARPress,
     onDARRelease: handleDARRelease,
-    onBoostPress: handleBoostChange,
+    onBoostPress: handleTouchBoostChange,
     showJoyHint: () => {}, // No-op for now
     showDARHint: () => {}, // No-op for now
     positionHints: () => {} // Handled internally by TouchInput
@@ -390,7 +492,7 @@ export function initInput(hud, callbacks = {}) {
 
   const keyboardCallbacks = {
     onKeyboardInput: handleKeyboardMovement,
-    onBoostChange: handleBoostChange,
+    onBoostChange: handleKeyboardBoostChange,
     openMenu: openMenuCallback,
     closeMenu: closeMenuCallback
   };
@@ -399,7 +501,7 @@ export function initInput(hud, callbacks = {}) {
     execBinding: handleBindingExecution,
     onGamepadStick: handleGamepadStick,
     onGamepadAirRoll: handleGamepadAirRollButtons,
-    onBoostChange: handleBoostChange
+    onBoostChange: handleGamepadBoostChange
   };
 
   // Initialize touch input
@@ -433,9 +535,56 @@ function handleKeyboardAirRoll(airRollKeys) {
     AirRollController.setRoll(1, true);
   } else if (airRollKeys.rollFree) {
     AirRollController.setRoll(2, true);
-  } else if (!gpPressingAirRoll && !darPressed) {
-    // No keys held and neither gamepad nor DAR is active - deactivate
+  } else if (!gpPressingAirRoll && !darPressed && !toggleDARActive) {
+    // No keys held and neither gamepad nor DAR nor toggleDAR is active - deactivate
     AirRollController.setRoll(0, true);
+  }
+}
+
+/**
+ * Handle menu navigation from gamepad
+ */
+function handleMenuNavigate(direction, currentTime) {
+  // Check cooldown
+  if (currentTime - menuNavigationCooldown < MENU_NAV_COOLDOWN) {
+    return;
+  }
+
+  // Refresh focusable elements to account for any expanded/collapsed cards
+  updateMenuFocusableElements();
+
+  const focusedEl = menuFocusableElements[menuFocusIndex];
+  const isSlider = focusedEl && focusedEl.tagName === 'INPUT' && focusedEl.type === 'range';
+  const isSelect = focusedEl && focusedEl.tagName === 'SELECT';
+
+  // Handle UP/DOWN navigation (always navigates, never adjusts values)
+  if (direction === 'up' || direction === 'down') {
+    const newIndex = findClosestElementInDirection(direction);
+    focusMenuElement(newIndex);
+    menuNavigationCooldown = currentTime;
+  }
+  // Handle LEFT/RIGHT navigation (adjust slider/select if focused, otherwise navigate)
+  else if (direction === 'left') {
+    if (isSlider) {
+      adjustSliderValue(-1);
+    } else if (isSelect) {
+      adjustSelectValue(-1);
+    } else {
+      const newIndex = findClosestElementInDirection('left');
+      focusMenuElement(newIndex);
+    }
+    menuNavigationCooldown = currentTime;
+  }
+  else if (direction === 'right') {
+    if (isSlider) {
+      adjustSliderValue(1);
+    } else if (isSelect) {
+      adjustSelectValue(1);
+    } else {
+      const newIndex = findClosestElementInDirection('right');
+      focusMenuElement(newIndex);
+    }
+    menuNavigationCooldown = currentTime;
   }
 }
 
@@ -443,23 +592,33 @@ export function updateInput(dt) {
   const airRollIsToggle = AirRollController.getAirRollIsToggle();
 
   // Update keyboard input
-  KeyboardInput.updateKeyboard(chromeShown, ringModePaused, {
+  KeyboardInput.updateKeyboard(chromeShown, RingMode.getRingModePaused(), {
     airRollIsToggle,
     execBinding: handleBindingExecution,
     onKeyboardInput: handleKeyboardMovement,
     onKeyboardAirRoll: handleKeyboardAirRoll,
-    onBoostChange: handleBoostChange,
+    onBoostChange: handleKeyboardBoostChange,
     openMenu: openMenuCallback,
     closeMenu: closeMenuCallback
   });
 
-  // Update gamepad input
+  // Update gamepad input (gameplay)
   GamepadInput.updateGamepad(chromeShown, {
     execBinding: handleBindingExecution,
     onGamepadStick: handleGamepadStick,
     onGamepadAirRoll: handleGamepadAirRollButtons,
-    onBoostChange: handleBoostChange
+    onBoostChange: handleGamepadBoostChange,
+    onToggleDARState: handleToggleDARState
   });
+
+  // Update gamepad menu navigation (when menu is open)
+  if (chromeShown && menuFocusableElements.length > 0) {
+    GamepadInput.updateGamepadMenuNavigation({
+      onMenuNavigate: handleMenuNavigate,
+      onMenuActivate: activateMenuElement,
+      onMenuClose: closeMenuCallback
+    });
+  }
 
   // Update touch input (handles hold timers, etc.)
   TouchInput.updateTouch(dt);
@@ -527,12 +686,14 @@ export function setChromeShown(shown) {
  * =========================== */
 
 export function setRingModeActive(active) {
-  ringModeActive = active;
+  // Note: Ring Mode state is now owned by ringMode.js
+  // This function only handles input-related side effects
   TouchInput.setShowBoostButton(active && isMobile);
 }
 
 export function setRingModePaused(paused) {
-  ringModePaused = paused;
+  // Note: Ring Mode pause state is now owned by ringMode.js
+  // This function is kept for compatibility but does nothing
 }
 
 export function setAirRollIsToggle(isToggle) {

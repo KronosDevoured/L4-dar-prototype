@@ -64,7 +64,7 @@ let activePointers = new Map();
 const STICK_TAU_MS = 8;
 const RELOCATE_HOLD_MS = 250;
 export const STICK_MIN = 0.02;
-export const STICK_DEADZONE = 0.15;
+export const STICK_DEADZONE = 0.09;
 
 // ============================================================================
 // HELPER FUNCTIONS

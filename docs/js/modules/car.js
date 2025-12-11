@@ -16,8 +16,13 @@ export let car = null;
 export let BOX = null;
 export let faceArrow = null;
 export let faceTip = null;
-export let tornadoCircle = null;
+export let tornadoPivotPoint = null;
+export let carCenterPoint = null;
+export let carNosePoint = null;
+export let carRollAxisLine = null;
 export let bodyMesh = null;
+export let yellowTornadoLine = null;
+let carScene = null; // Store reference to scene
 
 // ============================================================================
 // MATERIALS
@@ -105,6 +110,14 @@ export function clearCar(scene) {
     }
   });
   car = null;
+
+  // Also remove tornado circle from scene (it's not a car child)
+  if (tornadoCircle && scene) {
+    scene.remove(tornadoCircle);
+    if (tornadoCircle.geometry) tornadoCircle.geometry.dispose();
+    if (tornadoCircle.material) tornadoCircle.material.dispose();
+    tornadoCircle = null;
+  }
 }
 
 /**
@@ -118,8 +131,13 @@ export function buildCar(boxDims, presetName = "placeholder", scene) {
 
   clearCar(scene);
   BOX = boxDims;
+  carScene = scene; // Store scene reference
   car = new THREE.Group();
-  car.position.y = 110;
+  car.position.set(0, -160, 225); // Align with grid dot height, 300 units forward from -75
+
+  // No initial rotation - let physics handle orientation
+  // car.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
+
   scene.add(car);
 
   if (presetName === "placeholder") {
@@ -162,20 +180,88 @@ export function buildCar(boxDims, presetName = "placeholder", scene) {
   faceArrow.visible = false;
   faceTip.visible = false;
 
-  // Tornado circle visualizer
-  const circleGeom = new THREE.CircleGeometry(1, 64);
-  circleGeom.vertices = circleGeom.attributes.position.array;
-  const circleMat = new THREE.LineBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0.9, linewidth: 2 });
-  const circlePoints = [];
-  for (let i = 0; i <= 64; i++) {
-    const angle = (i / 64) * Math.PI * 2;
-    circlePoints.push(new THREE.Vector3(Math.cos(angle), Math.sin(angle), 0));
+
+  // Tornado pivot point visualizer - shows the center point of rotation for tornado spin
+  const pivotGeom = new THREE.SphereGeometry(3, 16, 16);
+  const pivotMat = new THREE.MeshBasicMaterial({ color: 0xff00ff });
+  tornadoPivotPoint = new THREE.Mesh(pivotGeom, pivotMat);
+  tornadoPivotPoint.position.set(0, -160, 225);
+
+  if (carScene) {
+    carScene.add(tornadoPivotPoint);
+    console.log('[Car] Tornado pivot point added to scene');
   }
-  const circleLineGeom = new THREE.BufferGeometry().setFromPoints(circlePoints);
-  tornadoCircle = new THREE.Line(circleLineGeom, circleMat);
-  tornadoCircle.position.set(0, 0, zFace);
-  car.add(tornadoCircle);
-  tornadoCircle.visible = false;
+  tornadoPivotPoint.visible = false;
+
+  // Car center of mass visualizer - shows where the car itself rotates around
+  const carCenterGeom = new THREE.SphereGeometry(2, 16, 16);
+  const carCenterMat = new THREE.MeshBasicMaterial({
+    color: 0x00ffff, // Cyan
+    depthTest: false, // Render on top of everything
+    depthWrite: false
+  });
+  carCenterPoint = new THREE.Mesh(carCenterGeom, carCenterMat);
+  carCenterPoint.renderOrder = 999; // Render last (on top)
+
+  // Add as child of car so it moves with the car
+  if (car) {
+    car.add(carCenterPoint);
+    carCenterPoint.position.set(0, 0, 0); // At car's origin (center of mass)
+    console.log('[Car] Car center point added to car');
+  }
+  carCenterPoint.visible = true; // Always visible
+
+  // Nose position visualizer - shows the point we track for tornado measurements
+  const noseGeom = new THREE.SphereGeometry(3, 16, 16);
+  const noseMat = new THREE.MeshBasicMaterial({
+    color: 0xff0000, // Red
+    depthTest: false, // Render on top of everything
+    depthWrite: false
+  });
+  carNosePoint = new THREE.Mesh(noseGeom, noseMat);
+  carNosePoint.renderOrder = 999; // Render last (on top)
+
+  // Add as child of car so it moves with the car
+  if (car) {
+    car.add(carNosePoint);
+    carNosePoint.position.set(0, 0, BOX.hz); // At the nose tip (front of car)
+    console.log('[Car] Car nose point added to car');
+  }
+  carNosePoint.visible = true; // Always visible
+
+  // Roll axis line visualizer - connects car's roll axis to the grid cyan dot
+  const rollAxisGeom = new THREE.BufferGeometry();
+  const rollAxisPositions = new Float32Array([
+    0, -160, 0,    // Grid cyan dot position
+    0, -160, 225   // Car position (will be updated dynamically in physics)
+  ]);
+  rollAxisGeom.setAttribute('position', new THREE.BufferAttribute(rollAxisPositions, 3));
+  const rollAxisMat = new THREE.LineBasicMaterial({ color: 0x00ff00, linewidth: 2 }); // Green
+  carRollAxisLine = new THREE.Line(rollAxisGeom, rollAxisMat);
+
+  // Add to scene (not car child) so we can use world coordinates
+  if (carScene) {
+    carScene.add(carRollAxisLine);
+    console.log('[Car] Car roll axis line added to scene');
+  }
+  carRollAxisLine.visible = true; // Always visible
+
+  // Yellow tornado line - 300 units long, centered at car cyan dot, controlled by analog stick
+  const yellowLineGeom = new THREE.BufferGeometry();
+  const yellowLinePositions = new Float32Array([
+    0, 0, -150,  // 150 units behind center
+    0, 0, 150    // 150 units ahead of center
+  ]);
+  yellowLineGeom.setAttribute('position', new THREE.BufferAttribute(yellowLinePositions, 3));
+  const yellowLineMat = new THREE.LineBasicMaterial({ color: 0xffff00, linewidth: 2 }); // Yellow
+  yellowTornadoLine = new THREE.Line(yellowLineGeom, yellowLineMat);
+
+  // Add to scene (not car child) so we can update it in world coordinates
+  if (carScene) {
+    carScene.add(yellowTornadoLine);
+    console.log('[Car] Yellow tornado line added to scene');
+  }
+  yellowTornadoLine.visible = false; // Hidden until stick is moved
 }
 
 // ============================================================================

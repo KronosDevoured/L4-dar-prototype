@@ -29,12 +29,85 @@ const INPUT_HISTORY_SIZE = 3;
 // Previous angular acceleration (for derivative term)
 let prevAlpha = new THREE.Vector3(0, 0, 0);
 
+// Axis lock states
+let pitchLocked = false;
+let yawLocked = false;
+let rollLocked = false;
+
+// Tornado circle - measured axis data at min and max stick input (right direction)
+let AXIS_MIN_DATA = null; // { centerLocal: Vector3, axisLocal: Vector3, radius: number }
+let AXIS_MAX_DATA = null; // { centerLocal: Vector3, axisLocal: Vector3, radius: number }
+
+// Load axis data from localStorage
+function loadAxisDataFromStorage() {
+  try {
+    const minData = localStorage.getItem('tornadoAxisMinData');
+    const maxData = localStorage.getItem('tornadoAxisMaxData');
+
+    if (minData) {
+      const parsed = JSON.parse(minData);
+      AXIS_MIN_DATA = {
+        centerLocal: new THREE.Vector3(parsed.centerLocal.x, parsed.centerLocal.y, parsed.centerLocal.z),
+        axisLocal: new THREE.Vector3(parsed.axisLocal.x, parsed.axisLocal.y, parsed.axisLocal.z),
+        radius: parsed.radius
+      };
+      console.log('✓ Loaded MIN axis data from localStorage');
+    }
+
+    if (maxData) {
+      const parsed = JSON.parse(maxData);
+      AXIS_MAX_DATA = {
+        centerLocal: new THREE.Vector3(parsed.centerLocal.x, parsed.centerLocal.y, parsed.centerLocal.z),
+        axisLocal: new THREE.Vector3(parsed.axisLocal.x, parsed.axisLocal.y, parsed.axisLocal.z),
+        radius: parsed.radius
+      };
+      console.log('✓ Loaded MAX axis data from localStorage');
+    }
+  } catch (e) {
+    console.error('Failed to load axis data from localStorage:', e);
+  }
+}
+
+// Save axis data to localStorage
+function saveAxisDataToStorage() {
+  try {
+    if (AXIS_MIN_DATA) {
+      localStorage.setItem('tornadoAxisMinData', JSON.stringify({
+        centerLocal: { x: AXIS_MIN_DATA.centerLocal.x, y: AXIS_MIN_DATA.centerLocal.y, z: AXIS_MIN_DATA.centerLocal.z },
+        axisLocal: { x: AXIS_MIN_DATA.axisLocal.x, y: AXIS_MIN_DATA.axisLocal.y, z: AXIS_MIN_DATA.axisLocal.z },
+        radius: AXIS_MIN_DATA.radius
+      }));
+    }
+
+    if (AXIS_MAX_DATA) {
+      localStorage.setItem('tornadoAxisMaxData', JSON.stringify({
+        centerLocal: { x: AXIS_MAX_DATA.centerLocal.x, y: AXIS_MAX_DATA.centerLocal.y, z: AXIS_MAX_DATA.centerLocal.z },
+        axisLocal: { x: AXIS_MAX_DATA.axisLocal.x, y: AXIS_MAX_DATA.axisLocal.y, z: AXIS_MAX_DATA.axisLocal.z },
+        radius: AXIS_MAX_DATA.radius
+      }));
+    }
+  } catch (e) {
+    console.error('Failed to save axis data to localStorage:', e);
+  }
+}
+
+// Load on module init
+loadAxisDataFromStorage();
+
+// Tornado circle tracking - measure nose position at 0° and 180° roll to find axis
+let tornadoMeasurement = {
+  measuring: false,
+  targetStickMag: 0,      // 0.10 for min, 1.0 for max
+  startNose: null,        // Nose position at 0° roll
+  oppositeNose: null,     // Nose position at 180° roll
+  nosePositions: [],      // Array of nose positions from 179° to 181°
+  rotationAngle: 0,
+  prevRotation: new THREE.Quaternion()
+};
+
 // ============================================================================
 // PHYSICS CONSTANTS
 // ============================================================================
-
-// Stick deadzone (local constant)
-const STICK_DEADZONE = 0.02;
 
 // Legacy roll PD gains (not actively used, kept for compatibility)
 const KP_ROLL = 3.2, KD_ROLL = 0.25;
@@ -61,6 +134,7 @@ export function init(state, ringModeModule) {
 
   // Sync initial angular velocity with game state
   w = gameState.getAngularVelocityRef();
+
 }
 
 // ============================================================================
@@ -127,6 +201,37 @@ export function resetPhysics() {
 // HELPER FUNCTIONS
 // ============================================================================
 
+const MIN_STICK_MAG = 0.10;  // what you used for your "min" measurement
+const MAX_STICK_MAG = 1.00;  // full stick
+
+function getInterpolatedAxisData(stickMag) {
+  if (!AXIS_MIN_DATA || !AXIS_MAX_DATA) return null;
+
+  // Normalize stickMag into 0..1 range
+  const tRaw = (stickMag - MIN_STICK_MAG) / (MAX_STICK_MAG - MIN_STICK_MAG);
+  const t = THREE.MathUtils.clamp(isNaN(tRaw) ? 0 : tRaw, 0, 1);
+
+  const centerLocal = new THREE.Vector3().lerpVectors(
+    AXIS_MIN_DATA.centerLocal,
+    AXIS_MAX_DATA.centerLocal,
+    t
+  );
+
+  const axisLocal = new THREE.Vector3().lerpVectors(
+    AXIS_MIN_DATA.axisLocal,
+    AXIS_MAX_DATA.axisLocal,
+    t
+  ).normalize();
+
+  const radius = THREE.MathUtils.lerp(
+    AXIS_MIN_DATA.radius,
+    AXIS_MAX_DATA.radius,
+    t
+  );
+
+  return { centerLocal, axisLocal, radius, t };
+}
+
 /**
  * Smooth joystick input using a rolling average
  * @param {number} jx - Raw joystick X input
@@ -173,6 +278,12 @@ function softClampAngularVelocity(w, max) {
  * @param {Object} settings - Visualization settings
  */
 function updateVisualizations(ux, uy, eff, settings) {
+  // ONE TIME DEBUG
+  if (!updateVisualizations._logged) {
+    console.log('[updateVisualizations] Function is being called');
+    updateVisualizations._logged = true;
+  }
+
   const {
     showArrow,
     showCircle,
@@ -215,64 +326,6 @@ function updateVisualizations(ux, uy, eff, settings) {
     }
   }
 
-  // --- Tornado circle visualizer (shows DAR cone path) ---
-  if (Car.tornadoCircle) {
-    // Circle only shows for Air Roll Left/Right (not Free), when DAR is active
-    const isDAR = (Input.getAirRoll() === -1 || Input.getAirRoll() === 1);
-    const shouldShowCircle = showCircle && isDAR && Input.getDarOn() && eff > 0.02;
-    Car.tornadoCircle.visible = shouldShowCircle;
-
-    if (shouldShowCircle) {
-      const zFace = Car.BOX.hz + 0.6;
-
-      // Calculate circle radius based on stick input
-      const baseRadius = Math.min(Car.BOX.hx, Car.BOX.hy) * 0.95;
-      const arrowLength = baseRadius * eff * (arrowScale || 1);
-
-      // Circle scale controlled by circleScale slider
-      const circleRadius = arrowLength * (circleScale || 0.3);
-
-      // The circle should be offset perpendicular to the arrow direction
-      // Air Roll Left (Input.getAirRoll() = -1): offset +90 degrees (counter-clockwise)
-      // Air Roll Right (Input.getAirRoll() = +1): offset -90 degrees (clockwise)
-      const arrowAngle = Math.atan2(ux, uy); // angle of the arrow in XY plane
-      const perpAngle = arrowAngle + (Input.getAirRoll() * Math.PI / 2); // offset 90 degrees based on roll direction
-
-      // Position circle center perpendicular to arrow, distance = circle radius
-      const centerX = Math.sin(perpAngle) * circleRadius;
-      const centerY = -Math.cos(perpAngle) * circleRadius;
-
-      Car.tornadoCircle.scale.set(circleRadius, circleRadius, 1);
-      Car.tornadoCircle.position.set(centerX, centerY, zFace);
-
-      // Update circle color based on stick direction (same as arrow)
-      const col = (Math.abs(ux) > Math.abs(uy))
-        ? (ux >= 0 ? CONST.COL_LEFT : CONST.COL_RIGHT)
-        : (uy >= 0 ? CONST.COL_DOWN : CONST.COL_UP);
-      Car.tornadoCircle.material.color.setHex(col);
-
-      // Apply tilt rotation toward the car
-      // Calculate modifier strength: 0 at stable points (every 45°), 1.0 at unstable points (between 45° marks)
-      // Stable points: 0°, 45°, 90°, 135°, 180°, 225°, 270°, 315°
-      // Using sin(4x) to create 8 peaks per rotation (frequency = 4)
-      const arrowAngleDeg = (arrowAngle * 180 / Math.PI + 360) % 360;
-      const modifierStrength = Math.abs(Math.sin(4 * arrowAngle)); // 0 at stable, 1 at unstable
-
-      // Apply base tilt + modifier
-      const totalTilt = circleTiltAngle + (circleTiltModifier * modifierStrength);
-      const tiltRad = (totalTilt * Math.PI) / 180;
-
-      // Reset rotation first
-      Car.tornadoCircle.rotation.set(0, 0, 0);
-
-      // Rotate around the axis perpendicular to the arrow (makes circle tilt toward car)
-      // Negative tiltRad to tilt toward car instead of away
-      Car.tornadoCircle.rotateOnAxis(
-        new THREE.Vector3(-Math.cos(perpAngle), -Math.sin(perpAngle), 0).normalize(),
-        -tiltRad
-      );
-    }
-  }
 }
 
 // ============================================================================
@@ -296,7 +349,9 @@ function updateVisualizations(ux, uy, eff, settings) {
  */
 export function updatePhysics(dt, settings, chromeShown) {
   // Skip physics when menu is open OR when Ring Mode is paused
-  if (chromeShown || gameState.isRingModePaused()) {
+  // EXCEPT during automated measurement mode
+  const allowMeasurement = window.measurementState && window.measurementState.active;
+  if (!allowMeasurement && (chromeShown || gameState.isRingModePaused())) {
     return;
   }
 
@@ -335,8 +390,8 @@ export function updatePhysics(dt, settings, chromeShown) {
     const shaped = Math.pow(Math.max(0, m2), inputPow || 1.0); // 0..1
     eff = shaped;
 
-    ux = -jx / (mag || 1); // right = +ux
-    uy = jy  / (mag || 1); // up = +uy
+    ux = -jx; // right = +ux (raw stick value, no normalization)
+    uy = jy;  // up = +uy (raw stick value, no normalization)
   }
 
   // === RING MODE: Calculate movement forces (normal rotation physics will run below) ===
@@ -405,6 +460,132 @@ export function updatePhysics(dt, settings, chromeShown) {
     wz_des = targetRollSpeed;          // roll from DAR
   }
 
+  // --- Update tornado circle visualizer ---
+  const stickMag = Math.sqrt(ux * ux + uy * uy);
+
+  // MEASUREMENT MODE: Track nose position through 179°-181° roll rotation
+  if (tornadoMeasurement.measuring && stickMag > 0.01) {
+    const carQuat = Car.car.quaternion.clone();
+    const carPos = Car.car.position.clone();
+    const noseLocal = new THREE.Vector3(0, 0, Car.BOX.hz);
+    const noseWorld = noseLocal.clone().applyQuaternion(carQuat).add(carPos);
+
+    // Track roll rotation angle
+    const rotationDelta = carQuat.clone().multiply(tornadoMeasurement.prevRotation.clone().invert());
+    rotationDelta.normalize();
+    const angle = 2 * Math.acos(Math.min(1, Math.abs(rotationDelta.w)));
+    tornadoMeasurement.rotationAngle += angle;
+    tornadoMeasurement.prevRotation.copy(carQuat);
+
+    const rotationDegrees = tornadoMeasurement.rotationAngle * 180 / Math.PI;
+    console.log(`Roll angle: ${rotationDegrees.toFixed(1)}°`);
+
+    // Collect nose positions between 179° and 181°
+    if (rotationDegrees >= 179 && rotationDegrees <= 181) {
+      tornadoMeasurement.nosePositions.push(noseWorld.clone());
+    }
+
+    // When we pass 181°, calculate the axis
+    if (rotationDegrees > 181 && tornadoMeasurement.nosePositions.length > 0) {
+      // Average all nose positions between 179° and 181° to get the opposite point
+      const oppositeNose = new THREE.Vector3();
+      for (const pos of tornadoMeasurement.nosePositions) {
+        oppositeNose.add(pos);
+      }
+      oppositeNose.divideScalar(tornadoMeasurement.nosePositions.length);
+
+      const startNose = tornadoMeasurement.startNose;
+
+      // Circle center is midpoint (in world space)
+      const centerWorld = startNose.clone().add(oppositeNose).multiplyScalar(0.5);
+
+      // Axis direction is from start to opposite (diameter)
+      const axisWorld = oppositeNose.clone().sub(startNose).normalize();
+
+      // Radius is half the distance
+      const radius = startNose.distanceTo(oppositeNose) * 0.5;
+
+      // Convert to car-local space
+      const centerLocal = centerWorld.clone().sub(carPos).applyQuaternion(carQuat.clone().invert());
+      const axisLocal = axisWorld.clone().applyQuaternion(carQuat.clone().invert());
+
+      // Store based on stick magnitude
+      const data = { centerLocal, axisLocal, radius };
+      if (Math.abs(tornadoMeasurement.targetStickMag - 0.10) < 0.05) {
+        AXIS_MIN_DATA = data;
+        console.log('✓ MIN axis measured:', data);
+        saveAxisDataToStorage();
+      } else if (Math.abs(tornadoMeasurement.targetStickMag - 1.0) < 0.1) {
+        AXIS_MAX_DATA = data;
+        console.log('✓ MAX axis measured:', data);
+        saveAxisDataToStorage();
+      }
+
+      // Stop measuring
+      tornadoMeasurement.measuring = false;
+
+      // Reset automated measurement state
+      if (window.measurementState) {
+        window.measurementState.active = false;
+        window.measurementState.input.x = 0;
+        window.measurementState.input.y = 0;
+      }
+    }
+  }
+
+  // Reset measurement when stick released (but NOT during automated measurement)
+  if (tornadoMeasurement.measuring && stickMag < 0.01 && !(window.measurementState && window.measurementState.active)) {
+    tornadoMeasurement.measuring = false;
+    console.log('Measurement cancelled - stick released');
+  }
+
+  // Yellow tornado line - controlled by analog stick in car-local space
+  if (stickMag > 0.01) {
+    // Show the yellow line
+    Car.yellowTornadoLine.visible = true;
+
+    const carPos = Car.car.position.clone();
+    const carQuat = Car.car.quaternion.clone();
+
+    // Nose endpoint position in car-local space
+    // Maximum offset: 40 units from roll axis in any direction
+    const MAX_OFFSET = 40;
+    const LINE_HALF_LENGTH = 150;
+
+    // Stick mapping (inverted for nose-relative control):
+    // Stick DOWN (uy < 0) → endpoint moves nose UP (local X positive)
+    // Stick UP (uy > 0) → endpoint moves nose DOWN (local X negative)
+    // Stick LEFT (ux < 0) → endpoint moves nose LEFT (local Y positive)
+    // Stick RIGHT (ux > 0) → endpoint moves nose RIGHT (local Y negative)
+    const offsetX = -uy * MAX_OFFSET;
+    const offsetY = -ux * MAX_OFFSET;
+
+    // Nose endpoint: starts at (0, 0, 150) and offsets by stick input
+    // Stick directly controls X and Y offset, Z stays at line half-length
+    const x = offsetX;
+    const y = offsetY;
+    const z = LINE_HALF_LENGTH;
+
+    // Nose endpoint in car-local space
+    const localNoseEndpoint = new THREE.Vector3(x, y, z);
+
+    // Transform to world space
+    const worldNoseEndpoint = localNoseEndpoint.clone().applyQuaternion(carQuat);
+
+    // Line endpoints: nose endpoint and opposite side (just negate the vector)
+    const lineEnd = carPos.clone().add(worldNoseEndpoint);
+    const lineStart = carPos.clone().sub(worldNoseEndpoint);
+
+    // Update line geometry
+    const positions = Car.yellowTornadoLine.geometry.attributes.position;
+    positions.setXYZ(0, lineStart.x, lineStart.y, lineStart.z);
+    positions.setXYZ(1, lineEnd.x, lineEnd.y, lineEnd.z);
+    positions.needsUpdate = true;
+  } else {
+    // Hide the yellow line when stick is not touched
+    Car.yellowTornadoLine.visible = false;
+  }
+
   // --- 5. PD control → angular acceleration per axis ---
   const ax_des = KpPitch * (wx_des - w.x) - KdPitch * w.x;
   const ay_des = KpYaw   * (wy_des - w.y) - KdYaw   * w.y;
@@ -419,12 +600,19 @@ export function updatePhysics(dt, settings, chromeShown) {
   w.y += ay * dt;
   w.z += az * dt;
 
+  // Apply axis locks - set velocity to 0 for locked axes
+  if (pitchLocked) w.x = 0;
+  if (yawLocked) w.y = 0;
+  if (rollLocked) w.z = 0;
+
   // --- 7. Damping + release brake ---
   // CRITICAL: Damping only applies when inputs are released!
   const noStick = eff < 0.08;
   if (noStick) {
-    const baseDamp = Input.getDarOn() ? dampDAR : damp;
-    const dampEff = (baseDamp || 0) + ((!Input.getDarOn()) ? (brakeOnRelease || 0) : 0);
+    // Check if DAR is active from ANY source (gamepad or touch)
+    const isDARActive = isDirectionalAirRoll || Input.getDarOn();
+    const baseDamp = isDARActive ? dampDAR : damp;
+    const dampEff = (baseDamp || 0) + ((!isDARActive) ? (brakeOnRelease || 0) : 0);
     const scale = Math.exp(-dampEff * dt);
     w.multiplyScalar(scale);
   }
@@ -438,7 +626,7 @@ export function updatePhysics(dt, settings, chromeShown) {
     w.multiplyScalar(wMax / wMag);
   }
 
-  // --- 9. Quaternion integration (unchanged) ---
+  // --- 9. Quaternion integration ---
   const wx = w.x, wy = w.y, wz = w.z, halfdt = 0.5 * dt;
   const q = Car.car.quaternion;
   const rw = -q.x * wx - q.y * wy - q.z * wz;
@@ -451,6 +639,94 @@ export function updatePhysics(dt, settings, chromeShown) {
   q.z += rz * halfdt;
   q.normalize();
 
+  // Roll axis locking disabled - car can rotate freely
+  // (Previously locked to align with green line)
+
   // === RING MODE: Override car position and update rings ===
   RingMode.updateRingModeRendering(dt);
 }
+
+// ============================================================================
+// TORNADO CIRCLE AXIS MEASUREMENT FUNCTIONS
+// ============================================================================
+
+/**
+ * Start measuring axis at minimum stick input (~25%)
+ * Hold DAR + stick at ~25%, call this, then rotate 180°
+ */
+export function measureMinAxis() {
+  tornadoMeasurement.measuring = true;
+  tornadoMeasurement.targetStickMag = 0.10;
+  const carQuat = Car.car.quaternion.clone();
+  const carPos = Car.car.position.clone();
+  const noseLocal = new THREE.Vector3(0, 0, Car.BOX.hz);
+  const noseWorld = noseLocal.clone().applyQuaternion(carQuat).add(carPos);
+  tornadoMeasurement.startNose = noseWorld.clone();
+  tornadoMeasurement.nosePositions = [];
+  tornadoMeasurement.rotationAngle = 0;
+  tornadoMeasurement.prevRotation.copy(carQuat);
+  console.log('Measuring MIN axis - rotate 180° now...');
+}
+
+/**
+ * Start measuring axis at maximum stick input (100%)
+ * Hold DAR + stick at 100%, call this, then rotate 180°
+ */
+export function measureMaxAxis() {
+  tornadoMeasurement.measuring = true;
+  tornadoMeasurement.targetStickMag = 1.0;
+  const carQuat = Car.car.quaternion.clone();
+  const carPos = Car.car.position.clone();
+  const noseLocal = new THREE.Vector3(0, 0, Car.BOX.hz);
+  const noseWorld = noseLocal.clone().applyQuaternion(carQuat).add(carPos);
+  tornadoMeasurement.startNose = noseWorld.clone();
+  tornadoMeasurement.nosePositions = [];
+  tornadoMeasurement.rotationAngle = 0;
+  tornadoMeasurement.prevRotation.copy(carQuat);
+  console.log('Measuring MAX axis - rotate 180° now...');
+}
+
+/**
+ * Print the measured axis data for hardcoding
+ */
+export function printAxisData() {
+  if (AXIS_MIN_DATA && AXIS_MAX_DATA) {
+    console.log('Copy these into physics.js:');
+    console.log(`let AXIS_MIN_DATA = {
+  centerLocal: new THREE.Vector3(${AXIS_MIN_DATA.centerLocal.x}, ${AXIS_MIN_DATA.centerLocal.y}, ${AXIS_MIN_DATA.centerLocal.z}),
+  axisLocal: new THREE.Vector3(${AXIS_MIN_DATA.axisLocal.x}, ${AXIS_MIN_DATA.axisLocal.y}, ${AXIS_MIN_DATA.axisLocal.z}),
+  radius: ${AXIS_MIN_DATA.radius}
+};`);
+    console.log(`let AXIS_MAX_DATA = {
+  centerLocal: new THREE.Vector3(${AXIS_MAX_DATA.centerLocal.x}, ${AXIS_MAX_DATA.centerLocal.y}, ${AXIS_MAX_DATA.centerLocal.z}),
+  axisLocal: new THREE.Vector3(${AXIS_MAX_DATA.axisLocal.x}, ${AXIS_MAX_DATA.axisLocal.y}, ${AXIS_MAX_DATA.axisLocal.z}),
+  radius: ${AXIS_MAX_DATA.radius}
+};`);
+  } else {
+    console.log('No axis data measured yet. Call measureMinAxis() and measureMaxAxis()');
+  }
+}
+
+// ============================================================================
+// AXIS LOCK FUNCTIONS
+// ============================================================================
+
+export function togglePitchLock() {
+  pitchLocked = !pitchLocked;
+  console.log(`Pitch ${pitchLocked ? 'LOCKED' : 'UNLOCKED'}`);
+  return pitchLocked;
+}
+
+export function toggleYawLock() {
+  yawLocked = !yawLocked;
+  console.log(`Yaw ${yawLocked ? 'LOCKED' : 'UNLOCKED'}`);
+  return yawLocked;
+}
+
+export function toggleRollLock() {
+  rollLocked = !rollLocked;
+  console.log(`Roll ${rollLocked ? 'LOCKED' : 'UNLOCKED'}`);
+  return rollLocked;
+}
+
+// ============================================================================

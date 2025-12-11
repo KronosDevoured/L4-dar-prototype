@@ -15,28 +15,15 @@ import * as THREE from 'three';
 
 export class GameState {
   constructor() {
-    // Ring Mode state
+    // Ring Mode state (minimal - only what physics.js needs)
     this.ringMode = {
       active: false,
-      paused: false,
-      started: false,
-      lives: 0,
-      score: 0,
-      highScore: 0,
-      ringCount: 0,
-      position: new THREE.Vector2(0, 0),
-      velocity: new THREE.Vector2(0, 0)
+      paused: false
     };
 
     // Physics state
     this.physics = {
       angularVelocity: new THREE.Vector3(0, 0, 0)
-    };
-
-    // Camera state
-    this.camera = {
-      orbitOn: false,
-      zoom: 1.0
     };
   }
 
@@ -60,74 +47,11 @@ export class GameState {
     this.ringMode.paused = paused;
   }
 
-  getRingModeStarted() {
-    return this.ringMode.started;
-  }
-
-  setRingModeStarted(started) {
-    this.ringMode.started = started;
-  }
-
-  getRingModeLives() {
-    return this.ringMode.lives;
-  }
-
-  setRingModeLives(lives) {
-    this.ringMode.lives = lives;
-  }
-
-  getRingModeScore() {
-    return this.ringMode.score;
-  }
-
-  setRingModeScore(score) {
-    this.ringMode.score = score;
-  }
-
-  getRingModeHighScore() {
-    return this.ringMode.highScore;
-  }
-
-  setRingModeHighScore(highScore) {
-    this.ringMode.highScore = highScore;
-  }
-
-  getRingModeRingCount() {
-    return this.ringMode.ringCount;
-  }
-
-  setRingModeRingCount(ringCount) {
-    this.ringMode.ringCount = ringCount;
-  }
-
-  getRingModePosition() {
-    return this.ringMode.position.clone();
-  }
-
-  setRingModePosition(x, y) {
-    this.ringMode.position.set(x, y);
-  }
-
-  getRingModeVelocity() {
-    return this.ringMode.velocity.clone();
-  }
-
-  setRingModeVelocity(x, y) {
-    this.ringMode.velocity.set(x, y);
-  }
-
   /**
    * Check if Ring Mode is currently paused
    */
   isRingModePaused() {
     return this.ringMode.active && this.ringMode.paused;
-  }
-
-  /**
-   * Check if game is over (no lives left)
-   */
-  isRingModeGameOver() {
-    return this.ringMode.active && this.ringMode.lives <= 0;
   }
 
   // ============================================================================
@@ -163,26 +87,6 @@ export class GameState {
   }
 
   // ============================================================================
-  // CAMERA STATE MANAGEMENT
-  // ============================================================================
-
-  getOrbitOn() {
-    return this.camera.orbitOn;
-  }
-
-  setOrbitOn(orbitOn) {
-    this.camera.orbitOn = orbitOn;
-  }
-
-  getZoom() {
-    return this.camera.zoom;
-  }
-
-  setZoom(zoom) {
-    this.camera.zoom = zoom;
-  }
-
-  // ============================================================================
   // UTILITY METHODS
   // ============================================================================
 
@@ -193,26 +97,13 @@ export class GameState {
     this.resetAngularVelocity();
     this.ringMode.active = false;
     this.ringMode.paused = false;
-    this.ringMode.started = false;
-    this.ringMode.lives = 0;
-    this.ringMode.score = 0;
-    this.ringMode.ringCount = 0;
-    this.ringMode.position.set(0, 0);
-    this.ringMode.velocity.set(0, 0);
-    this.camera.orbitOn = false;
-    this.camera.zoom = 1.0;
   }
 
   /**
-   * Reset only Ring Mode state (keep physics/camera)
+   * Reset only Ring Mode state (keep physics)
    */
   resetRingMode() {
-    this.ringMode.score = 0;
-    this.ringMode.ringCount = 0;
-    this.ringMode.started = false;
     this.ringMode.paused = false;
-    this.ringMode.position.set(0, 0);
-    this.ringMode.velocity.set(0, 0);
     this.resetAngularVelocity();
   }
 }

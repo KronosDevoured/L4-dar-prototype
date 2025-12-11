@@ -80,6 +80,18 @@ export class SceneManager {
     this.grid.rotation.x = -Math.PI / 2;
     this.grid.position.y = -160;
     this.scene.add(this.grid);
+
+    // Add reference dot at grid intersection
+    const gridDotGeom = new THREE.SphereGeometry(3, 16, 16);
+    const gridDotMat = new THREE.MeshBasicMaterial({
+      color: 0x00ffff, // Cyan
+      depthTest: false,
+      depthWrite: false
+    });
+    this.gridReferenceDot = new THREE.Mesh(gridDotGeom, gridDotMat);
+    this.gridReferenceDot.position.set(0, -160, 0); // At grid intersection
+    this.gridReferenceDot.renderOrder = 999;
+    this.scene.add(this.gridReferenceDot);
   }
 
   /**

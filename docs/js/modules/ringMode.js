@@ -272,6 +272,7 @@ export function resetRingMode() {
  */
 export function startRingMode() {
   ringModeActive = true;
+  gameState.setRingModeActive(true);
 
   // Initialize Ring Mode
   ringModeScore = 0;
@@ -315,6 +316,7 @@ export function startRingMode() {
  */
 export function stopRingMode() {
   ringModeActive = false;
+  gameState.setRingModeActive(false);
 
   // Clean up
   ringModeVelocity.set(0, 0);
@@ -713,7 +715,6 @@ function clearBoostFlames() {
 export function updateRingModePhysics(dt, inputState, carQuaternion) {
   if (!ringModeActive || ringModePaused || ringModeLives <= 0) {
     // Stop boost sound when game is over or paused
-    if (ringModeLives <= 0) console.log('Game over - stopping boost sound');
     Audio.stopBoostRumble();
     return;
   }
@@ -729,7 +730,6 @@ export function updateRingModePhysics(dt, inputState, carQuaternion) {
   // Check if boost was released (to re-enable boost after respawn)
   if (!inputState.boostActive && ignoreBoostUntilRelease) {
     ignoreBoostUntilRelease = false;
-    console.log('Boost released - ready to start');
   }
 
   // Determine if boost is actually active (considering ignore flag)

@@ -169,13 +169,18 @@ export function updateGamepad(chromeShown, callbacks) {
     const pressed = isPressedForBinding(binding, pad);
     const prevPressed = gpPrevActionPressed[action] || false;
 
-    // Edge detection - only trigger on press (not hold)
+    // Edge detection - trigger on press
     if (pressed && !prevPressed) {
       callbacks?.execBinding?.(action);
     }
 
     gpPrevActionPressed[action] = pressed;
   });
+
+  // ToggleDAR button - send current state for hold mode tracking
+  // IMPORTANT: This must run BEFORE air roll handler so toggleDARActive is updated first
+  const toggleDARPressed = isPressedForBinding(gpBindings.toggleDAR, pad);
+  callbacks?.onToggleDARState?.(toggleDARPressed);
 
   // Check if any air roll button is pressed
   const rollLeftPressed = isPressedForBinding(gpBindings.rollLeft, pad);
@@ -191,6 +196,78 @@ export function updateGamepad(chromeShown, callbacks) {
   // Boost button
   const boostPressed = isPressedForBinding(gpBindings.boost, pad);
   callbacks?.onBoostChange?.(boostPressed);
+}
+
+/**
+ * Update gamepad menu navigation
+ * Called from input.js when chromeShown && menuFocusableElements.length > 0
+ */
+export function updateGamepadMenuNavigation(callbacks) {
+  if (!gpEnabled) {
+    return;
+  }
+
+  const { pad } = readPads();
+  if (!pad) {
+    return;
+  }
+
+  // If remapping, don't handle menu navigation
+  if (gpRemapping) {
+    return;
+  }
+
+  const currentTime = Date.now();
+
+  // D-pad and left stick navigation
+  const dpadUp = pad.buttons[12]?.pressed || false;
+  const dpadDown = pad.buttons[13]?.pressed || false;
+  const dpadLeft = pad.buttons[14]?.pressed || false;
+  const dpadRight = pad.buttons[15]?.pressed || false;
+
+  const lx = pad.axes[0] || 0;
+  const ly = pad.axes[1] || 0;
+  const stickUp = ly < -0.5;
+  const stickDown = ly > 0.5;
+  const stickLeft = lx < -0.5;
+  const stickRight = lx > 0.5;
+
+  // Handle directional navigation with cooldown
+  if (dpadUp || stickUp) {
+    callbacks?.onMenuNavigate?.('up', currentTime);
+  } else if (dpadDown || stickDown) {
+    callbacks?.onMenuNavigate?.('down', currentTime);
+  } else if (dpadLeft || stickLeft) {
+    callbacks?.onMenuNavigate?.('left', currentTime);
+  } else if (dpadRight || stickRight) {
+    callbacks?.onMenuNavigate?.('right', currentTime);
+  }
+
+  // X button (Cross) to activate/select (button 0)
+  const xPressed = pad.buttons[0]?.pressed || false;
+  const xWasPressed = !!gpPrevActionPressed['menu_x'];
+  if (xPressed && !xWasPressed) {
+    callbacks?.onMenuActivate?.();
+  }
+  gpPrevActionPressed['menu_x'] = xPressed;
+
+  // Circle button to close menu (button 1)
+  const circlePressed = pad.buttons[1]?.pressed || false;
+  const circleWasPressed = !!gpPrevActionPressed['menu_circle'];
+  if (circlePressed && !circleWasPressed) {
+    callbacks?.onMenuClose?.();
+  }
+  gpPrevActionPressed['menu_circle'] = circlePressed;
+
+  // Check for openMenu binding to allow closing menu with it
+  if (gpBindings.openMenu) {
+    const openMenuPressed = isPressedForBinding(gpBindings.openMenu, pad);
+    const openMenuWasPressed = !!gpPrevActionPressed['openMenu'];
+    if (openMenuPressed && !openMenuWasPressed) {
+      callbacks?.onMenuClose?.();
+    }
+    gpPrevActionPressed['openMenu'] = openMenuPressed;
+  }
 }
 
 // ============================================================================
