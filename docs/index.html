@@ -180,6 +180,7 @@
             <button id="rollR" class="btn active" type="button">Air Roll Right</button>
             <button id="rollFree" class="btn" type="button">Air Roll (Free)</button>
             <button id="ringMode" class="btn" type="button">Ring Mode</button>
+            <button id="rhythmMode" class="btn" type="button">Rhythm Mode</button>
             <button id="restart" class="btn" type="button">Restart</button>
             <button id="orbitCW" class="btn" type="button">Orbit CW</button>
             <button id="orbitCCW" class="btn" type="button">Orbit CCW</button>
@@ -444,6 +445,146 @@
   <!-- Hints -->
   <div id="joyHint">Hold outside the stick to reposition (UI hidden)</div>
   <div id="darHint">Tap to toggle roll • Hold to move</div>
+
+  <!-- Rhythm Mode Modal -->
+  <div id="rhythmModeModal" style="display:none; position:fixed; inset:0; z-index:999; background:rgba(10,12,16,0.85); backdrop-filter:blur(5px);">
+    <div style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:min(800px, calc(100vw - 2rem)); max-height:85vh; overflow:auto; background:#181a20; border:1px solid #3a3d45; border-radius:14px; box-shadow:0 20px 60px rgba(0,0,0,.5);">
+
+      <!-- Header -->
+      <div style="position:sticky; top:0; background:#181a20; z-index:1; padding:1rem; border-bottom:1px solid #33373f; display:flex; align-items:center; justify-content:space-between;">
+        <div style="font-weight:700; font-size:1.2rem; letter-spacing:.3px;">🎵 Rhythm Mode</div>
+        <button id="rhythmModeClose" style="border:1px solid #3a3d45; background:#15171d; color:#e8e8ea; border-radius:10px; padding:.4rem .8rem; cursor:pointer; font-weight:600;">Close</button>
+      </div>
+
+      <!-- Body -->
+      <div style="padding:1.5rem;">
+
+        <!-- Mode Tabs -->
+        <div style="display:flex; gap:1rem; margin-bottom:1.5rem; border-bottom:1px solid #33373f; padding-bottom:1rem;">
+          <button id="rhythmTabPlay" class="rhythmTab" style="flex:1; padding:.6rem; border:1px solid #4c8dff; background:rgba(76,141,255,0.2); color:#4c8dff; border-radius:8px; font-weight:600; cursor:pointer;">▶ Play Mode</button>
+          <button id="rhythmTabEditor" class="rhythmTab" style="flex:1; padding:.6rem; border:1px solid #3a3d45; background:#15171d; color:#e8e8ea; border-radius:8px; font-weight:600; cursor:pointer;">✏ Editor Mode</button>
+        </div>
+
+        <!-- Play Mode Panel -->
+        <div id="rhythmPlayPanel" style="display:block;">
+
+          <!-- Song Selection -->
+          <div style="background:#15171d; border:1px solid #33373f; border-radius:12px; padding:1rem; margin-bottom:1rem;">
+            <h3 style="margin:0 0 1rem; font-size:1rem; opacity:.95;">Song Selection</h3>
+
+            <div style="margin-bottom:1rem;">
+              <label style="display:block; margin-bottom:.5rem; opacity:.8;">Select Beat Map:</label>
+              <select id="rhythmSongSelect" style="width:100%; padding:.6rem; background:#181a20; border:1px solid #3a3d45; border-radius:8px; color:#e8e8ea; font-size:1rem;">
+                <option value="">-- No beat maps loaded --</option>
+              </select>
+            </div>
+
+            <div style="display:flex; gap:.8rem;">
+              <button id="rhythmLoadBeatMap" style="flex:1; padding:.7rem; background:#15171d; border:1px solid #4c8dff; color:#4c8dff; border-radius:8px; cursor:pointer; font-weight:600;">📁 Load Beat Map</button>
+              <button id="rhythmLoadAudio" style="flex:1; padding:.7rem; background:#15171d; border:1px solid #4c8dff; color:#4c8dff; border-radius:8px; cursor:pointer; font-weight:600;">🎵 Load Audio</button>
+            </div>
+
+            <input type="file" id="rhythmBeatMapFile" accept=".json" style="display:none;">
+            <input type="file" id="rhythmAudioFile" accept="audio/*" style="display:none;">
+          </div>
+
+          <!-- Game Controls -->
+          <div style="background:#15171d; border:1px solid #33373f; border-radius:12px; padding:1rem; margin-bottom:1rem;">
+            <h3 style="margin:0 0 1rem; font-size:1rem; opacity:.95;">Game Controls</h3>
+
+            <div style="display:flex; gap:.8rem; margin-bottom:1rem;">
+              <button id="rhythmStart" style="flex:1; padding:.9rem; background:#0066ff; border:1px solid #4c8dff; color:#fff; border-radius:8px; cursor:pointer; font-weight:700; font-size:1.1rem;" disabled>▶ Start Game</button>
+              <button id="rhythmStop" style="flex:1; padding:.9rem; background:#cc0000; border:1px solid #ff3333; color:#fff; border-radius:8px; cursor:pointer; font-weight:700; font-size:1.1rem;" disabled>■ Stop</button>
+            </div>
+
+            <div style="opacity:.7; font-size:.9rem; text-align:center;">Load a beat map and audio to start playing</div>
+          </div>
+
+          <!-- Stats Display -->
+          <div id="rhythmStats" style="background:#15171d; border:1px solid #33373f; border-radius:12px; padding:1rem; display:none;">
+            <h3 style="margin:0 0 1rem; font-size:1rem; opacity:.95;">Stats</h3>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); gap:.8rem; font-size:.9rem;">
+              <div style="background:#181a20; padding:.6rem; border-radius:6px;">
+                <div style="opacity:.6; font-size:.8rem;">Score</div>
+                <div id="rhythmScoreDisplay" style="font-size:1.3rem; font-weight:700; color:#4c8dff;">0</div>
+              </div>
+              <div style="background:#181a20; padding:.6rem; border-radius:6px;">
+                <div style="opacity:.6; font-size:.8rem;">Combo</div>
+                <div id="rhythmComboDisplay" style="font-size:1.3rem; font-weight:700; color:#ffaa00;">0x</div>
+              </div>
+              <div style="background:#181a20; padding:.6rem; border-radius:6px;">
+                <div style="opacity:.6; font-size:.8rem;">Perfect</div>
+                <div id="rhythmPerfectDisplay" style="font-size:1.3rem; font-weight:700; color:#00ff00;">0</div>
+              </div>
+              <div style="background:#181a20; padding:.6rem; border-radius:6px;">
+                <div style="opacity:.6; font-size:.8rem;">Good</div>
+                <div id="rhythmGoodDisplay" style="font-size:1.3rem; font-weight:700; color:#00ffff;">0</div>
+              </div>
+              <div style="background:#181a20; padding:.6rem; border-radius:6px;">
+                <div style="opacity:.6; font-size:.8rem;">Miss</div>
+                <div id="rhythmMissDisplay" style="font-size:1.3rem; font-weight:700; color:#ff0000;">0</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Editor Mode Panel -->
+        <div id="rhythmEditorPanel" style="display:none;">
+
+          <!-- Audio Loading -->
+          <div style="background:#15171d; border:1px solid #33373f; border-radius:12px; padding:1rem; margin-bottom:1rem;">
+            <h3 style="margin:0 0 1rem; font-size:1rem; opacity:.95;">1. Load Audio</h3>
+
+            <button id="editorLoadAudio" style="width:100%; padding:.8rem; background:#15171d; border:1px solid #4c8dff; color:#4c8dff; border-radius:8px; cursor:pointer; font-weight:600;">🎵 Select Audio File</button>
+            <input type="file" id="editorAudioFile" accept="audio/*" style="display:none;">
+
+            <div id="editorAudioInfo" style="margin-top:.8rem; padding:.6rem; background:#181a20; border-radius:6px; font-size:.9rem; opacity:.7; display:none;">
+              <div>File: <span id="editorFileName">-</span></div>
+              <div>Duration: <span id="editorDuration">-</span></div>
+            </div>
+          </div>
+
+          <!-- Beat Detection -->
+          <div style="background:#15171d; border:1px solid #33373f; border-radius:12px; padding:1rem; margin-bottom:1rem;">
+            <h3 style="margin:0 0 1rem; font-size:1rem; opacity:.95;">2. Detect Beats</h3>
+
+            <div style="display:flex; gap:.8rem; margin-bottom:1rem;">
+              <button id="editorAutoDetect" style="flex:1; padding:.7rem; background:#15171d; border:1px solid #4c8dff; color:#4c8dff; border-radius:8px; cursor:pointer; font-weight:600;" disabled>🤖 Auto-Detect Beats</button>
+              <button id="editorManualMode" style="flex:1; padding:.7rem; background:#15171d; border:1px solid #4c8dff; color:#4c8dff; border-radius:8px; cursor:pointer; font-weight:600;" disabled>👆 Manual Tap Mode</button>
+            </div>
+
+            <div style="background:#181a20; padding:.8rem; border-radius:6px; font-size:.85rem; opacity:.7;">
+              <b>Auto-Detect:</b> Analyzes audio to find beats automatically<br>
+              <b>Manual Tap:</b> Play audio and press <code style="background:#15171d; padding:.2rem .4rem; border-radius:4px;">SPACE</code> on each beat
+            </div>
+          </div>
+
+          <!-- Beat Map Controls -->
+          <div style="background:#15171d; border:1px solid #33373f; border-radius:12px; padding:1rem; margin-bottom:1rem;">
+            <h3 style="margin:0 0 1rem; font-size:1rem; opacity:.95;">3. Export Beat Map</h3>
+
+            <div style="margin-bottom:1rem;">
+              <label style="display:block; margin-bottom:.5rem; opacity:.8;">Beat Map Name:</label>
+              <input id="editorBeatMapName" type="text" placeholder="My Awesome Song" style="width:100%; padding:.6rem; background:#181a20; border:1px solid #3a3d45; border-radius:8px; color:#e8e8ea; font-size:1rem;">
+            </div>
+
+            <div style="display:flex; gap:.8rem;">
+              <button id="editorExport" style="flex:1; padding:.7rem; background:#0066ff; border:1px solid #4c8dff; color:#fff; border-radius:8px; cursor:pointer; font-weight:600;" disabled>💾 Export Beat Map</button>
+              <button id="editorClear" style="flex:1; padding:.7rem; background:#15171d; border:1px solid #cc0000; color:#ff3333; border-radius:8px; cursor:pointer; font-weight:600;">🗑 Clear Beats</button>
+            </div>
+
+            <div id="editorBeatCount" style="margin-top:1rem; text-align:center; font-size:.9rem; opacity:.7;">
+              Beats recorded: <span id="editorBeatCountNum">0</span>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+  </div>
 
 <script type="module">
 // L4 DAR Prototype - Main Application Entry Point

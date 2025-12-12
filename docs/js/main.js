@@ -15,6 +15,8 @@ import * as Rendering from './modules/rendering.js';
 import * as Input from './modules/input.js';
 import * as TouchInput from './modules/input/touchInput.js';
 import * as RingMode from './modules/ringMode.js';
+import * as RhythmMode from './modules/rhythmMode.js';
+import * as RhythmModeUI from './modules/rhythmModeUI.js';
 import * as Physics from './modules/physics.js';
 import { GameState } from './modules/gameState.js';
 import { SceneManager } from './modules/sceneManager.js';
@@ -277,6 +279,10 @@ function tick(){
 
   integrate(dt);
 
+  // Update rhythm mode
+  RhythmMode.updateRhythmMode(dt);
+  RhythmModeUI.updateRhythmModeUI();
+
   // Update tornado circle visualization in world space
   updateTornadoCircle();
 
@@ -383,6 +389,8 @@ export function init() {
   // Initialize modules with game state (dependency injection)
   Physics.init(gameState, RingMode);
   RingMode.init(gameState);
+  RhythmMode.init(gameState);
+  RhythmModeUI.initRhythmModeUI(sceneManager.getScene(), sceneManager.getCamera());
 
   // Apply loaded values to sliders
   const accelPitch = document.getElementById('accelPitch');
