@@ -20,6 +20,7 @@ export class SceneManager {
     this.directionalLight = null;
     this.grid = null;
     this.gridMain = null;
+    this.tornadoCircle = null;
   }
 
   /**
@@ -49,6 +50,9 @@ export class SceneManager {
 
     // Grid
     this.initGrid();
+
+    // Tornado circle (world-space, not parented to car)
+    this.initTornadoCircle();
 
     return hud;
   }
@@ -91,6 +95,7 @@ export class SceneManager {
     this.gridReferenceDot = new THREE.Mesh(gridDotGeom, gridDotMat);
     this.gridReferenceDot.position.set(0, -160, 0); // At grid intersection
     this.gridReferenceDot.renderOrder = 999;
+    this.gridReferenceDot.visible = false; // Hidden
     this.scene.add(this.gridReferenceDot);
   }
 
@@ -143,5 +148,29 @@ export class SceneManager {
 
   getGridMain() {
     return this.gridMain;
+  }
+
+  getTornadoCircle() {
+    return this.tornadoCircle;
+  }
+
+  /**
+   * Initialize the tornado circle visualization
+   * Circle is in world space, not parented to car
+   */
+  initTornadoCircle() {
+    const geom = new THREE.CircleGeometry(1, 64);
+    const mat = new THREE.MeshBasicMaterial({
+      color: 0xffff00,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.3,
+      depthTest: false,
+      depthWrite: false
+    });
+    this.tornadoCircle = new THREE.Mesh(geom, mat);
+    this.tornadoCircle.renderOrder = 998;
+    this.tornadoCircle.visible = false;
+    this.scene.add(this.tornadoCircle);
   }
 }

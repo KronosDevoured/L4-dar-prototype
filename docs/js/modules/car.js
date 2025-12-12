@@ -19,9 +19,16 @@ export let faceTip = null;
 export let tornadoPivotPoint = null;
 export let carCenterPoint = null;
 export let carNosePoint = null;
+export let carBackPoint = null;
 export let carRollAxisLine = null;
 export let bodyMesh = null;
 export let yellowTornadoLine = null;
+export let magentaLinePoint = null;
+export let magentaCircle = null;
+export let debugLine1 = null; // Nose to magenta
+export let debugLine2 = null; // Perpendicular 1
+export let debugLine3 = null; // Perpendicular 2
+export let debugLine4 = null; // Perpendicular to both
 let carScene = null; // Store reference to scene
 
 // ============================================================================
@@ -133,7 +140,7 @@ export function buildCar(boxDims, presetName = "placeholder", scene) {
   BOX = boxDims;
   carScene = scene; // Store scene reference
   car = new THREE.Group();
-  car.position.set(0, -160, 225); // Align with grid dot height, 300 units forward from -75
+  car.position.set(0, -160, 0); // At grid intersection
 
   // No initial rotation - let physics handle orientation
   // car.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
@@ -209,12 +216,12 @@ export function buildCar(boxDims, presetName = "placeholder", scene) {
     carCenterPoint.position.set(0, 0, 0); // At car's origin (center of mass)
     console.log('[Car] Car center point added to car');
   }
-  carCenterPoint.visible = true; // Always visible
+  carCenterPoint.visible = false; // Hidden
 
   // Nose position visualizer - shows the point we track for tornado measurements
   const noseGeom = new THREE.SphereGeometry(3, 16, 16);
   const noseMat = new THREE.MeshBasicMaterial({
-    color: 0xff0000, // Red
+    color: 0xff0000, // Red (will be dynamic)
     depthTest: false, // Render on top of everything
     depthWrite: false
   });
@@ -227,7 +234,25 @@ export function buildCar(boxDims, presetName = "placeholder", scene) {
     carNosePoint.position.set(0, 0, BOX.hz); // At the nose tip (front of car)
     console.log('[Car] Car nose point added to car');
   }
-  carNosePoint.visible = true; // Always visible
+  carNosePoint.visible = false; // Hidden
+
+  // Back position visualizer - opposite end of the car from nose
+  const backGeom = new THREE.SphereGeometry(3, 16, 16);
+  const backMat = new THREE.MeshBasicMaterial({
+    color: 0x00ff00, // Green
+    depthTest: false,
+    depthWrite: false
+  });
+  carBackPoint = new THREE.Mesh(backGeom, backMat);
+  carBackPoint.renderOrder = 999;
+
+  // Add as child of car at opposite end from nose
+  if (car) {
+    car.add(carBackPoint);
+    carBackPoint.position.set(0, 0, -BOX.hz); // At the back (opposite of nose)
+    console.log('[Car] Car back point added to car');
+  }
+  carBackPoint.visible = false; // Hidden
 
   // Roll axis line visualizer - connects car's roll axis to the grid cyan dot
   const rollAxisGeom = new THREE.BufferGeometry();
@@ -244,24 +269,87 @@ export function buildCar(boxDims, presetName = "placeholder", scene) {
     carScene.add(carRollAxisLine);
     console.log('[Car] Car roll axis line added to scene');
   }
-  carRollAxisLine.visible = true; // Always visible
+  carRollAxisLine.visible = false; // Hidden
 
-  // Yellow tornado line - 300 units long, centered at car cyan dot, controlled by analog stick
+  // Yellow tornado line - 300 units long, centered at car cyan dot
+  // Positioned along Z-axis (0, 0, 1 direction), childed to car
   const yellowLineGeom = new THREE.BufferGeometry();
   const yellowLinePositions = new Float32Array([
-    0, 0, -150,  // 150 units behind center
-    0, 0, 150    // 150 units ahead of center
+    0, 0, -150,  // 150 units behind center along Z-axis
+    0, 0, 150    // 150 units ahead of center along Z-axis
   ]);
   yellowLineGeom.setAttribute('position', new THREE.BufferAttribute(yellowLinePositions, 3));
   const yellowLineMat = new THREE.LineBasicMaterial({ color: 0xffff00, linewidth: 2 }); // Yellow
   yellowTornadoLine = new THREE.Line(yellowLineGeom, yellowLineMat);
 
-  // Add to scene (not car child) so we can update it in world coordinates
-  if (carScene) {
-    carScene.add(yellowTornadoLine);
-    console.log('[Car] Yellow tornado line added to scene');
+  // Add as child of car (not scene) so it moves with the car
+  if (car) {
+    car.add(yellowTornadoLine);
+    console.log('[Car] Yellow tornado line added as car child');
   }
   yellowTornadoLine.visible = false; // Hidden until stick is moved
+
+  // Magenta dot on yellow line - 120 units along the line in yellow line's local space
+  const magentaGeom = new THREE.SphereGeometry(3, 16, 16);
+  const magentaMat = new THREE.MeshBasicMaterial({
+    color: 0xff00ff, // Magenta
+    depthTest: false, // Render on top of everything
+    depthWrite: false
+  });
+  magentaLinePoint = new THREE.Mesh(magentaGeom, magentaMat);
+  magentaLinePoint.renderOrder = 999; // Render last (on top)
+
+  // Add as child of YELLOW LINE (not car) so it rotates with the line
+  yellowTornadoLine.add(magentaLinePoint);
+  magentaLinePoint.position.set(0, 0, 120); // 120 units along yellow line
+  console.log('[Car] Magenta line point added as yellow line child');
+  magentaLinePoint.visible = false; // Hidden
+
+  // Circle centered at magenta dot - perpendicular to yellow line (now a torus/ring)
+  const circleGeom = new THREE.TorusGeometry(1, 0.08, 16, 64); // Radius 1 (scaled dynamically), tube 0.08 (thin)
+  const circleMat = new THREE.MeshBasicMaterial({
+    color: 0xff00ff, // Magenta
+    depthTest: true, // Enable depth testing so it doesn't draw over the car
+    depthWrite: true
+  });
+  magentaCircle = new THREE.Mesh(circleGeom, circleMat);
+  magentaCircle.renderOrder = 0; // Normal render order
+
+  // Add as child of YELLOW LINE (not car) at the magenta dot position
+  // Circle default faces Z direction in line's local space
+  yellowTornadoLine.add(magentaCircle);
+  magentaCircle.position.set(0, 0, 120); // Same position as magenta dot on the line
+  console.log('[Car] Magenta circle added as yellow line child');
+  magentaCircle.visible = true; // Always visible
+
+  // Debug lines - will be updated in physics.js
+  // Line 1: Nose to Magenta (RED)
+  const line1Geom = new THREE.BufferGeometry();
+  line1Geom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3));
+  debugLine1 = new THREE.Line(line1Geom, new THREE.LineBasicMaterial({ color: 0xff0000, linewidth: 3 }));
+  if (carScene) carScene.add(debugLine1);
+  debugLine1.visible = false;
+
+  // Line 2: Perpendicular 1 (GREEN)
+  const line2Geom = new THREE.BufferGeometry();
+  line2Geom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3));
+  debugLine2 = new THREE.Line(line2Geom, new THREE.LineBasicMaterial({ color: 0x00ff00, linewidth: 3 }));
+  if (carScene) carScene.add(debugLine2);
+  debugLine2.visible = false;
+
+  // Line 3: Perpendicular 2 (BLUE)
+  const line3Geom = new THREE.BufferGeometry();
+  line3Geom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3));
+  debugLine3 = new THREE.Line(line3Geom, new THREE.LineBasicMaterial({ color: 0x0000ff, linewidth: 3 }));
+  if (carScene) carScene.add(debugLine3);
+  debugLine3.visible = false;
+
+  // Line 4: Perpendicular to both (CYAN)
+  const line4Geom = new THREE.BufferGeometry();
+  line4Geom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3));
+  debugLine4 = new THREE.Line(line4Geom, new THREE.LineBasicMaterial({ color: 0x00ffff, linewidth: 3 }));
+  if (carScene) carScene.add(debugLine4);
+  debugLine4.visible = false;
 }
 
 // ============================================================================

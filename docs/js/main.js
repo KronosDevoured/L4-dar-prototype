@@ -143,6 +143,14 @@ function updateMenuButtonStyling() {
 // GAME LOOP FUNCTIONS
 // ============================================================================
 
+/**
+ * Update tornado circle visualization in world space
+ * Uses calibrated axis data to render a stable, non-wobbling circle
+ */
+function updateTornadoCircle() {
+  // Yellow tornado circle rendering removed - will be reimplemented
+}
+
 function integrate(dt) {
   // Skip physics when menu is open OR when Ring Mode is paused
   // EXCEPT during automated measurement mode
@@ -268,6 +276,9 @@ function tick(){
   }
 
   integrate(dt);
+
+  // Update tornado circle visualization in world space
+  updateTornadoCircle();
 
   const renderer = sceneManager.getRenderer();
   const scene = sceneManager.getScene();

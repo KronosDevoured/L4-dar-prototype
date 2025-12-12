@@ -38,6 +38,11 @@ let rollLocked = false;
 let AXIS_MIN_DATA = null; // { centerLocal: Vector3, axisLocal: Vector3, radius: number }
 let AXIS_MAX_DATA = null; // { centerLocal: Vector3, axisLocal: Vector3, radius: number }
 
+// Angular velocity tracking for wobble minimization
+const HISTORY_LENGTH = 30; // Number of frames to track
+let angularVelocityHistory = [];
+let previousCarQuaternion = null;
+
 // Load axis data from localStorage
 function loadAxisDataFromStorage() {
   try {
@@ -201,9 +206,14 @@ export function resetPhysics() {
 // HELPER FUNCTIONS
 // ============================================================================
 
-const MIN_STICK_MAG = 0.10;  // what you used for your "min" measurement
-const MAX_STICK_MAG = 1.00;  // full stick
+const MIN_STICK_MAG = 0.10;  // Min measurement stick magnitude
+const MAX_STICK_MAG = 1.00;  // Max measurement stick magnitude
 
+/**
+ * Interpolate axis data between MIN and MAX measurements based on stick magnitude
+ * @param {number} stickMag - Current stick magnitude (0 to 1)
+ * @returns {Object|null} { centerLocal, axisLocal, radius, t } or null
+ */
 function getInterpolatedAxisData(stickMag) {
   if (!AXIS_MIN_DATA || !AXIS_MAX_DATA) return null;
 
@@ -483,10 +493,13 @@ export function updatePhysics(dt, settings, chromeShown) {
     // Collect nose positions between 179° and 181°
     if (rotationDegrees >= 179 && rotationDegrees <= 181) {
       tornadoMeasurement.nosePositions.push(noseWorld.clone());
+      console.log(`Collecting nose position (${tornadoMeasurement.nosePositions.length} collected)`);
     }
 
     // When we pass 181°, calculate the axis
-    if (rotationDegrees > 181 && tornadoMeasurement.nosePositions.length > 0) {
+    if (rotationDegrees > 181) {
+      console.log(`Past 181°, collected ${tornadoMeasurement.nosePositions.length} nose positions`);
+      if (tornadoMeasurement.nosePositions.length > 0) {
       // Average all nose positions between 179° and 181° to get the opposite point
       const oppositeNose = new THREE.Vector3();
       for (const pos of tornadoMeasurement.nosePositions) {
@@ -530,6 +543,7 @@ export function updatePhysics(dt, settings, chromeShown) {
         window.measurementState.input.x = 0;
         window.measurementState.input.y = 0;
       }
+      }
     }
   }
 
@@ -539,51 +553,214 @@ export function updatePhysics(dt, settings, chromeShown) {
     console.log('Measurement cancelled - stick released');
   }
 
-  // Yellow tornado line - controlled by analog stick in car-local space
-  if (stickMag > 0.01) {
-    // Show the yellow line
-    Car.yellowTornadoLine.visible = true;
+  // Yellow tornado line - show/hide and rotate based on stick input with wobble minimization
+  // Only active when using air roll left or right (DAR), not air roll free
+  const airRoll = Input.getAirRoll();
+  const isDARActive = (airRoll === -1 || airRoll === 1);
 
-    const carPos = Car.car.position.clone();
-    const carQuat = Car.car.quaternion.clone();
+  if (stickMag > 0.01 && isDARActive) {
+    Car.yellowTornadoLine.visible = true; // Must be visible for children to show
 
-    // Nose endpoint position in car-local space
-    // Maximum offset: 40 units from roll axis in any direction
-    const MAX_OFFSET = 40;
-    const LINE_HALF_LENGTH = 150;
+    // Make the yellow line itself invisible by setting opacity to 0
+    if (Car.yellowTornadoLine.material) {
+      Car.yellowTornadoLine.material.transparent = true;
+      Car.yellowTornadoLine.material.opacity = 0;
+    }
 
-    // Stick mapping (inverted for nose-relative control):
-    // Stick DOWN (uy < 0) → endpoint moves nose UP (local X positive)
-    // Stick UP (uy > 0) → endpoint moves nose DOWN (local X negative)
-    // Stick LEFT (ux < 0) → endpoint moves nose LEFT (local Y positive)
-    // Stick RIGHT (ux > 0) → endpoint moves nose RIGHT (local Y negative)
-    const offsetX = -uy * MAX_OFFSET;
-    const offsetY = -ux * MAX_OFFSET;
+    // Update magenta circle color based on stick direction (like analog stick visualization)
+    if (Car.magentaCircle) {
+      // Both air roll directions need X inverted for color mapping
+      const adjustedUx = -ux;
+      const angle = Math.atan2(uy, adjustedUx);
 
-    // Nose endpoint: starts at (0, 0, 150) and offsets by stick input
-    // Stick directly controls X and Y offset, Z stays at line half-length
-    const x = offsetX;
-    const y = offsetY;
-    const z = LINE_HALF_LENGTH;
+      // Map angle to color (0=right/blue, 90=up/green, 180=left/yellow, 270=down/red)
+      let color;
+      const degrees = ((angle * 180 / Math.PI) + 360) % 360;
 
-    // Nose endpoint in car-local space
-    const localNoseEndpoint = new THREE.Vector3(x, y, z);
+      if (degrees >= 45 && degrees < 135) {
+        // Up quadrant - GREEN
+        color = 0x00ff00;
+      } else if (degrees >= 135 && degrees < 225) {
+        // Left quadrant - YELLOW
+        color = 0xffff00;
+      } else if (degrees >= 225 && degrees < 315) {
+        // Down quadrant - RED
+        color = 0xff0000;
+      } else {
+        // Right quadrant - BLUE
+        color = 0x0000ff;
+      }
 
-    // Transform to world space
-    const worldNoseEndpoint = localNoseEndpoint.clone().applyQuaternion(carQuat);
+      // Only update magenta circle color
+      Car.magentaCircle.material.color.setHex(color);
+    }
 
-    // Line endpoints: nose endpoint and opposite side (just negate the vector)
-    const lineEnd = carPos.clone().add(worldNoseEndpoint);
-    const lineStart = carPos.clone().sub(worldNoseEndpoint);
+    // Calculate angular velocity from quaternion change
+    if (previousCarQuaternion) {
+      // Get current rotation delta
+      const currentQuat = Car.car.quaternion.clone();
+      const deltaQuat = new THREE.Quaternion();
+      deltaQuat.copy(currentQuat).multiply(previousCarQuaternion.clone().invert());
 
-    // Update line geometry
-    const positions = Car.yellowTornadoLine.geometry.attributes.position;
-    positions.setXYZ(0, lineStart.x, lineStart.y, lineStart.z);
-    positions.setXYZ(1, lineEnd.x, lineEnd.y, lineEnd.z);
-    positions.needsUpdate = true;
+      // Convert quaternion to axis-angle to get angular velocity direction
+      const angle = 2 * Math.acos(Math.min(1, Math.abs(deltaQuat.w)));
+
+      if (angle > 0.001) { // Only if there's significant rotation
+        const sinHalfAngle = Math.sqrt(1 - deltaQuat.w * deltaQuat.w);
+        const angularVelocity = new THREE.Vector3(
+          deltaQuat.x / sinHalfAngle,
+          deltaQuat.y / sinHalfAngle,
+          deltaQuat.z / sinHalfAngle
+        ).normalize();
+
+        // Add to history
+        angularVelocityHistory.push(angularVelocity.clone());
+
+        // Keep history at fixed length
+        if (angularVelocityHistory.length > HISTORY_LENGTH) {
+          angularVelocityHistory.shift();
+        }
+      }
+    }
+
+    // Store current quaternion for next frame
+    previousCarQuaternion = Car.car.quaternion.clone();
+
+    // If we have enough history, use averaged angular velocity
+    if (angularVelocityHistory.length >= 15) {
+      // Calculate average angular velocity direction
+      const avgAngularVel = new THREE.Vector3();
+      for (let i = 0; i < angularVelocityHistory.length; i++) {
+        avgAngularVel.add(angularVelocityHistory[i]);
+      }
+      avgAngularVel.normalize();
+
+      // Invert the direction (angular velocity points opposite to desired line direction)
+      avgAngularVel.negate();
+
+      // Convert to car-local space
+      const carQuat = Car.car.quaternion.clone().invert();
+      const axisLocal = avgAngularVel.clone().applyQuaternion(carQuat);
+
+      // Orient yellow line to this axis
+      const defaultDirection = new THREE.Vector3(0, 0, 1);
+      const lineQuat = new THREE.Quaternion().setFromUnitVectors(defaultDirection, axisLocal);
+
+      // Apply the quaternion rotation (don't use slerp, just set it)
+      Car.yellowTornadoLine.quaternion.copy(lineQuat);
+    } else {
+      // Not enough history yet, use simple stick-based rotation
+      const airRoll = Input.getAirRoll();
+      const invertForAirRollLeft = (airRoll === -1);
+      const stickX = invertForAirRollLeft ? ux : -ux;
+      const stickY = uy;
+      const lineDirectionX = -stickY;
+      const lineDirectionY = stickX;
+      const tiltAmount = 0.5;
+
+      // Use Euler angles for initial rotation, then convert to quaternion
+      const euler = new THREE.Euler(
+        lineDirectionY * tiltAmount,
+        lineDirectionX * tiltAmount,
+        0,
+        'XYZ'
+      );
+      Car.yellowTornadoLine.quaternion.setFromEuler(euler);
+    }
   } else {
-    // Hide the yellow line when stick is not touched
     Car.yellowTornadoLine.visible = false;
+    // Clear history when stick is released
+    angularVelocityHistory = [];
+    previousCarQuaternion = null;
+  }
+
+  // Update magenta dot position and circle to stay perpendicular to yellow line
+  if (Car.magentaCircle && Car.magentaLinePoint && Car.carNosePoint && Car.yellowTornadoLine) {
+    // Get world positions
+    const redNoseWorld = new THREE.Vector3();
+    Car.carNosePoint.getWorldPosition(redNoseWorld);
+
+    // Get yellow line position and direction in world space
+    const lineWorldPos = new THREE.Vector3();
+    Car.yellowTornadoLine.getWorldPosition(lineWorldPos);
+
+    const yellowLineDirection = new THREE.Vector3(0, 0, 1);
+    yellowLineDirection.applyQuaternion(Car.yellowTornadoLine.getWorldQuaternion(new THREE.Quaternion()));
+
+    // Project the red nose onto the yellow line to find the magenta dot position
+    // This ensures the circle stays perpendicular to the yellow line
+    const lineToNose = new THREE.Vector3().subVectors(redNoseWorld, lineWorldPos);
+    const projectionLength = lineToNose.dot(yellowLineDirection);
+
+    // Position on yellow line closest to nose (projection point)
+    const magentaDotWorld = new THREE.Vector3().copy(lineWorldPos).add(
+      yellowLineDirection.clone().multiplyScalar(projectionLength)
+    );
+
+    // Convert to yellow line's local space
+    const lineWorldQuatInverse = Car.yellowTornadoLine.getWorldQuaternion(new THREE.Quaternion()).invert();
+    const magentaDotLocal = new THREE.Vector3().subVectors(magentaDotWorld, lineWorldPos).applyQuaternion(lineWorldQuatInverse);
+
+    // Update magenta dot and circle positions
+    Car.magentaLinePoint.position.copy(magentaDotLocal);
+    Car.magentaCircle.position.copy(magentaDotLocal);
+
+    // Calculate dynamic radius (distance from magenta dot to nose)
+    const radius = magentaDotWorld.distanceTo(redNoseWorld);
+
+    // Update circle scale
+    Car.magentaCircle.scale.set(radius, radius, radius);
+
+    // Orient circle perpendicular to yellow line
+    // Circle normal = yellow line direction
+    const circleNormalLocal = new THREE.Vector3(0, 0, 1); // Already in line's local space
+
+    // Orient circle to face along the line (perpendicular to line means normal along line)
+    const defaultNormal = new THREE.Vector3(0, 0, 1);
+    const quat = new THREE.Quaternion().setFromUnitVectors(defaultNormal, circleNormalLocal);
+
+    Car.magentaCircle.quaternion.copy(quat);
+
+    // Update debug lines
+    if (Car.debugLine1 && Car.debugLine2 && Car.debugLine3 && Car.debugLine4) {
+      const lineLength = 100;
+
+      // Line 1 (RED): From nose to magenta
+      const line1Pos = Car.debugLine1.geometry.attributes.position;
+      line1Pos.setXYZ(0, redNoseWorld.x, redNoseWorld.y, redNoseWorld.z);
+      line1Pos.setXYZ(1, magentaDotWorld.x, magentaDotWorld.y, magentaDotWorld.z);
+      line1Pos.needsUpdate = true;
+
+      // Calculate magentaToNose for debug lines
+      const magentaToNose = new THREE.Vector3().subVectors(redNoseWorld, magentaDotWorld).normalize();
+
+      // Line 2 (GREEN): Perpendicular to nose-magenta, centered at magenta dot
+      const perp1 = new THREE.Vector3().crossVectors(yellowLineDirection, magentaToNose).normalize();
+      const line2Start = magentaDotWorld.clone().add(perp1.clone().multiplyScalar(-lineLength / 2));
+      const line2End = magentaDotWorld.clone().add(perp1.clone().multiplyScalar(lineLength / 2));
+      const line2Pos = Car.debugLine2.geometry.attributes.position;
+      line2Pos.setXYZ(0, line2Start.x, line2Start.y, line2Start.z);
+      line2Pos.setXYZ(1, line2End.x, line2End.y, line2End.z);
+      line2Pos.needsUpdate = true;
+
+      // Line 3 (BLUE): Another perpendicular to nose-magenta (different direction), centered at magenta dot
+      const perp2 = new THREE.Vector3().crossVectors(magentaToNose, perp1).normalize();
+      const line3Start = magentaDotWorld.clone().add(perp2.clone().multiplyScalar(-lineLength / 2));
+      const line3End = magentaDotWorld.clone().add(perp2.clone().multiplyScalar(lineLength / 2));
+      const line3Pos = Car.debugLine3.geometry.attributes.position;
+      line3Pos.setXYZ(0, line3Start.x, line3Start.y, line3Start.z);
+      line3Pos.setXYZ(1, line3End.x, line3End.y, line3End.z);
+      line3Pos.needsUpdate = true;
+
+      // Line 4 (CYAN): Perpendicular to BOTH perp1 and perp2, centered at magenta dot
+      const perp3 = new THREE.Vector3().crossVectors(perp1, perp2).normalize();
+      const line4Start = magentaDotWorld.clone().add(perp3.clone().multiplyScalar(-lineLength / 2));
+      const line4End = magentaDotWorld.clone().add(perp3.clone().multiplyScalar(lineLength / 2));
+      const line4Pos = Car.debugLine4.geometry.attributes.position;
+      line4Pos.setXYZ(0, line4Start.x, line4Start.y, line4Start.z);
+      line4Pos.setXYZ(1, line4End.x, line4End.y, line4End.z);
+      line4Pos.needsUpdate = true;
+    }
   }
 
   // --- 5. PD control → angular acceleration per axis ---
