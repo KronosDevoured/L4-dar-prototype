@@ -348,7 +348,7 @@
 
           <div class="row sl">
             <label for="brightnessSlider">Car Brightness</label>
-            <input id="brightnessSlider" type="range" min="0.5" max="3.0" step="0.1" value="1.0" />
+            <input id="brightnessSlider" type="range" min="0.5" max="20.0" step="0.1" value="1.0" />
             <span class="tag" id="brightnessVal">1.00×</span>
           </div>
         </div>
@@ -448,7 +448,7 @@
 
   <!-- Rhythm Mode Modal -->
   <div id="rhythmModeModal" style="display:none; position:fixed; inset:0; z-index:999; background:rgba(10,12,16,0.85); backdrop-filter:blur(5px);">
-    <div style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:min(800px, calc(100vw - 2rem)); max-height:85vh; overflow:auto; background:#181a20; border:1px solid #3a3d45; border-radius:14px; box-shadow:0 20px 60px rgba(0,0,0,.5);">
+    <div style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:min(800px, calc(100vw - 2rem)); max-height:85vh; overflow:auto; background:#181a20; border:1px solid #3a3d45; border-radius:14px; box-shadow:0 20px 60px rgba(0,0,0,.5); color:#e8e8ea;">
 
       <!-- Header -->
       <div style="position:sticky; top:0; background:#181a20; z-index:1; padding:1rem; border-bottom:1px solid #33373f; display:flex; align-items:center; justify-content:space-between;">
@@ -545,18 +545,111 @@
             </div>
           </div>
 
+          <!-- Load Existing Beat Map (Optional) -->
+          <div style="background:#15171d; border:1px solid #33373f; border-radius:12px; padding:1rem; margin-bottom:1rem;">
+            <h3 style="margin:0 0 1rem; font-size:1rem; opacity:.95;">2. Load Existing Beat Map (Optional)</h3>
+
+            <button id="editorLoadBeatMap" style="width:100%; padding:.8rem; background:#15171d; border:1px solid #4c8dff; color:#4c8dff; border-radius:8px; cursor:pointer; font-weight:600;">📂 Load Beat Map JSON</button>
+            <input type="file" id="editorBeatMapFileLoad" accept=".json" style="display:none;">
+
+            <div id="editorLoadedBeatMapInfo" style="margin-top:.8rem; padding:.6rem; background:#181a20; border-radius:6px; font-size:.9rem; opacity:.7; display:none;">
+              <div>Loaded: <span id="editorLoadedBeatMapName">-</span></div>
+              <div>Beats: <span id="editorLoadedBeatCount">0</span></div>
+            </div>
+          </div>
+
           <!-- Beat Detection -->
           <div style="background:#15171d; border:1px solid #33373f; border-radius:12px; padding:1rem; margin-bottom:1rem;">
-            <h3 style="margin:0 0 1rem; font-size:1rem; opacity:.95;">2. Detect Beats</h3>
+            <h3 style="margin:0 0 1rem; font-size:1rem; opacity:.95;">3. Create/Edit Beat Map</h3>
+
+            <!-- Editor Mode Tabs -->
+            <div style="display:flex; gap:.5rem; margin-bottom:1rem;">
+              <button id="editorTabTiming" style="flex:1; padding:.7rem; background:#4c8dff; border:1px solid #4c8dff; color:#fff; border-radius:8px; cursor:pointer; font-weight:600;">⏱ Beat Timing</button>
+              <button id="editorTabPositions" style="flex:1; padding:.7rem; background:#15171d; border:1px solid #3a3d45; color:#888; border-radius:8px; cursor:pointer; font-weight:600;" disabled>📍 Ring Positions</button>
+            </div>
+
+            <!-- Beat Timing View -->
+            <div id="editorTimingView">
+              <!-- Waveform Visualizer -->
+              <div style="margin-bottom:1rem;">
+                <div style="background:#0a0c10; border:1px solid #3a3d45; border-radius:8px; overflow:hidden;">
+                  <canvas id="beatEditorCanvas" style="display:block; width:100%; cursor:crosshair;"></canvas>
+                </div>
+                <div style="margin-top:.5rem; font-size:.85rem; opacity:.7; text-align:center;">
+                  Click on waveform to add/remove beat markers | Green lines = beats | Red line = playhead
+                </div>
+              </div>
 
             <div style="display:flex; gap:.8rem; margin-bottom:1rem;">
               <button id="editorAutoDetect" style="flex:1; padding:.7rem; background:#15171d; border:1px solid #4c8dff; color:#4c8dff; border-radius:8px; cursor:pointer; font-weight:600;" disabled>🤖 Auto-Detect Beats</button>
-              <button id="editorManualMode" style="flex:1; padding:.7rem; background:#15171d; border:1px solid #4c8dff; color:#4c8dff; border-radius:8px; cursor:pointer; font-weight:600;" disabled>👆 Manual Tap Mode</button>
+              <button id="editorPlayPause" style="flex:1; padding:.7rem; background:#15171d; border:1px solid #4c8dff; color:#4c8dff; border-radius:8px; cursor:pointer; font-weight:600;" disabled>▶ Play/Pause</button>
+              <button id="editorAddBeatAtPlayhead" style="flex:1; padding:.7rem; background:#15171d; border:1px solid #4c8dff; color:#4c8dff; border-radius:8px; cursor:pointer; font-weight:600;" disabled>➕ Add Beat Here</button>
+              <button id="editorResetToStart" style="flex:1; padding:.7rem; background:#15171d; border:1px solid #4c8dff; color:#4c8dff; border-radius:8px; cursor:pointer; font-weight:600;" disabled>⏮ Reset to Start</button>
             </div>
 
-            <div style="background:#181a20; padding:.8rem; border-radius:6px; font-size:.85rem; opacity:.7;">
-              <b>Auto-Detect:</b> Analyzes audio to find beats automatically<br>
-              <b>Manual Tap:</b> Play audio and press <code style="background:#15171d; padding:.2rem .4rem; border-radius:4px;">SPACE</code> on each beat
+            <div style="display:flex; gap:.8rem; margin-bottom:1rem;">
+              <div style="flex:1;">
+                <label style="display:block; margin-bottom:.5rem; opacity:.8; font-size:.85rem;">Zoom:</label>
+                <div style="display:flex; align-items:center; gap:.5rem;">
+                  <button id="editorZoomOut" style="padding:.5rem .8rem; background:#15171d; border:1px solid #3a3d45; color:#e8e8ea; border-radius:6px; cursor:pointer;">−</button>
+                  <input id="editorZoomSlider" type="range" min="0.5" max="10" step="0.5" value="1" style="flex:1;">
+                  <button id="editorZoomIn" style="padding:.5rem .8rem; background:#15171d; border:1px solid #3a3d45; color:#e8e8ea; border-radius:6px; cursor:pointer;">+</button>
+                  <span id="editorZoomLabel" style="min-width:3rem; text-align:center; opacity:.8; font-size:.85rem;">100%</span>
+                </div>
+              </div>
+              <div style="flex:1;">
+                <label style="display:block; margin-bottom:.5rem; opacity:.8; font-size:.85rem;">Playback Speed:</label>
+                <div style="display:flex; align-items:center; gap:.5rem;">
+                  <button id="editorSpeedDown" style="padding:.5rem .8rem; background:#15171d; border:1px solid #3a3d45; color:#e8e8ea; border-radius:6px; cursor:pointer;">−</button>
+                  <input id="editorSpeedSlider" type="range" min="0.25" max="2.0" step="0.25" value="1" style="flex:1;">
+                  <button id="editorSpeedUp" style="padding:.5rem .8rem; background:#15171d; border:1px solid #3a3d45; color:#e8e8ea; border-radius:6px; cursor:pointer;">+</button>
+                  <span id="editorSpeedLabel" style="min-width:3rem; text-align:center; opacity:.8; font-size:.85rem;">1.0x</span>
+                </div>
+              </div>
+            </div>
+
+              <div style="background:#181a20; padding:.8rem; border-radius:6px; font-size:.85rem; opacity:.7;">
+                <b>Click waveform:</b> Add or remove beat markers<br>
+                <b>Drag waveform:</b> Scroll left/right | <b>Pinch/Zoom:</b> Zoom in/out<br>
+                <b>Auto-Detect:</b> Analyzes audio to find beats automatically
+              </div>
+            </div>
+
+            <!-- Ring Positions View -->
+            <div id="editorPositionsView" style="display:none;">
+              <!-- Grid Visualizer -->
+              <div style="margin-bottom:1rem;">
+                <div style="background:#0a0c10; border:1px solid #3a3d45; border-radius:8px; overflow:hidden;">
+                  <canvas id="ringPositionCanvas" style="display:block; width:100%; cursor:default; touch-action:none;"></canvas>
+                </div>
+                <div style="margin-top:.5rem; font-size:.85rem; opacity:.7; text-align:center;">
+                  Drag ring to reposition | Red boundary = danger zone
+                </div>
+              </div>
+
+              <!-- Navigation Controls -->
+              <div style="display:flex; gap:.8rem; margin-bottom:1rem;">
+                <button id="positionPrevBeat" style="flex:1; padding:.7rem; background:#15171d; border:1px solid #3a3d45; color:#e8e8ea; border-radius:8px; cursor:pointer; font-weight:600;">◀ Previous Beat</button>
+                <div style="flex:2; display:flex; align-items:center; justify-content:center; background:#181a20; border-radius:8px; padding:.5rem;">
+                  <span id="positionBeatInfo" style="font-weight:600; color:#4c8dff;">Beat 1/0</span>
+                </div>
+                <button id="positionNextBeat" style="flex:1; padding:.7rem; background:#15171d; border:1px solid #3a3d45; color:#e8e8ea; border-radius:8px; cursor:pointer; font-weight:600;">Next Beat ▶</button>
+              </div>
+
+              <!-- Position Controls -->
+              <div style="display:flex; gap:.8rem; margin-bottom:1rem;">
+                <button id="positionPlayPreview" style="flex:1; padding:.9rem; background:#00cc44; border:2px solid #00ff55; color:#fff; border-radius:8px; cursor:pointer; font-weight:700; font-size:1rem; box-shadow:0 2px 8px rgba(0,204,68,0.3);">▶ Play Preview</button>
+                <label style="flex:1; display:flex; align-items:center; gap:.5rem; background:#181a20; border-radius:8px; padding:.5rem; cursor:pointer;">
+                  <input type="checkbox" id="positionSnapGrid" style="width:20px; height:20px; cursor:pointer;">
+                  <span style="font-size:.9rem; color:#e8e8ea;">Snap to Grid</span>
+                </label>
+              </div>
+
+              <div style="background:#181a20; padding:.8rem; border-radius:6px; font-size:.85rem; opacity:.7;">
+                <b>Drag ring:</b> Reposition on grid<br>
+                <b>Navigation:</b> Use Previous/Next to move between beats<br>
+                <b>Preview:</b> See all rings in sequence with music
+              </div>
             </div>
           </div>
 
@@ -584,6 +677,15 @@
       </div>
 
     </div>
+  </div>
+
+  <!-- Boost to Start Message (outside modal so it stays visible) -->
+  <div id="rhythmBoostToStart" style="position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background:rgba(76,141,255,0.95); color:#fff; padding:1.5rem 2.5rem; border-radius:16px; font-size:1.5rem; font-weight:700; box-shadow:0 8px 32px rgba(76,141,255,.6); z-index:9999; display:none; text-align:center; letter-spacing:0.5px;">
+    🚀 Press BOOST to Start
+  </div>
+
+  <!-- Countdown Display (shows after boost, before music starts) -->
+  <div id="rhythmCountdown" style="position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background:rgba(76,141,255,0.95); color:#fff; padding:2rem 3rem; border-radius:16px; font-size:3rem; font-weight:700; box-shadow:0 8px 32px rgba(76,141,255,.6); z-index:9999; display:none; text-align:center;">
   </div>
 
 <script type="module">

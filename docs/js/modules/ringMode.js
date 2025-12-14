@@ -229,6 +229,17 @@ function preloadRingResources() {
 /**
  * Reset Ring Mode (for retry button)
  */
+/**
+ * Reset only physics state (for rhythm mode)
+ * Does NOT reset game state or start ring mode
+ */
+export function resetRingModePhysicsOnly() {
+  ringModeVelocity.set(0, 0);
+  ringModePosition.set(0, 0);
+  ringModeStarted = false;
+  ignoreBoostUntilRelease = true;
+}
+
 export function resetRingMode() {
   console.log('resetRingMode() called - resetting game');
   ringModeScore = 0;
@@ -713,7 +724,10 @@ function clearBoostFlames() {
  * @param {THREE.Quaternion} carQuaternion - Car's quaternion for forward direction
  */
 export function updateRingModePhysics(dt, inputState, carQuaternion) {
-  if (!ringModeActive || ringModePaused || ringModeLives <= 0) {
+  // Allow rhythm mode to use ring mode physics
+  const isRhythmMode = gameState && gameState.getRhythmModeActive();
+
+  if (!isRhythmMode && (!ringModeActive || ringModePaused || ringModeLives <= 0)) {
     // Stop boost sound when game is over or paused
     Audio.stopBoostRumble();
     return;
@@ -811,7 +825,10 @@ export function updateRingModePhysics(dt, inputState, carQuaternion) {
  * @param {number} dt - Delta time
  */
 export function updateRingModeRendering(dt) {
-  if (!ringModeActive) {
+  // Check if rhythm mode is active
+  const isRhythmMode = gameState && gameState.getRhythmModeActive();
+
+  if (!ringModeActive && !isRhythmMode) {
     return;
   }
 
@@ -819,7 +836,10 @@ export function updateRingModeRendering(dt) {
   if (Car.car) {
     Car.car.position.x = ringModePosition.x;
     Car.car.position.y = ringModePosition.y;
-    Car.car.position.z = 0; // Locked to 2D plane
+
+    // Both ring mode AND rhythm mode lock Z to 0 (2D plane)
+    // Rings come toward the car, not the other way around
+    Car.car.position.z = 0;
   }
 
   // Find the closest ring and the next ring ahead of the car (negative Z)
@@ -1071,11 +1091,14 @@ export function updateRingModeRendering(dt) {
     }
 
     // Spawn new rings periodically (affected by difficulty)
-    ringSpawnTimer += dt;
-    const spawnInterval = CONST.RING_BASE_SPAWN_INTERVAL * CONST.DIFFICULTY_SETTINGS[currentDifficulty].spawnIntervalMultiplier;
-    if(ringSpawnTimer >= spawnInterval) {
-      spawnRing();
-      ringSpawnTimer = 0;
+    // BUT: Do NOT spawn rings if rhythm mode is active (it handles its own ring spawning)
+    if (!isRhythmMode) {
+      ringSpawnTimer += dt;
+      const spawnInterval = CONST.RING_BASE_SPAWN_INTERVAL * CONST.DIFFICULTY_SETTINGS[currentDifficulty].spawnIntervalMultiplier;
+      if(ringSpawnTimer >= spawnInterval) {
+        spawnRing();
+        ringSpawnTimer = 0;
+      }
     }
   }
 }

@@ -8,6 +8,7 @@ import * as THREE from 'three';
 import * as CONST from './constants.js';
 import * as Car from './car.js';
 import * as Input from './input.js';
+import * as Settings from './settings.js';
 
 // ============================================================================
 // MODULE-SCOPED PHYSICS STATE
@@ -412,6 +413,13 @@ export function updatePhysics(dt, settings, chromeShown) {
     }, Car.car.quaternion);
   }
 
+  // === RHYTHM MODE: Calculate movement forces (normal rotation physics will run below) ===
+  if (gameState.getRhythmModeActive()) {
+    RingMode.updateRingModePhysics(dt, {
+      boostActive: Input.getRingModeBoostActive()
+    }, Car.car.quaternion);
+  }
+
   // --- 2. Update visualizations (front-face arrow and tornado circle) ---
   updateVisualizations(ux, uy, eff, {
     showArrow,
@@ -555,10 +563,11 @@ export function updatePhysics(dt, settings, chromeShown) {
 
   // Yellow tornado line - show/hide and rotate based on stick input with wobble minimization
   // Only active when using air roll left or right (DAR), not air roll free
+  // Also respects the showCircle setting (Don't Show Ring hides the tornado spin indicator)
   const airRoll = Input.getAirRoll();
   const isDARActive = (airRoll === -1 || airRoll === 1);
 
-  if (stickMag > 0.01 && isDARActive) {
+  if (stickMag > 0.01 && isDARActive && showCircle) {
     Car.yellowTornadoLine.visible = true; // Must be visible for children to show
 
     // Make the yellow line itself invisible by setting opacity to 0

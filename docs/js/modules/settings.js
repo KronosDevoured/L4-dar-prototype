@@ -98,19 +98,18 @@ export function saveSettings(partialSettings = {}) {
 
     const json = JSON.stringify(_settings);
     localStorage.setItem('darSettings', json);
-    console.log('Settings saved:', _settings);
-    console.log('Settings JSON length:', json.length, 'chars');
-
-    // Verify it was saved
-    const verification = localStorage.getItem('darSettings');
-    if (verification === json) {
-      console.log('✓ Verified: Settings successfully written to localStorage');
-    } else {
-      console.error('✗ ERROR: localStorage verification failed!');
-    }
+    console.log('Settings saved to localStorage');
   } catch (e) {
     console.error('Failed to save settings:', e);
   }
+}
+
+/**
+ * Update settings in memory only (without saving to localStorage)
+ * Used during initialization to avoid excessive saves
+ */
+export function updateSettingsInMemory(partialSettings = {}) {
+  _settings = { ..._settings, ...partialSettings };
 }
 
 /**

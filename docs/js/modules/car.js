@@ -140,7 +140,7 @@ export function buildCar(boxDims, presetName = "placeholder", scene) {
   BOX = boxDims;
   carScene = scene; // Store scene reference
   car = new THREE.Group();
-  car.position.set(0, -160, 0); // At grid intersection
+  car.position.set(0, 0, 0); // At grid intersection
 
   // No initial rotation - let physics handle orientation
   // car.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
@@ -512,24 +512,39 @@ function buildDominus() {
  * Update car material colors for theme changes
  * @param {boolean} dark - True for dark mode, false for light mode
  */
-export function updateCarTheme(dark) {
-  if (!dark) {
-    // Day mode - brighten the car
-    MAT_BODY.color.setHex(0xf5f7fa);
-    MAT_GLASS.color.setHex(0xc5d0df);
-    MAT_ACCENT.color.setHex(0xe0e6ef);
-    MAT_DARK.color.setHex(0xd0d8e2);
-    MAT_TIRE_F.color.setHex(0xb0b8c5);
-    MAT_TIRE_B.color.setHex(0xa8b0be);
-    MAT_HUB.color.setHex(0x8a92a0);
-  } else {
-    // Night mode - brighter than original
-    MAT_BODY.color.setHex(0xecf0f5);
-    MAT_GLASS.color.setHex(0xb5c0d0);
-    MAT_ACCENT.color.setHex(0xdae0e8);
-    MAT_DARK.color.setHex(0xc5cdd8);
-    MAT_TIRE_F.color.setHex(0xa0a8b5);
-    MAT_TIRE_B.color.setHex(0x98a0ad);
-    MAT_HUB.color.setHex(0x7a8290);
-  }
+export function updateCarTheme(dark, brightness = 1.0) {
+  // Base colors for each mode
+  const baseColors = dark ? {
+    body: 0xecf0f5,
+    glass: 0xb5c0d0,
+    accent: 0xdae0e8,
+    darkPart: 0xc5cdd8,
+    tireF: 0xa0a8b5,
+    tireB: 0x98a0ad,
+    hub: 0x7a8290
+  } : {
+    body: 0xf5f7fa,
+    glass: 0xc5d0df,
+    accent: 0xe0e6ef,
+    darkPart: 0xd0d8e2,
+    tireF: 0xb0b8c5,
+    tireB: 0xa8b0be,
+    hub: 0x8a92a0
+  };
+
+  // Helper function to apply brightness to a color
+  const applyBrightness = (hex, mult) => {
+    const color = new THREE.Color(hex);
+    color.multiplyScalar(Math.max(0.5, Math.min(3.0, mult))); // Clamp brightness
+    return color;
+  };
+
+  // Apply colors with brightness multiplier
+  MAT_BODY.color.copy(applyBrightness(baseColors.body, brightness));
+  MAT_GLASS.color.copy(applyBrightness(baseColors.glass, brightness));
+  MAT_ACCENT.color.copy(applyBrightness(baseColors.accent, brightness));
+  MAT_DARK.color.copy(applyBrightness(baseColors.darkPart, brightness));
+  MAT_TIRE_F.color.copy(applyBrightness(baseColors.tireF, brightness));
+  MAT_TIRE_B.color.copy(applyBrightness(baseColors.tireB, brightness));
+  MAT_HUB.color.copy(applyBrightness(baseColors.hub, brightness));
 }

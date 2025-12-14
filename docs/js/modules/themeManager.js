@@ -85,8 +85,8 @@ export class ThemeManager {
     // Update renderer background
     renderer.setClearColor(theme.fog);
 
-    // Update car materials for better visibility in day mode
-    Car.updateCarTheme(dark);
+    // Update car materials with brightness
+    Car.updateCarTheme(dark, brightness);
   }
 
   /**

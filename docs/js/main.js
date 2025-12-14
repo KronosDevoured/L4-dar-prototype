@@ -54,6 +54,9 @@ function closeMenu() {
 // SETTINGS PROXY
 // ============================================================================
 
+// Flag to defer saves during initialization
+let isInitializing = false;
+
 // Create proxy that reads/writes from Settings module
 // This eliminates duplicate state while maintaining backward compatibility
 const settingsHandler = {
@@ -63,7 +66,13 @@ const settingsHandler = {
   set(target, prop, value) {
     // Update in Settings module
     const updates = { [prop]: value };
-    Settings.saveSettings(updates);
+    // Only save if not initializing (to avoid 23 saves on startup)
+    if (!isInitializing) {
+      Settings.saveSettings(updates);
+    } else {
+      // During init, just update in memory without saving
+      Settings.updateSettingsInMemory(updates);
+    }
     return true;
   }
 };
@@ -348,6 +357,9 @@ export function init() {
   // Load settings from Settings module
   const savedSettings = Settings.loadSettings();
 
+  // Set initialization flag to defer saves
+  isInitializing = true;
+
   // Restore settings into settings object
   settings.isDarkMode = savedSettings.isDarkMode ?? true;
   settings.brightnessDark = savedSettings.brightnessDark ?? 1.0;
@@ -373,6 +385,10 @@ export function init() {
   settings.gameSoundsEnabled = savedSettings.gameSoundsEnabled ?? true;
   settings.gameMusicEnabled = savedSettings.gameMusicEnabled ?? true;
 
+  // Clear initialization flag and save once
+  isInitializing = false;
+  Settings.saveSettings();
+
   // Sync zoom with CameraController
   cameraController.setZoom(settings.zoom);
 
@@ -390,7 +406,7 @@ export function init() {
   Physics.init(gameState, RingMode);
   RingMode.init(gameState);
   RhythmMode.init(gameState);
-  RhythmModeUI.initRhythmModeUI(sceneManager.getScene(), sceneManager.getCamera());
+  RhythmModeUI.initRhythmModeUI(sceneManager.getScene(), sceneManager.getCamera(), uiManager);
 
   // Apply loaded values to sliders
   const accelPitch = document.getElementById('accelPitch');
@@ -708,6 +724,14 @@ export function init() {
             if (paused) {
               Audio.stopBoostRumble();
             }
+          } else if (RhythmMode.getRhythmModeActive()) {
+            // Pause/unpause rhythm mode (pause audio and stop spawning)
+            if (RhythmMode.getIsAudioPlaying()) {
+              RhythmMode.pauseAudio();
+              Audio.stopBoostRumble();
+            } else {
+              RhythmMode.playAudio();
+            }
           }
           break;
         case 'restart':
@@ -737,6 +761,14 @@ export function init() {
 
               console.log('Quick respawn! Lives remaining:', lives - 1);
             }
+          } else if (RhythmMode.getRhythmModeActive()) {
+            // In Rhythm Mode: Stop and return to menu
+            RhythmMode.stopRhythmMode();
+            document.getElementById('rhythmStats').style.display = 'none';
+            document.getElementById('rhythmBoostToStart').style.display = 'none';
+            document.getElementById('rhythmCountdown').style.display = 'none';
+            document.getElementById('rhythmStart').disabled = false;
+            document.getElementById('rhythmStop').disabled = true;
           } else {
             // Normal mode: Full restart (reset car orientation, camera, orbit)
             if (Car.car) {

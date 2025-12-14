@@ -688,7 +688,7 @@ export function setChromeShown(shown) {
 export function setRingModeActive(active) {
   // Note: Ring Mode state is now owned by ringMode.js
   // This function only handles input-related side effects
-  TouchInput.setShowBoostButton(active && isMobile);
+  TouchInput.setShowBoostButton(active); // Show boost button on all devices when ring mode is active
 }
 
 export function setRingModePaused(paused) {

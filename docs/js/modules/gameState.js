@@ -21,6 +21,11 @@ export class GameState {
       paused: false
     };
 
+    // Rhythm Mode state
+    this.rhythmMode = {
+      active: false
+    };
+
     // Physics state
     this.physics = {
       angularVelocity: new THREE.Vector3(0, 0, 0)
@@ -52,6 +57,18 @@ export class GameState {
    */
   isRingModePaused() {
     return this.ringMode.active && this.ringMode.paused;
+  }
+
+  // ============================================================================
+  // RHYTHM MODE STATE MANAGEMENT
+  // ============================================================================
+
+  getRhythmModeActive() {
+    return this.rhythmMode.active;
+  }
+
+  setRhythmModeActive(active) {
+    this.rhythmMode.active = active;
   }
 
   // ============================================================================
@@ -97,6 +114,7 @@ export class GameState {
     this.resetAngularVelocity();
     this.ringMode.active = false;
     this.ringMode.paused = false;
+    this.rhythmMode.active = false;
   }
 
   /**
@@ -104,6 +122,13 @@ export class GameState {
    */
   resetRingMode() {
     this.ringMode.paused = false;
+    this.resetAngularVelocity();
+  }
+
+  /**
+   * Reset only Rhythm Mode state (keep physics)
+   */
+  resetRhythmMode() {
     this.resetAngularVelocity();
   }
 }
