@@ -177,12 +177,8 @@ export function onPointerDown(e, callbacks) {
     boostPressT = performance.now();
     callbacks?.onBoostPress?.(true);
 
-    clearTimeout(boostHoldTimer);
-    boostHoldTimer = setTimeout(() => {
-      if (!boostRelocating) {
-        boostRelocating = true;
-      }
-    }, RELOCATE_HOLD_MS);
+    // Don't allow relocation on hold - boost button should only boost
+    // Relocation will be handled separately (e.g., through settings menu)
   }
 }
 
@@ -217,11 +213,8 @@ export function onPointerMove(e, callbacks) {
     clampDARCenter();
     callbacks?.positionHints?.();
   }
-  // Boost repositioning
-  else if (id === boostPointerId && boostRelocating) {
-    BOOST_CENTER.set(x, y);
-    clampBoostCenter();
-  }
+  // Boost button - no relocation on drag (boost should only boost)
+  // Relocation will be handled separately through settings
 }
 
 export function endPtr(id, callbacks) {
