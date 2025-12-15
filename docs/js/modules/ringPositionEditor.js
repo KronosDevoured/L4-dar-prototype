@@ -36,7 +36,6 @@ export function init(canvasElement) {
   canvas = canvasElement;
   ctx = canvas.getContext('2d');
 
-  console.log('[Ring Position Editor] Initializing...', canvas);
 
   // Set canvas size
   resizeCanvas();
@@ -56,7 +55,6 @@ export function init(canvasElement) {
   // Initial render
   render();
 
-  console.log('[Ring Position Editor] Initialized. Canvas size:', canvas.width, 'x', canvas.height);
 }
 
 function resizeCanvas() {
@@ -66,7 +64,6 @@ function resizeCanvas() {
   canvas.width = rect.width;
   canvas.height = 400; // Fixed height for grid view
 
-  console.log('[Ring Position Editor] Resized canvas to', canvas.width, 'x', canvas.height);
 
   render();
 }
@@ -89,7 +86,6 @@ export function loadBeats(beatTimes) {
   currentBeatIndex = 0;
   render();
 
-  console.log(`[Ring Position Editor] Loaded ${beatPositions.length} beats`);
 }
 
 /**
@@ -101,7 +97,6 @@ export function loadBeatPositions(beats) {
   currentBeatIndex = 0;
   render();
 
-  console.log(`[Ring Position Editor] Loaded ${beatPositions.length} beat positions`);
 }
 
 /**
@@ -131,7 +126,6 @@ export function nextBeat() {
   if (currentBeatIndex < beatPositions.length - 1) {
     currentBeatIndex++;
     render();
-    console.log(`[Ring Position Editor] Advanced to beat ${currentBeatIndex + 1}/${beatPositions.length}`);
   }
 }
 
@@ -139,7 +133,6 @@ export function previousBeat() {
   if (currentBeatIndex > 0) {
     currentBeatIndex--;
     render();
-    console.log(`[Ring Position Editor] Went back to beat ${currentBeatIndex + 1}/${beatPositions.length}`);
   }
 }
 
@@ -164,7 +157,6 @@ export function getTotalBeats() {
 
 export function setSnapToGrid(enabled) {
   snapToGrid = enabled;
-  console.log(`[Ring Position Editor] Snap to grid: ${enabled}`);
 }
 
 export function getSnapToGrid() {
@@ -173,7 +165,6 @@ export function getSnapToGrid() {
 
 export function forceRender() {
   resizeCanvas();
-  console.log('[Ring Position Editor] Forced render after tab switch');
 }
 
 // ============================================================================
@@ -190,7 +181,6 @@ export function startPreview() {
   previewStartTime = performance.now();
   currentPreviewTime = 0;
 
-  console.log('[Ring Position Editor] Starting preview playback');
   updatePreview();
 }
 
@@ -201,7 +191,6 @@ export function stopPreview() {
     animationFrameId = null;
   }
 
-  console.log('[Ring Position Editor] Stopped preview playback');
   render(); // Re-render to show current beat only
 }
 
@@ -225,7 +214,6 @@ function updatePreview() {
   const lastBeat = beatPositions[beatPositions.length - 1];
   if (lastBeat && currentPreviewTime > lastBeat.time + 2.0) {
     stopPreview();
-    console.log('[Ring Position Editor] Preview finished');
   }
 }
 

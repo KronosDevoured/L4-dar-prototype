@@ -103,7 +103,6 @@ export function init(state) {
     audioContext = new (window.AudioContext || window.webkitAudioContext)();
   }
 
-  console.log('[Rhythm Mode] Initialized');
 }
 
 // ============================================================================
@@ -133,7 +132,6 @@ export async function loadAudioFile(file) {
   try {
     const arrayBuffer = await file.arrayBuffer();
     audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-    console.log(`[Rhythm Mode] Audio loaded: ${file.name}, duration: ${audioBuffer.duration}s`);
     return audioBuffer;
   } catch (error) {
     console.error('[Rhythm Mode] Error loading audio:', error);
@@ -179,9 +177,6 @@ export async function playAudio() {
   audioStartTime = audioContext.currentTime - (audioPauseTime / currentPlaybackRate);
   isAudioPlaying = true;
 
-  console.log('[Rhythm Mode] Audio playback started from', audioPauseTime.toFixed(2), 'seconds');
-  console.log('[Rhythm Mode] Audio context state:', audioContext.state);
-  console.log('[Rhythm Mode] Start time:', audioStartTime);
 }
 
 /**
@@ -196,7 +191,6 @@ export function pauseAudio() {
     audioSource = null;
     isAudioPlaying = false;
 
-    console.log('[Rhythm Mode] Audio paused at', audioPauseTime.toFixed(2), 'seconds');
   }
 }
 
@@ -212,7 +206,6 @@ export function stopAudio() {
   audioPauseTime = 0; // Reset to beginning
   isAudioPlaying = false;
 
-  console.log('[Rhythm Mode] Audio stopped and reset');
 }
 
 /**
@@ -227,7 +220,6 @@ export function setPlaybackRate(rate) {
     audioSource.playbackRate.value = currentPlaybackRate;
   }
 
-  console.log(`[Rhythm Mode] Playback rate set to ${currentPlaybackRate}x`);
 }
 
 /**
@@ -265,7 +257,6 @@ export function getIsAudioPlaying() {
  */
 export function setAudioPauseTime(time) {
   audioPauseTime = Math.max(0, time);
-  console.log(`[Rhythm Mode] Pause time set to ${audioPauseTime.toFixed(2)}s`);
 }
 
 // ============================================================================
@@ -283,7 +274,6 @@ export function detectBeats() {
     return [];
   }
 
-  console.log('[Rhythm Mode] Starting beat detection...');
 
   const channelData = audioBuffer.getChannelData(0); // Use first channel
   const sampleRate = audioBuffer.sampleRate;
@@ -328,7 +318,6 @@ export function detectBeats() {
     }
   }
 
-  console.log(`[Rhythm Mode] Detected ${rawBeats.length} raw beats`);
 
   // PASS 2: Estimate BPM from raw beats
   let estimatedBPM = 120; // default
@@ -343,7 +332,6 @@ export function detectBeats() {
 
   // Calculate minimum time between beats based on BPM
   const minBeatInterval = 60 / estimatedBPM;
-  console.log(`[Rhythm Mode] Estimated BPM: ${estimatedBPM}, min interval: ${minBeatInterval.toFixed(3)}s`);
 
   // PASS 3: Filter beats to respect BPM timing
   const beats = [];
@@ -354,7 +342,6 @@ export function detectBeats() {
     }
   }
 
-  console.log(`[Rhythm Mode] Filtered to ${beats.length} beats at ~${estimatedBPM} BPM`);
   return beats;
 }
 
@@ -406,7 +393,6 @@ export function generateBeatMap(beatTimes) {
 export function enterEditorMode() {
   editorMode = true;
   // Don't clear editorBeats - preserve them if re-entering editor mode
-  console.log('[Rhythm Mode] Entered editor mode');
 }
 
 /**
@@ -414,7 +400,6 @@ export function enterEditorMode() {
  */
 export function exitEditorMode() {
   editorMode = false;
-  console.log('[Rhythm Mode] Exited editor mode');
 }
 
 /**
@@ -440,7 +425,6 @@ export function recordBeatTap(lane = 'center') {
 
   lastTapTime = currentTime;
 
-  console.log(`[Rhythm Mode] Beat recorded at ${currentTime.toFixed(2)}s, lane: ${lane}, BPM: ${editorBPM}`);
 }
 
 /**
@@ -463,7 +447,6 @@ export function loadBeatsIntoEditor(beatMap) {
   editorBeats = [...beatMap.beats];
   editorBPM = beatMap.bpm;
   beatMapName = beatMap.name;
-  console.log(`[Rhythm Mode] Loaded ${editorBeats.length} beats into editor`);
 }
 
 /**
@@ -473,7 +456,6 @@ export function loadBeatsIntoEditor(beatMap) {
 export function loadBeatMap(beatMap) {
   currentBeatMap = beatMap;
   beatMapName = beatMap.name || 'Unnamed';
-  console.log(`[Rhythm Mode] Loaded beat map: ${beatMapName}, ${beatMap.beats.length} beats`);
 }
 
 /**
@@ -489,7 +471,6 @@ export async function loadSongFromLibrary(songId) {
   }
 
   try {
-    console.log(`[Rhythm Mode] Loading song from library: ${song.name}`);
 
     // Load audio file
     const audioResponse = await fetch(song.audioPath);
@@ -502,7 +483,6 @@ export async function loadSongFromLibrary(songId) {
     const beatMap = await beatMapResponse.json();
     loadBeatMap(beatMap);
 
-    console.log(`[Rhythm Mode] Successfully loaded song: ${song.name}`);
     return true;
   } catch (error) {
     console.error(`[Rhythm Mode] Failed to load song from library:`, error);
@@ -557,7 +537,6 @@ function preloadRingResources() {
     opacity: 0.8
   }));
 
-  console.log('[Rhythm Mode] Ring resources preloaded');
 }
 
 /**
@@ -617,7 +596,6 @@ function spawnRing(time, x = 0, y = 0, lane = 'center') {
   scene.add(ring);
   rings.push(ring);
 
-  console.log(`[Rhythm Mode] Ring ${ringSpawnIndex} spawned:
     Position: (${ring.position.x.toFixed(1)}, ${ring.position.y.toFixed(1)}, ${ring.position.z.toFixed(1)})
     Speed: ${ringSpeed.toFixed(1)} u/s (moving toward +Z)
     Will reach car (Z=0) at t=${time.toFixed(2)}s
@@ -646,7 +624,6 @@ function updateRings(dt) {
 
   // Debug logging disabled - only log on demand
   // if (Math.random() < 0.01) {
-  //   console.log(`[Rhythm Mode] updateRings: time=${currentTime.toFixed(2)}s, carZ=${carPos.z.toFixed(1)}, rings=${rings.length}, spawnIndex=${ringSpawnIndex}`);
   // }
 
   // Remove rings that have passed the car (Z > 100)
@@ -660,7 +637,6 @@ function updateRings(dt) {
         ring.material = ringMaterialCache.get('miss');
         rhythmModeMisses++;
         rhythmModeCombo = 0;
-        console.log('[Rhythm Mode] Miss!');
       }
 
       return false;
@@ -688,7 +664,6 @@ function updateRings(dt) {
 
         // Debug: log collision checks
         if (Math.random() < 0.3) { // Log 30% of checks to debug
-          console.log(`[Rhythm Mode] Collision check: Ring(${ring.position.x.toFixed(1)}, ${ring.position.y.toFixed(1)}, ${ringZ.toFixed(1)}) vs Car(${carPos.x.toFixed(1)}, ${carPos.y.toFixed(1)}, ${carZ.toFixed(1)}) - XY dist: ${xyDistance.toFixed(1)}, Z dist: ${zDistance.toFixed(1)}, radius: ${ringRadius}`);
         }
 
         // Car is through the ring if XY distance is less than ring radius
@@ -712,7 +687,6 @@ function updateRings(dt) {
       if (timeUntilBeat <= spawnLeadTime && timeUntilBeat > 0) {
         const x = beat.x !== undefined ? beat.x : 0;
         const y = beat.y !== undefined ? beat.y : 0;
-        console.log(`[Rhythm Mode] Spawning ring ${ringSpawnIndex} at time ${beat.time}, position (${x}, ${y})`);
         spawnRing(beat.time, x, y, beat.lane);
         ringSpawnIndex++;
       } else if (timeUntilBeat <= 0) {
@@ -743,20 +717,17 @@ function checkRingHit(ring, currentTime) {
     rhythmModeCombo++;
     rhythmModeScore += 100 * rhythmModeCombo;
     ring.material = ringMaterialCache.get('perfect');
-    console.log('[Rhythm Mode] Perfect!');
   } else if (timingError <= TIMING_GOOD) {
     // Good hit
     rhythmModeGoodHits++;
     rhythmModeCombo++;
     rhythmModeScore += 50 * rhythmModeCombo;
     ring.material = ringMaterialCache.get('good');
-    console.log('[Rhythm Mode] Good!');
   } else if (timingError <= TIMING_MISS) {
     // Late/early but still counts
     rhythmModeCombo = 0;
     rhythmModeScore += 10;
     ring.material = ringMaterialCache.get('miss');
-    console.log('[Rhythm Mode] Late!');
   }
 }
 
@@ -782,9 +753,6 @@ export function startRhythmMode(sceneRef, cameraRef) {
     return;
   }
 
-  console.log('[Rhythm Mode] Starting with beat map:', currentBeatMap);
-  console.log('[Rhythm Mode] Beat count:', currentBeatMap.beats.length);
-  console.log('[Rhythm Mode] First 5 beats:', currentBeatMap.beats.slice(0, 5));
 
   scene = sceneRef;
   camera = cameraRef;
@@ -802,7 +770,6 @@ export function startRhythmMode(sceneRef, cameraRef) {
   // Update game state
   if (gameState) {
     gameState.setRhythmModeActive(true);
-    console.log('[Rhythm Mode] Game state set to active:', gameState.getRhythmModeActive());
   } else {
     console.warn('[Rhythm Mode] gameState is null!');
   }
@@ -818,8 +785,6 @@ export function startRhythmMode(sceneRef, cameraRef) {
   // DON'T start audio yet - wait for player to boost
   // Audio will start in updateRhythmMode when RingMode.getRingModeStarted() becomes true
 
-  console.log('[Rhythm Mode] Started - waiting for boost to start audio and spawn rings');
-  console.log('[Rhythm Mode] Camera position:', camera.position);
 }
 
 /**
@@ -853,7 +818,6 @@ export function stopRhythmMode() {
     saveSettings({ rhythmModeHighScore });
   }
 
-  console.log('[Rhythm Mode] Stopped');
 }
 
 /**
@@ -873,7 +837,6 @@ export function updateRhythmMode(dt) {
   if (RingMode.getRingModeStarted() && !isAudioPlaying && audioBuffer && !audioSource && !audioDelayTimer) {
     // Set countdown delay - use spawn lead time so rings have time to reach correct positions
     audioStartDelay = 3.0; // 3 second countdown
-    console.log('[Rhythm Mode] Player boosted - starting countdown');
 
     audioDelayTimer = setInterval(() => {
       audioStartDelay -= 0.016; // ~60fps countdown
@@ -881,9 +844,7 @@ export function updateRhythmMode(dt) {
       if (audioStartDelay <= 0) {
         clearInterval(audioDelayTimer);
         audioDelayTimer = null;
-        console.log('[Rhythm Mode] Countdown complete - starting audio');
         playAudio().then(() => {
-          console.log('[Rhythm Mode] Audio started successfully');
         }).catch(err => {
           console.error('[Rhythm Mode] Error starting audio:', err);
         });
@@ -897,7 +858,6 @@ export function updateRhythmMode(dt) {
     const songDuration = audioBuffer.duration;
 
     if (currentTime >= songDuration) {
-      console.log('[Rhythm Mode] Song ended, stopping rhythm mode');
       stopRhythmMode();
       return;
     }

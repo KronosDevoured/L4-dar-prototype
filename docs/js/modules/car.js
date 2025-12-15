@@ -57,7 +57,6 @@ const gltfLoader = new GLTFLoader();
  */
 export function loadCarModel(presetName, scene) {
   const url = `models/${presetName}.glb`;
-  console.log("Loading GLB:", url);
 
   gltfLoader.load(
     url,
@@ -134,7 +133,6 @@ export function clearCar(scene) {
  * @param {THREE.Scene} scene - The Three.js scene
  */
 export function buildCar(boxDims, presetName = "placeholder", scene) {
-  console.log("buildCar preset:", presetName);
 
   clearCar(scene);
   BOX = boxDims;
@@ -196,7 +194,6 @@ export function buildCar(boxDims, presetName = "placeholder", scene) {
 
   if (carScene) {
     carScene.add(tornadoPivotPoint);
-    console.log('[Car] Tornado pivot point added to scene');
   }
   tornadoPivotPoint.visible = false;
 
@@ -214,7 +211,6 @@ export function buildCar(boxDims, presetName = "placeholder", scene) {
   if (car) {
     car.add(carCenterPoint);
     carCenterPoint.position.set(0, 0, 0); // At car's origin (center of mass)
-    console.log('[Car] Car center point added to car');
   }
   carCenterPoint.visible = false; // Hidden
 
@@ -232,7 +228,6 @@ export function buildCar(boxDims, presetName = "placeholder", scene) {
   if (car) {
     car.add(carNosePoint);
     carNosePoint.position.set(0, 0, BOX.hz); // At the nose tip (front of car)
-    console.log('[Car] Car nose point added to car');
   }
   carNosePoint.visible = false; // Hidden
 
@@ -250,7 +245,6 @@ export function buildCar(boxDims, presetName = "placeholder", scene) {
   if (car) {
     car.add(carBackPoint);
     carBackPoint.position.set(0, 0, -BOX.hz); // At the back (opposite of nose)
-    console.log('[Car] Car back point added to car');
   }
   carBackPoint.visible = false; // Hidden
 
@@ -267,7 +261,6 @@ export function buildCar(boxDims, presetName = "placeholder", scene) {
   // Add to scene (not car child) so we can use world coordinates
   if (carScene) {
     carScene.add(carRollAxisLine);
-    console.log('[Car] Car roll axis line added to scene');
   }
   carRollAxisLine.visible = false; // Hidden
 
@@ -285,7 +278,6 @@ export function buildCar(boxDims, presetName = "placeholder", scene) {
   // Add as child of car (not scene) so it moves with the car
   if (car) {
     car.add(yellowTornadoLine);
-    console.log('[Car] Yellow tornado line added as car child');
   }
   yellowTornadoLine.visible = false; // Hidden until stick is moved
 
@@ -302,7 +294,6 @@ export function buildCar(boxDims, presetName = "placeholder", scene) {
   // Add as child of YELLOW LINE (not car) so it rotates with the line
   yellowTornadoLine.add(magentaLinePoint);
   magentaLinePoint.position.set(0, 0, 120); // 120 units along yellow line
-  console.log('[Car] Magenta line point added as yellow line child');
   magentaLinePoint.visible = false; // Hidden
 
   // Circle centered at magenta dot - perpendicular to yellow line (now a torus/ring)
@@ -319,7 +310,6 @@ export function buildCar(boxDims, presetName = "placeholder", scene) {
   // Circle default faces Z direction in line's local space
   yellowTornadoLine.add(magentaCircle);
   magentaCircle.position.set(0, 0, 120); // Same position as magenta dot on the line
-  console.log('[Car] Magenta circle added as yellow line child');
   magentaCircle.visible = true; // Always visible
 
   // Debug lines - will be updated in physics.js

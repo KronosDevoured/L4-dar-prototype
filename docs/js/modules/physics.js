@@ -57,7 +57,6 @@ function loadAxisDataFromStorage() {
         axisLocal: new THREE.Vector3(parsed.axisLocal.x, parsed.axisLocal.y, parsed.axisLocal.z),
         radius: parsed.radius
       };
-      console.log('✓ Loaded MIN axis data from localStorage');
     }
 
     if (maxData) {
@@ -67,7 +66,6 @@ function loadAxisDataFromStorage() {
         axisLocal: new THREE.Vector3(parsed.axisLocal.x, parsed.axisLocal.y, parsed.axisLocal.z),
         radius: parsed.radius
       };
-      console.log('✓ Loaded MAX axis data from localStorage');
     }
   } catch (e) {
     console.error('Failed to load axis data from localStorage:', e);
@@ -291,7 +289,6 @@ function softClampAngularVelocity(w, max) {
 function updateVisualizations(ux, uy, eff, settings) {
   // ONE TIME DEBUG
   if (!updateVisualizations._logged) {
-    console.log('[updateVisualizations] Function is being called');
     updateVisualizations._logged = true;
   }
 
@@ -496,17 +493,14 @@ export function updatePhysics(dt, settings, chromeShown) {
     tornadoMeasurement.prevRotation.copy(carQuat);
 
     const rotationDegrees = tornadoMeasurement.rotationAngle * 180 / Math.PI;
-    console.log(`Roll angle: ${rotationDegrees.toFixed(1)}°`);
 
     // Collect nose positions between 179° and 181°
     if (rotationDegrees >= 179 && rotationDegrees <= 181) {
       tornadoMeasurement.nosePositions.push(noseWorld.clone());
-      console.log(`Collecting nose position (${tornadoMeasurement.nosePositions.length} collected)`);
     }
 
     // When we pass 181°, calculate the axis
     if (rotationDegrees > 181) {
-      console.log(`Past 181°, collected ${tornadoMeasurement.nosePositions.length} nose positions`);
       if (tornadoMeasurement.nosePositions.length > 0) {
       // Average all nose positions between 179° and 181° to get the opposite point
       const oppositeNose = new THREE.Vector3();
@@ -534,11 +528,9 @@ export function updatePhysics(dt, settings, chromeShown) {
       const data = { centerLocal, axisLocal, radius };
       if (Math.abs(tornadoMeasurement.targetStickMag - 0.10) < 0.05) {
         AXIS_MIN_DATA = data;
-        console.log('✓ MIN axis measured:', data);
         saveAxisDataToStorage();
       } else if (Math.abs(tornadoMeasurement.targetStickMag - 1.0) < 0.1) {
         AXIS_MAX_DATA = data;
-        console.log('✓ MAX axis measured:', data);
         saveAxisDataToStorage();
       }
 
@@ -558,7 +550,6 @@ export function updatePhysics(dt, settings, chromeShown) {
   // Reset measurement when stick released (but NOT during automated measurement)
   if (tornadoMeasurement.measuring && stickMag < 0.01 && !(window.measurementState && window.measurementState.active)) {
     tornadoMeasurement.measuring = false;
-    console.log('Measurement cancelled - stick released');
   }
 
   // Yellow tornado line - show/hide and rotate based on stick input with wobble minimization
@@ -851,7 +842,6 @@ export function measureMinAxis() {
   tornadoMeasurement.nosePositions = [];
   tornadoMeasurement.rotationAngle = 0;
   tornadoMeasurement.prevRotation.copy(carQuat);
-  console.log('Measuring MIN axis - rotate 180° now...');
 }
 
 /**
@@ -869,7 +859,6 @@ export function measureMaxAxis() {
   tornadoMeasurement.nosePositions = [];
   tornadoMeasurement.rotationAngle = 0;
   tornadoMeasurement.prevRotation.copy(carQuat);
-  console.log('Measuring MAX axis - rotate 180° now...');
 }
 
 /**
@@ -877,19 +866,15 @@ export function measureMaxAxis() {
  */
 export function printAxisData() {
   if (AXIS_MIN_DATA && AXIS_MAX_DATA) {
-    console.log('Copy these into physics.js:');
-    console.log(`let AXIS_MIN_DATA = {
   centerLocal: new THREE.Vector3(${AXIS_MIN_DATA.centerLocal.x}, ${AXIS_MIN_DATA.centerLocal.y}, ${AXIS_MIN_DATA.centerLocal.z}),
   axisLocal: new THREE.Vector3(${AXIS_MIN_DATA.axisLocal.x}, ${AXIS_MIN_DATA.axisLocal.y}, ${AXIS_MIN_DATA.axisLocal.z}),
   radius: ${AXIS_MIN_DATA.radius}
 };`);
-    console.log(`let AXIS_MAX_DATA = {
   centerLocal: new THREE.Vector3(${AXIS_MAX_DATA.centerLocal.x}, ${AXIS_MAX_DATA.centerLocal.y}, ${AXIS_MAX_DATA.centerLocal.z}),
   axisLocal: new THREE.Vector3(${AXIS_MAX_DATA.axisLocal.x}, ${AXIS_MAX_DATA.axisLocal.y}, ${AXIS_MAX_DATA.axisLocal.z}),
   radius: ${AXIS_MAX_DATA.radius}
 };`);
   } else {
-    console.log('No axis data measured yet. Call measureMinAxis() and measureMaxAxis()');
   }
 }
 
@@ -899,19 +884,16 @@ export function printAxisData() {
 
 export function togglePitchLock() {
   pitchLocked = !pitchLocked;
-  console.log(`Pitch ${pitchLocked ? 'LOCKED' : 'UNLOCKED'}`);
   return pitchLocked;
 }
 
 export function toggleYawLock() {
   yawLocked = !yawLocked;
-  console.log(`Yaw ${yawLocked ? 'LOCKED' : 'UNLOCKED'}`);
   return yawLocked;
 }
 
 export function toggleRollLock() {
   rollLocked = !rollLocked;
-  console.log(`Roll ${rollLocked ? 'LOCKED' : 'UNLOCKED'}`);
   return rollLocked;
 }
 

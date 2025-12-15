@@ -442,7 +442,6 @@ function handleGamepadBoostChange(active) {
  * Handle touch boost state changes
  */
 function handleTouchBoostChange(active) {
-  console.log('[Input] handleTouchBoostChange:', active, 'ringModeBoostActive was:', ringModeBoostActive);
   touchBoostActive = active;
   // Combine all boost sources (keyboard, gamepad, touch)
   ringModeBoostActive = keyboardBoostActive || gamepadBoostActive || touchBoostActive;
@@ -519,7 +518,6 @@ export function initInput(hud, callbacks = {}) {
   // Initialize air roll controller
   AirRollController.loadAirRollState(callbacks.savedAirRollState);
 
-  console.log('Input module initialized (orchestrator)');
 }
 
 /**
@@ -762,9 +760,6 @@ export function getShowBoostButton() {
 }
 
 export function getRingModeBoostActive() {
-  if (ringModeBoostActive) {
-    console.log('[Input] getRingModeBoostActive called, returning TRUE');
-  }
   return ringModeBoostActive;
 }
 

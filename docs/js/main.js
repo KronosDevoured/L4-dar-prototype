@@ -257,10 +257,8 @@ function tick(){
     window.measurementState.warmupTime += dt;
 
     if (window.measurementState.warmupTime < window.measurementState.warmupDuration) {
-      console.log(`Warmup: ${window.measurementState.warmupTime.toFixed(2)}s / ${window.measurementState.warmupDuration}s`);
     } else if (window.measurementState.warmupTime >= window.measurementState.warmupDuration && !window.measurementState.started) {
       // Warmup complete - start measurement
-      console.log('Warmup complete! Starting measurement...');
       window.measurementState.started = true;
       if (window.measurementState.targetMag === 0.10) {
         Physics.measureMinAxis();
@@ -338,7 +336,6 @@ function resize(){
 // ============================================================================
 
 export function init() {
-  console.log('Initializing L4 DAR Prototype...');
 
   // ============================================================================
   // INITIALIZE MANAGERS
@@ -531,7 +528,6 @@ export function init() {
     const difficulty = ringDifficultySelector.value;
     RingMode.setCurrentDifficulty(difficulty);
     saveSettings();
-    console.log('Ring Mode difficulty changed to:', difficulty);
 
     // If Ring Mode is active, restart it with new difficulty
     if (RingMode.getRingModeActive()) {
@@ -630,7 +626,6 @@ export function init() {
     if (!document.fullscreenElement) {
       // Enter fullscreen
       document.documentElement.requestFullscreen().catch(err => {
-        console.log(`Error attempting to enable fullscreen: ${err.message}`);
       });
     } else {
       // Exit fullscreen
@@ -759,7 +754,6 @@ export function init() {
               }
               Physics.resetAngularVelocity();
 
-              console.log('Quick respawn! Lives remaining:', lives - 1);
             }
           } else if (RhythmMode.getRhythmModeActive()) {
             // In Rhythm Mode: Stop and return to menu
@@ -885,15 +879,12 @@ export function init() {
 
   document.getElementById('measureMinBtn').addEventListener('click', () => {
     if (window.measurementState.active) {
-      console.log('Measurement already in progress!');
       return;
     }
 
     // Close menu so input works
     uiManager.closeMenu();
 
-    console.log('Starting MIN measurement (10% right input)...');
-    console.log('Warming up for 1 second to reach steady-state...');
     window.measurementState.active = true;
     window.measurementState.input.x = 0.10; // 10% right
     window.measurementState.input.y = 0;
@@ -907,15 +898,12 @@ export function init() {
 
   document.getElementById('measureMaxBtn').addEventListener('click', () => {
     if (window.measurementState.active) {
-      console.log('Measurement already in progress!');
       return;
     }
 
     // Close menu so input works
     uiManager.closeMenu();
 
-    console.log('Starting MAX measurement (100% right input)...');
-    console.log('Warming up for 1 second to reach steady-state...');
     window.measurementState.active = true;
     window.measurementState.input.x = 1.0; // 100% right
     window.measurementState.input.y = 0;
@@ -927,7 +915,4 @@ export function init() {
     Input.selectAirRoll(1); // Air Roll Right
   });
 
-  console.log('Initialization complete!');
-  console.log('Tornado circle measurement buttons added!');
-  console.log('Click "Measure MIN (10%)" or "Measure MAX (100%)" to collect data');
 }

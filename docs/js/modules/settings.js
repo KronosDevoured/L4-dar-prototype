@@ -74,7 +74,6 @@ export function loadSettings() {
   if (saved) {
     try {
       const parsed = JSON.parse(saved);
-      console.log('Settings loaded from localStorage:', parsed);
 
       // Merge saved settings with defaults
       _settings = { ..._settings, ...parsed };
@@ -84,7 +83,6 @@ export function loadSettings() {
       return { ..._settings }; // Return copy
     }
   }
-  console.log('No saved settings found, using defaults');
   return { ..._settings }; // Return copy
 }
 
@@ -98,7 +96,6 @@ export function saveSettings(partialSettings = {}) {
 
     const json = JSON.stringify(_settings);
     localStorage.setItem('darSettings', json);
-    console.log('Settings saved to localStorage');
   } catch (e) {
     console.error('Failed to save settings:', e);
   }
@@ -161,7 +158,6 @@ export function resetPhysicsDefaults() {
  */
 export function clearAllSettings() {
   localStorage.removeItem('darSettings');
-  console.log('Settings cleared from localStorage');
 }
 
 // ============================================================================

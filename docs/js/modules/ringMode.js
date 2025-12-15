@@ -157,7 +157,6 @@ export function initRingMode(sceneRef, cameraRef, rendererRef, wRef, orbitOnRef)
   // Preload resources
   preloadRingResources();
 
-  console.log('[Ring Mode] Initialized');
 }
 
 // ============================================================================
@@ -170,7 +169,6 @@ export function initRingMode(sceneRef, cameraRef, rendererRef, wRef, orbitOnRef)
 function preloadRingResources() {
   if (ringResourcesPreloaded) return;
 
-  console.log('[Ring Mode] Preloading resources...');
 
   // Cache shared geometry (all rings use same torus geometry)
   ringGeometryCache = new THREE.TorusGeometry(CONST.INITIAL_RING_SIZE / 2, CONST.RING_TUBE_RADIUS, 16, 32);
@@ -219,7 +217,6 @@ function preloadRingResources() {
   }
 
   ringResourcesPreloaded = true;
-  console.log('[Ring Mode] Resources preloaded successfully!');
 }
 
 // ============================================================================
@@ -241,7 +238,6 @@ export function resetRingModePhysicsOnly() {
 }
 
 export function resetRingMode() {
-  console.log('resetRingMode() called - resetting game');
   ringModeScore = 0;
   ringModeLives = CONST.DIFFICULTY_SETTINGS[currentDifficulty].initialLives;
   ringModeRingCount = 0;
@@ -469,7 +465,6 @@ function selectNewPattern() {
   patternFrequency = Math.min(baseFrequency + Math.random() * 0.5, 2.0);
 
   patternPhase = Math.random() * Math.PI * 2;
-  console.log(`New pattern: ${currentPattern}, length: ${patternLength}, difficulty: ${difficultyLevel}, amplitude: ${Math.round(patternAmplitude)}`);
 }
 
 /**
@@ -626,7 +621,6 @@ function spawnRing() {
   // Visual indicator: bonus rings glow brighter
   if (ring.isBonusRing) {
     ring.mesh.material.emissiveIntensity = 1.5; // Brighter glow
-    console.log('Bonus ring spawned at distance:', distanceToRing.toFixed(0), '/', MAX_RING_DISTANCE);
   }
 
   rings.push(ring);
@@ -727,11 +721,8 @@ export function updateRingModePhysics(dt, inputState, carQuaternion) {
   // Allow rhythm mode to use ring mode physics
   const isRhythmMode = gameState && gameState.getRhythmModeActive();
 
-  console.log('[RingMode] updateRingModePhysics called - boostActive:', inputState.boostActive, 'ringModeActive:', ringModeActive, 'isRhythmMode:', isRhythmMode, 'paused:', ringModePaused, 'lives:', ringModeLives);
-
   if (!isRhythmMode && (!ringModeActive || ringModePaused || ringModeLives <= 0)) {
     // Stop boost sound when game is over or paused
-    console.log('[RingMode] Early return - ring mode not active or paused or no lives');
     Audio.stopBoostRumble();
     return;
   }
@@ -772,7 +763,6 @@ export function updateRingModePhysics(dt, inputState, carQuaternion) {
     // Boost in the direction car's nose is facing
     accelX += boostDirX * CONST.RING_BOOST_ACCEL;
     accelY += boostDirY * CONST.RING_BOOST_ACCEL;
-    console.log('[RingMode] Boost active! accel:', accelX.toFixed(2), accelY.toFixed(2), 'boostDir:', boostDirX.toFixed(2), boostDirY.toFixed(2), 'BOOST_ACCEL:', CONST.RING_BOOST_ACCEL);
   }
 
   // Update boost flame visibility and position
@@ -781,10 +771,6 @@ export function updateRingModePhysics(dt, inputState, carQuaternion) {
   // Integrate velocity
   ringModeVelocity.x += accelX * dt;
   ringModeVelocity.y += accelY * dt;
-
-  if (effectiveBoostActive) {
-    console.log('[RingMode] After integration - velocity:', ringModeVelocity.x.toFixed(2), ringModeVelocity.y.toFixed(2), 'position:', ringModePosition.x.toFixed(2), ringModePosition.y.toFixed(2));
-  }
 
   // Clamp to max speed
   const speed = ringModeVelocity.length();
@@ -819,7 +805,6 @@ export function updateRingModePhysics(dt, inputState, carQuaternion) {
     ringModeStarted = false; // Wait for boost before falling
     ignoreBoostUntilRelease = true; // Ignore boost until player releases it
     ringModeLives--; // Lose a life
-    console.log('Out of bounds! Lives:', ringModeLives);
   }
 }
 
@@ -1050,9 +1035,7 @@ export function updateRingModeRendering(dt) {
           // Bonus life for passing distant rings
           if (ring.isBonusRing) {
             ringModeLives++;
-            console.log('BONUS! Passed distant ring! +1 Life. Total lives:', ringModeLives);
           } else {
-            console.log('Passed through ring! Score:', ringModeScore);
           }
 
           // Update high score
@@ -1066,7 +1049,6 @@ export function updateRingModeRendering(dt) {
         } else if (distanceToCenter < ringOuterRadius) {
           // Hit the edge of the ring
           ring.missed = true;
-          console.log('Hit ring edge! Heart damage');
           // Audio feedback - play miss sound
           Audio.playRingMissSound();
           // TODO: Apply heart damage
@@ -1074,7 +1056,6 @@ export function updateRingModeRendering(dt) {
           // Completely missed the ring
           ring.missed = true;
           ringModeLives--;
-          console.log('Missed ring! Lives:', ringModeLives);
           // Audio feedback - play miss sound
           Audio.playRingMissSound();
           // TODO: Check if game over
@@ -1087,7 +1068,6 @@ export function updateRingModeRendering(dt) {
         // Check if we missed an unpassed ring
         if (!ring.passed && !ring.missed) {
           ringModeLives--;
-          console.log('Ring passed without going through! Lives:', ringModeLives);
           // Audio feedback - play miss sound
           Audio.playRingMissSound();
         }

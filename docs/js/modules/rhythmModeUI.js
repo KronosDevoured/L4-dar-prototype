@@ -38,7 +38,6 @@ export function initRhythmModeUI(sceneRef, cameraRef, uiManagerRef) {
   scene = sceneRef;
   camera = cameraRef;
   uiManager = uiManagerRef;
-  console.log('[Rhythm Mode UI] Initializing...');
 
   // Initialize beat editor canvas
   const beatEditorCanvas = document.getElementById('beatEditorCanvas');
@@ -130,33 +129,24 @@ export function initRhythmModeUI(sceneRef, cameraRef, uiManagerRef) {
     return;
   }
 
-  console.log('[Rhythm Mode UI] Song select dropdown found, attaching listener');
-  console.log('[Rhythm Mode UI] Current dropdown value:', songSelect.value);
-  console.log('[Rhythm Mode UI] Dropdown options:', songSelect.options.length);
 
   songSelect.addEventListener('change', async (e) => {
-    console.log('[Rhythm Mode UI] ===== CHANGE EVENT FIRED =====');
     const value = e.target.value;
-    console.log(`[Rhythm Mode UI] Dropdown changed! Value: "${value}"`);
 
     if (!value) {
-      console.log('[Rhythm Mode UI] Empty value, ignoring');
       return;
     }
 
-    console.log(`[Rhythm Mode UI] Song selected: ${value}`);
 
     // Check if it's a library song or manual beat map
     if (value.startsWith('library:')) {
       const songId = value.replace('library:', '');
-      console.log(`[Rhythm Mode UI] Loading library song: ${songId}`);
 
       try {
         const success = await RhythmMode.loadSongFromLibrary(songId);
         if (success) {
           currentBeatMap = true; // Mark as loaded
           currentAudioFile = true; // Mark as loaded
-          console.log('[Rhythm Mode UI] Song loaded successfully, enabling start button');
           updatePlayControls();
           alert(`✅ Song loaded from library! Click "Start Game" to play.`);
         } else {
@@ -215,7 +205,6 @@ export function initRhythmModeUI(sceneRef, cameraRef, uiManagerRef) {
       // Save to localStorage for next session
       saveSessionToLocalStorage();
 
-      console.log(`[Rhythm Mode UI] Loaded beat map: ${file.name}`);
       alert(`✅ Beat map loaded: ${beatMap.name || file.name}\n${beatMap.beats.length} beats`);
 
       // Enable controls if audio is also loaded
@@ -242,7 +231,6 @@ export function initRhythmModeUI(sceneRef, cameraRef, uiManagerRef) {
       await RhythmMode.loadAudioFile(file);
       currentAudioFile = file;
 
-      console.log(`[Rhythm Mode UI] Loaded audio: ${file.name}`);
       alert(`✅ Audio loaded: ${file.name}`);
 
       // Enable controls if beat map is also loaded
@@ -258,7 +246,6 @@ export function initRhythmModeUI(sceneRef, cameraRef, uiManagerRef) {
   const stopBtn = document.getElementById('rhythmStop');
 
   startBtn.addEventListener('click', () => {
-    console.log('[Rhythm Mode UI] Starting rhythm mode...');
     RhythmMode.startRhythmMode(scene, camera);
 
     // Close the rhythm mode modal
@@ -275,7 +262,6 @@ export function initRhythmModeUI(sceneRef, cameraRef, uiManagerRef) {
     }
 
     // Tell BOTH input systems that chrome is hidden (activates input)
-    console.log('[Rhythm Mode UI] Setting chromeShown to false for both Input and UIManager');
 
     // Set Input's chromeShown to false (enables input handling)
     Input.setChromeShown(false);
@@ -283,8 +269,6 @@ export function initRhythmModeUI(sceneRef, cameraRef, uiManagerRef) {
     // Close menu using uiManager (this sets uiManager's chromeShown to false, which enables physics)
     uiManager.closeMenu();
 
-    console.log('[Rhythm Mode UI] Input.getChromeShown():', Input.getChromeShown());
-    console.log('[Rhythm Mode UI] uiManager.getChromeShown():', uiManager.getChromeShown());
 
     // Show stats and boost prompt
     document.getElementById('rhythmStats').style.display = 'block';
@@ -343,7 +327,6 @@ export function initRhythmModeUI(sceneRef, cameraRef, uiManagerRef) {
             document.getElementById('editorAddBeatAtPlayhead').disabled = false;
             document.getElementById('editorResetToStart').disabled = false;
             document.getElementById('editorPlayPause').textContent = '▶ Play';
-            console.log(`[Rhythm Mode UI] Editor: Waveform verified ready, controls enabled`);
           } else {
             console.warn(`[Rhythm Mode UI] Editor: Waveform not ready yet, retrying...`);
             setTimeout(checkWaveformReady, 100); // Retry after 100ms
@@ -354,7 +337,6 @@ export function initRhythmModeUI(sceneRef, cameraRef, uiManagerRef) {
         setTimeout(checkWaveformReady, 50);
       });
 
-      console.log(`[Rhythm Mode UI] Editor: Loaded audio ${file.name}`);
     } catch (error) {
       console.error('[Rhythm Mode UI] Error loading audio in editor:', error);
       alert(`❌ Error loading audio: ${error.message}`);
@@ -408,7 +390,6 @@ export function initRhythmModeUI(sceneRef, cameraRef, uiManagerRef) {
 
       currentBeatMap = beatMap;
 
-      console.log(`[Rhythm Mode UI] Loaded beat map: ${beatMap.beats.length} beats from ${file.name}`);
       alert(`✅ Loaded beat map with ${beatMap.beats.length} beats!`);
     } catch (error) {
       console.error('[Rhythm Mode UI] Error loading beat map:', error);
@@ -423,7 +404,6 @@ export function initRhythmModeUI(sceneRef, cameraRef, uiManagerRef) {
   const autoDetectBtn = document.getElementById('editorAutoDetect');
 
   autoDetectBtn.addEventListener('click', () => {
-    console.log('[Rhythm Mode UI] Auto-detecting beats...');
     autoDetectBtn.textContent = '⏳ Analyzing...';
     autoDetectBtn.disabled = true;
 
@@ -506,7 +486,6 @@ export function initRhythmModeUI(sceneRef, cameraRef, uiManagerRef) {
     document.getElementById('editorBeatCountNum').textContent = beatCount;
     document.getElementById('editorExport').disabled = beatCount === 0;
 
-    console.log(`[Rhythm Mode UI] Added beat at playhead: ${playheadTime.toFixed(2)}s`);
   });
 
   // Reset to Start button
@@ -527,7 +506,6 @@ export function initRhythmModeUI(sceneRef, cameraRef, uiManagerRef) {
     RhythmMode.setAudioPauseTime(0);
     BeatEditor.setPlayheadTime(0);
 
-    console.log('[Rhythm Mode UI] Reset to beginning');
   });
 
   // Zoom controls
@@ -701,7 +679,6 @@ export function initRhythmModeUI(sceneRef, cameraRef, uiManagerRef) {
     a.click();
     URL.revokeObjectURL(url);
 
-    console.log('[Rhythm Mode UI] Exported beat map:', beatMapName, 'with', beats.length, 'positioned beats');
     alert(`✅ Beat map exported: ${beatMapName}.json\n${beatTimes.length} beats with custom positions`);
   });
 
@@ -713,7 +690,6 @@ export function initRhythmModeUI(sceneRef, cameraRef, uiManagerRef) {
       BeatEditor.clearBeats();
       document.getElementById('editorBeatCountNum').textContent = '0';
       document.getElementById('editorExport').disabled = true;
-      console.log('[Rhythm Mode UI] Cleared beats');
     }
   });
 
@@ -735,7 +711,6 @@ export function initRhythmModeUI(sceneRef, cameraRef, uiManagerRef) {
     viewTiming.style.display = 'block';
     viewPositions.style.display = 'none';
 
-    console.log('[Rhythm Mode UI] Switched to Beat Timing view');
   });
 
   tabPositions.addEventListener('click', () => {
@@ -767,7 +742,6 @@ export function initRhythmModeUI(sceneRef, cameraRef, uiManagerRef) {
       RingPositionEditor.forceRender();
     }, 10);
 
-    console.log('[Rhythm Mode UI] Switched to Ring Positions view');
   });
 
   // Enable positions tab when beats exist
@@ -800,7 +774,6 @@ export function initRhythmModeUI(sceneRef, cameraRef, uiManagerRef) {
 
   snapGridCheckbox.addEventListener('change', (e) => {
     RingPositionEditor.setSnapToGrid(e.target.checked);
-    console.log(`[Rhythm Mode UI] Snap to grid: ${e.target.checked}`);
   });
 
   // Play Preview button
@@ -821,7 +794,6 @@ export function initRhythmModeUI(sceneRef, cameraRef, uiManagerRef) {
         prevBeatBtn.disabled = false;
         nextBeatBtn.disabled = false;
 
-        console.log('[Rhythm Mode UI] Preview stopped');
       } else {
         // Start preview
         RhythmMode.stopAudio(); // Reset to beginning first
@@ -836,7 +808,6 @@ export function initRhythmModeUI(sceneRef, cameraRef, uiManagerRef) {
         prevBeatBtn.disabled = true;
         nextBeatBtn.disabled = true;
 
-        console.log('[Rhythm Mode UI] Preview started at 1.0x speed');
       }
     });
   }
@@ -848,7 +819,6 @@ export function initRhythmModeUI(sceneRef, cameraRef, uiManagerRef) {
     beatInfo.textContent = `Beat ${currentIndex + 1}/${totalBeats}`;
   }
 
-  console.log('[Rhythm Mode UI] Initialized successfully');
 }
 
 // ============================================================================
@@ -864,7 +834,6 @@ function restoreLastSession() {
       currentBeatMap = beatMap;
       RhythmMode.loadBeatMap(beatMap);
       beatMapStorage['last_session.json'] = beatMap;
-      console.log(`[Rhythm Mode UI] Restored beat map from last session: ${beatMap.beats.length} beats`);
     }
 
     // Note: We can't restore the audio file from localStorage (too large)
@@ -878,7 +847,6 @@ function saveSessionToLocalStorage() {
   try {
     if (currentBeatMap) {
       localStorage.setItem('rhythmMode_lastBeatMap', JSON.stringify(currentBeatMap));
-      console.log('[Rhythm Mode UI] Saved beat map to localStorage');
     }
   } catch (error) {
     console.error('[Rhythm Mode UI] Error saving to localStorage:', error);
@@ -1001,7 +969,6 @@ export function updateRhythmModeUI() {
         editorPlayPauseBtn.style.color = '#4c8dff';
       }
       isEditorPlaying = false;
-      console.log('[Rhythm Mode UI] Playback stopped - song ended');
     } else {
       BeatEditor.setPlayheadTime(currentTime);
     }

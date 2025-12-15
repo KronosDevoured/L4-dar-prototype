@@ -48,7 +48,6 @@ export function init(canvasElement) {
   canvas = canvasElement;
   ctx = canvas.getContext('2d');
 
-  console.log('[Beat Editor] Initializing...', canvas);
 
   // Set canvas size
   resizeCanvas();
@@ -74,7 +73,6 @@ export function init(canvasElement) {
   // Initial render
   render();
 
-  console.log('[Beat Editor] Initialized. Canvas size:', canvas.width, 'x', canvas.height);
 }
 
 function resizeCanvas() {
@@ -84,7 +82,6 @@ function resizeCanvas() {
   canvas.width = rect.width;
   canvas.height = 200; // Fixed height for waveform
 
-  console.log('[Beat Editor] Resized canvas to', canvas.width, 'x', canvas.height);
 
   render();
 }
@@ -107,12 +104,10 @@ export function loadAudio(buffer, onReady) {
   render(); // Shows "Generating waveform..."
 
   // Generate waveform data asynchronously
-  console.log(`[Beat Editor] Loading audio: ${audioBuffer.duration.toFixed(2)}s`);
 
   // Use setTimeout to allow UI to update
   setTimeout(() => {
     generateWaveform();
-    console.log(`[Beat Editor] Waveform generated`);
 
     // Force canvas resize to ensure proper dimensions
     resizeCanvas();
@@ -121,7 +116,6 @@ export function loadAudio(buffer, onReady) {
     render();
     requestAnimationFrame(() => {
       render();
-      console.log(`[Beat Editor] Waveform rendered to canvas`);
 
       // Notify that waveform is ready
       if (onReady) onReady();
@@ -157,7 +151,6 @@ function generateWaveform() {
     waveformData.push({ min, max });
   }
 
-  console.log(`[Beat Editor] Generated waveform: ${waveformData.length} pixels`);
 }
 
 // ============================================================================
@@ -209,7 +202,6 @@ export function setZoom(newZoom) {
     render();
   }
 
-  console.log(`[Beat Editor] Zoom set to ${(zoomLevel * 100).toFixed(0)}%`);
 }
 
 export function getZoom() {
@@ -286,10 +278,8 @@ function handleCanvasClick(e) {
 
   if (existingBeat !== undefined) {
     removeBeat(existingBeat);
-    console.log(`[Beat Editor] Removed beat at ${existingBeat.toFixed(2)}s`);
   } else {
     addBeat(time);
-    console.log(`[Beat Editor] Added beat at ${time.toFixed(2)}s`);
   }
 }
 
@@ -335,7 +325,6 @@ function handleMouseDown(e) {
         if (isHoldingBeat) {
           isDraggingBeat = true;
           canvas.style.cursor = 'ew-resize';
-          console.log(`[Beat Editor] Beat drag enabled after hold`);
         }
       }, 500); // 500ms hold time
 
