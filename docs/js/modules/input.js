@@ -267,6 +267,7 @@ function adjustSelectValue(direction) {
 let ringModeBoostActive = false;
 let keyboardBoostActive = false;
 let gamepadBoostActive = false;
+let touchBoostActive = false;
 
 // Toggle DAR active state (X button on gamepad)
 let toggleDARActive = false;
@@ -424,8 +425,8 @@ function handleDARRelease() {
  */
 function handleKeyboardBoostChange(active) {
   keyboardBoostActive = active;
-  // Combine keyboard and gamepad boost
-  ringModeBoostActive = keyboardBoostActive || gamepadBoostActive;
+  // Combine all boost sources (keyboard, gamepad, touch)
+  ringModeBoostActive = keyboardBoostActive || gamepadBoostActive || touchBoostActive;
 }
 
 /**
@@ -433,17 +434,18 @@ function handleKeyboardBoostChange(active) {
  */
 function handleGamepadBoostChange(active) {
   gamepadBoostActive = active;
-  // Combine keyboard and gamepad boost
-  ringModeBoostActive = keyboardBoostActive || gamepadBoostActive;
+  // Combine all boost sources (keyboard, gamepad, touch)
+  ringModeBoostActive = keyboardBoostActive || gamepadBoostActive || touchBoostActive;
 }
 
 /**
  * Handle touch boost state changes
- * Note: Touch boost is exclusive (only one input source active on mobile)
  */
 function handleTouchBoostChange(active) {
-  // On mobile, touch is the primary input, so just set directly
-  ringModeBoostActive = active;
+  console.log('[Input] handleTouchBoostChange:', active, 'ringModeBoostActive was:', ringModeBoostActive);
+  touchBoostActive = active;
+  // Combine all boost sources (keyboard, gamepad, touch)
+  ringModeBoostActive = keyboardBoostActive || gamepadBoostActive || touchBoostActive;
 }
 
 /**
@@ -760,6 +762,9 @@ export function getShowBoostButton() {
 }
 
 export function getRingModeBoostActive() {
+  if (ringModeBoostActive) {
+    console.log('[Input] getRingModeBoostActive called, returning TRUE');
+  }
   return ringModeBoostActive;
 }
 

@@ -727,8 +727,11 @@ export function updateRingModePhysics(dt, inputState, carQuaternion) {
   // Allow rhythm mode to use ring mode physics
   const isRhythmMode = gameState && gameState.getRhythmModeActive();
 
+  console.log('[RingMode] updateRingModePhysics called - boostActive:', inputState.boostActive, 'ringModeActive:', ringModeActive, 'isRhythmMode:', isRhythmMode, 'paused:', ringModePaused, 'lives:', ringModeLives);
+
   if (!isRhythmMode && (!ringModeActive || ringModePaused || ringModeLives <= 0)) {
     // Stop boost sound when game is over or paused
+    console.log('[RingMode] Early return - ring mode not active or paused or no lives');
     Audio.stopBoostRumble();
     return;
   }
@@ -769,6 +772,7 @@ export function updateRingModePhysics(dt, inputState, carQuaternion) {
     // Boost in the direction car's nose is facing
     accelX += boostDirX * CONST.RING_BOOST_ACCEL;
     accelY += boostDirY * CONST.RING_BOOST_ACCEL;
+    console.log('[RingMode] Boost active! accel:', accelX.toFixed(2), accelY.toFixed(2), 'boostDir:', boostDirX.toFixed(2), boostDirY.toFixed(2), 'BOOST_ACCEL:', CONST.RING_BOOST_ACCEL);
   }
 
   // Update boost flame visibility and position
@@ -777,6 +781,10 @@ export function updateRingModePhysics(dt, inputState, carQuaternion) {
   // Integrate velocity
   ringModeVelocity.x += accelX * dt;
   ringModeVelocity.y += accelY * dt;
+
+  if (effectiveBoostActive) {
+    console.log('[RingMode] After integration - velocity:', ringModeVelocity.x.toFixed(2), ringModeVelocity.y.toFixed(2), 'position:', ringModePosition.x.toFixed(2), ringModePosition.y.toFixed(2));
+  }
 
   // Clamp to max speed
   const speed = ringModeVelocity.length();

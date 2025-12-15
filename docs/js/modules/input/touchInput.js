@@ -138,6 +138,7 @@ export function onPointerDown(e, callbacks) {
   const y = e.clientY;
   const id = e.pointerId;
 
+  console.log('[TouchInput] onPointerDown at', x, y, 'showBoostButton:', showBoostButton);
   activePointers.set(id, { x, y });
 
   // Check joystick
@@ -173,12 +174,21 @@ export function onPointerDown(e, callbacks) {
   }
   // Check Boost button
   else if (boostPointerId === null && showBoostButton && inBoost(x, y)) {
+    console.log('[TouchInput] Boost button pressed at', x, y, 'callbacks:', callbacks, 'onBoostPress:', callbacks?.onBoostPress);
     boostPointerId = id;
     boostPressT = performance.now();
-    callbacks?.onBoostPress?.(true);
+    if (callbacks?.onBoostPress) {
+      console.log('[TouchInput] Calling onBoostPress(true)');
+      callbacks.onBoostPress(true);
+    } else {
+      console.warn('[TouchInput] No onBoostPress callback available!');
+    }
 
     // Don't allow relocation on hold - boost button should only boost
     // Relocation will be handled separately (e.g., through settings menu)
+  } else if (boostPointerId === null && showBoostButton) {
+    // Debug: click was outside boost button
+    console.log('[TouchInput] Click at', x, y, 'missed boost button at', BOOST_CENTER.x, BOOST_CENTER.y, 'radius', BOOST_R);
   }
 }
 
@@ -282,6 +292,7 @@ export function setJoyKnobR(r) {
 }
 
 export function setShowBoostButton(show) {
+  console.log('[TouchInput] setShowBoostButton:', show);
   showBoostButton = show;
 }
 
