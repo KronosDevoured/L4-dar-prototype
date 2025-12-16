@@ -144,10 +144,9 @@ function initSettingsSliders() {
 
 // Wrapper for updateMenuButtonStyling that uses UIManager
 function updateMenuButtonStyling() {
-  const currentRoll = Input.getAirRoll();
-  // Show current roll if active, otherwise show last active
-  const displayRoll = currentRoll !== 0 ? currentRoll : Input.getLastActiveAirRoll();
-  uiManager.updateMenuButtonStyling(displayRoll);
+  // Show selected air roll direction in menu
+  const selectedRoll = Input.getSelectedAirRoll();
+  uiManager.updateMenuButtonStyling(selectedRoll);
 }
 
 // ============================================================================
@@ -225,6 +224,7 @@ function renderHUD(){
     DAR_R: Input.getDarR(),
     darOn: Input.getDarOn(),
     airRoll: Input.getAirRoll(),
+    selectedAirRoll: Input.getSelectedAirRoll(),
     // Boost button state
     BOOST_CENTER: Input.getBoostCenter(),
     BOOST_R: Input.getBoostR(),
@@ -786,6 +786,9 @@ export function init() {
         case 'toggleTheme':
           settings.isDarkMode = !settings.isDarkMode;
           themeManager.applyTheme(settings.isDarkMode);
+          // Update theme button icon
+          const themeBtn = document.getElementById('themeBtn');
+          themeBtn.textContent = settings.isDarkMode ? '🌙' : '☀️';
           saveSettings();
           break;
         case 'openMenu':

@@ -124,10 +124,10 @@ export function drawJoystick(state) {
 
 /**
  * Draw DAR (directional air roll) button on HUD
- * @param {object} state - DAR state { DAR_CENTER, DAR_R, darOn, airRoll }
+ * @param {object} state - DAR state { DAR_CENTER, DAR_R, darOn, airRoll, selectedAirRoll }
  */
 export function drawDAR(state) {
-  const { DAR_CENTER, DAR_R, darOn, airRoll } = state;
+  const { DAR_CENTER, DAR_R, darOn, airRoll, selectedAirRoll } = state;
   const cx = DAR_CENTER.x, cy = DAR_CENTER.y, r = DAR_R;
 
   HfillCircle(cx, cy, r, darOn ? 'rgba(0,102,255,0.18)' : 'rgba(24,26,32,0.75)');
@@ -135,6 +135,20 @@ export function drawDAR(state) {
   const a = (airRoll > 0) ? Math.PI / 2 : -Math.PI / 2;
   Htri(cx, cy, a, r * 0.55, darOn ? '#0e0f12' : '#e8e8ea');
   Hcircle(cx, cy, r - 12, '#bdbdbd', 1.5);
+
+  // Display selected air roll direction as text
+  let dirText = '';
+  if (selectedAirRoll === -1) dirText = 'L';
+  else if (selectedAirRoll === 1) dirText = 'R';
+  else if (selectedAirRoll === 2) dirText = 'F';
+
+  if (dirText) {
+    hctx.fillStyle = darOn ? '#0e0f12' : '#e8e8ea';
+    hctx.font = 'bold 18px system-ui';
+    hctx.textAlign = 'center';
+    hctx.textBaseline = 'middle';
+    hctx.fillText(dirText, cx, cy + r - 6);
+  }
 }
 
 /**
@@ -443,7 +457,8 @@ export function renderHUD(state) {
     DAR_CENTER: state.DAR_CENTER,
     DAR_R: state.DAR_R,
     darOn: state.darOn,
-    airRoll: state.airRoll
+    airRoll: state.airRoll,
+    selectedAirRoll: state.selectedAirRoll
   });
 
   // Draw Ring Mode HUD if active

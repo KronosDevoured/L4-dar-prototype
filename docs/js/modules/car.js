@@ -35,13 +35,47 @@ let carScene = null; // Store reference to scene
 // MATERIALS
 // ============================================================================
 
-export const MAT_BODY = new THREE.MeshPhongMaterial({ color: 0xdfe5ef, shininess: 50, specular: 0x666666 });
-export const MAT_GLASS = new THREE.MeshPhongMaterial({ color: 0x9aa6b7, shininess: 40, specular: 0x222222, transparent: true, opacity: 0.65 });
-export const MAT_ACCENT = new THREE.MeshPhongMaterial({ color: 0xcbd3df, shininess: 35, specular: 0x222222 });
-export const MAT_DARK = new THREE.MeshPhongMaterial({ color: 0xaeb7c4, shininess: 28, specular: 0x222222 });
+export const MAT_BODY = new THREE.MeshPhongMaterial({
+  color: 0xdfe5ef,
+  shininess: 50,
+  specular: 0x666666,
+  emissive: 0xdfe5ef,
+  emissiveIntensity: 0.7
+});
+export const MAT_GLASS = new THREE.MeshPhongMaterial({
+  color: 0x9aa6b7,
+  shininess: 40,
+  specular: 0x222222,
+  transparent: true,
+  opacity: 0.65,
+  emissive: 0x9aa6b7,
+  emissiveIntensity: 0.5
+});
+export const MAT_ACCENT = new THREE.MeshPhongMaterial({
+  color: 0xcbd3df,
+  shininess: 35,
+  specular: 0x222222,
+  emissive: 0xcbd3df,
+  emissiveIntensity: 0.6
+});
+export const MAT_DARK = new THREE.MeshPhongMaterial({
+  color: 0xaeb7c4,
+  shininess: 28,
+  specular: 0x222222,
+  emissive: 0xaeb7c4,
+  emissiveIntensity: 0.5
+});
 export const MAT_EDGE = (hex) => new THREE.LineBasicMaterial({ color: hex });
-export const MAT_TIRE_F = new THREE.MeshLambertMaterial({ color: 0x8a93a0 });
-export const MAT_TIRE_B = new THREE.MeshLambertMaterial({ color: 0x808896 });
+export const MAT_TIRE_F = new THREE.MeshLambertMaterial({
+  color: 0x8a93a0,
+  emissive: 0x8a93a0,
+  emissiveIntensity: 0.4
+});
+export const MAT_TIRE_B = new THREE.MeshLambertMaterial({
+  color: 0x808896,
+  emissive: 0x808896,
+  emissiveIntensity: 0.4
+});
 export const MAT_HUB = new THREE.MeshBasicMaterial({ color: 0x5a6270 });
 
 // ============================================================================
@@ -531,10 +565,22 @@ export function updateCarTheme(dark, brightness = 1.0) {
 
   // Apply colors with brightness multiplier
   MAT_BODY.color.copy(applyBrightness(baseColors.body, brightness));
+  MAT_BODY.emissive.copy(applyBrightness(baseColors.body, brightness * 0.7));
+
   MAT_GLASS.color.copy(applyBrightness(baseColors.glass, brightness));
+  MAT_GLASS.emissive.copy(applyBrightness(baseColors.glass, brightness * 0.5));
+
   MAT_ACCENT.color.copy(applyBrightness(baseColors.accent, brightness));
+  MAT_ACCENT.emissive.copy(applyBrightness(baseColors.accent, brightness * 0.6));
+
   MAT_DARK.color.copy(applyBrightness(baseColors.darkPart, brightness));
+  MAT_DARK.emissive.copy(applyBrightness(baseColors.darkPart, brightness * 0.5));
+
   MAT_TIRE_F.color.copy(applyBrightness(baseColors.tireF, brightness));
+  MAT_TIRE_F.emissive.copy(applyBrightness(baseColors.tireF, brightness * 0.4));
+
   MAT_TIRE_B.color.copy(applyBrightness(baseColors.tireB, brightness));
+  MAT_TIRE_B.emissive.copy(applyBrightness(baseColors.tireB, brightness * 0.4));
+
   MAT_HUB.color.copy(applyBrightness(baseColors.hub, brightness));
 }

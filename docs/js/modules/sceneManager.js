@@ -58,16 +58,42 @@ export class SceneManager {
   }
 
   /**
-   * Initialize scene lighting
+   * Initialize scene lighting - studio/stadium style with multiple lights
    */
   initLights() {
-    this.ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+    // Strong ambient base light for overall brightness
+    this.ambientLight = new THREE.AmbientLight(0xffffff, 1.8);
     this.scene.add(this.ambientLight);
 
-    this.directionalLight = new THREE.DirectionalLight(0xffffff, 1.15);
-    this.directionalLight.position.set(-350, 700, 900);
+    // Key light - main directional from camera position (front)
+    this.directionalLight = new THREE.DirectionalLight(0xffffff, 3.0);
+    this.directionalLight.position.set(0, 350, 800); // From camera
     this.directionalLight.castShadow = false;
     this.scene.add(this.directionalLight);
+
+    // Fill light - from left side
+    const fillLight1 = new THREE.DirectionalLight(0xffffff, 2.0);
+    fillLight1.position.set(-500, 300, 0);
+    fillLight1.castShadow = false;
+    this.scene.add(fillLight1);
+
+    // Fill light - from right side
+    const fillLight2 = new THREE.DirectionalLight(0xffffff, 2.0);
+    fillLight2.position.set(500, 300, 0);
+    fillLight2.castShadow = false;
+    this.scene.add(fillLight2);
+
+    // Back light - from behind car for rim lighting
+    const backLight = new THREE.DirectionalLight(0xffffff, 1.5);
+    backLight.position.set(0, 200, -600);
+    backLight.castShadow = false;
+    this.scene.add(backLight);
+
+    // Top light - overhead stadium style
+    const topLight = new THREE.DirectionalLight(0xffffff, 2.0);
+    topLight.position.set(0, 800, 0);
+    topLight.castShadow = false;
+    this.scene.add(topLight);
   }
 
   /**

@@ -334,21 +334,9 @@ function handleBindingExecution(action) {
     // rollFree always uses toggleRoll (has continuous tracking in both modes)
     AirRollController.toggleRoll(2);
   } else if (action === 'toggleDAR') {
-    // toggleDAR behavior depends on airRollIsToggle setting
-    if (airRollIsToggle) {
-      // Toggle mode: press once to activate, press again to deactivate
-      const currentAirRoll = AirRollController.getAirRoll();
-      const lastActive = AirRollController.getLastActiveAirRoll();
-      if (currentAirRoll === 0) {
-        AirRollController.setRoll(lastActive, true);
-        toggleDARActive = true;
-      } else {
-        AirRollController.setRoll(0, true);
-        toggleDARActive = false;
-      }
-    }
-    // In hold mode: handled entirely by handleToggleDARState (continuous tracking)
-    // Don't activate here to avoid race condition with air roll button handler
+    // Gamepad toggleDAR button: switches between toggle and hold mode
+    const currentMode = AirRollController.getAirRollIsToggle();
+    AirRollController.setAirRollIsToggle(!currentMode);
   } else {
     // Forward all other actions to the main callback
     if (execBindingCallback) {
@@ -387,37 +375,21 @@ function handleGamepadStick(stick) {
 }
 
 /**
- * Handle DAR button press
+ * Handle DAR button press (touch screen)
  */
 function handleDARPress(pressed) {
-  const airRollIsToggle = AirRollController.getAirRollIsToggle();
-
-  if (airRollIsToggle) {
-    // Toggle mode: toggle between last active and off
-    const currentAirRoll = AirRollController.getAirRoll();
-    if (currentAirRoll === 0) {
-      AirRollController.setRoll(AirRollController.getLastActiveAirRoll(), true);
-    } else {
-      AirRollController.setRoll(0, true);
-    }
-  } else {
-    // Hold mode: activate on press
-    if (AirRollController.getAirRoll() === 0) {
-      AirRollController.setRoll(AirRollController.getLastActiveAirRoll(), true);
-    }
-  }
+  // Touch screen DAR button always uses toggle mode
+  // Toggles the selected air roll direction on/off
+  const selectedAirRoll = AirRollController.getSelectedAirRoll();
+  AirRollController.toggleRoll(selectedAirRoll, true);
 }
 
 /**
- * Handle DAR button release
+ * Handle DAR button release (touch screen)
  */
 function handleDARRelease() {
-  const airRollIsToggle = AirRollController.getAirRollIsToggle();
-
-  // Release: only deactivate in hold mode
-  if (!airRollIsToggle) {
-    AirRollController.setRoll(0, true);
-  }
+  // Touch DAR is always toggle mode - release does nothing
+  // (air roll stays active until tapped again)
 }
 
 /**
@@ -448,25 +420,11 @@ function handleTouchBoostChange(active) {
 }
 
 /**
- * Handle toggleDAR button state (continuous tracking for hold mode)
+ * Handle toggleDAR button state (no longer needed - toggleDAR just switches modes now)
  */
-function handleToggleDARState(pressed) {
-  const airRollIsToggle = AirRollController.getAirRollIsToggle();
-
-  // In hold mode, track current button state
-  if (!airRollIsToggle) {
-    if (pressed && !toggleDARActive) {
-      // Button just pressed - activate
-      const lastActive = AirRollController.getLastActiveAirRoll();
-      AirRollController.setRoll(lastActive, true);
-      toggleDARActive = true;
-    } else if (!pressed && toggleDARActive) {
-      // Button just released - deactivate
-      AirRollController.setRoll(0, true);
-      toggleDARActive = false;
-    }
-  }
-  // In toggle mode, button state is handled by edge detection in handleBindingExecution
+function handleToggleDARState() {
+  // No-op: toggleDAR button now switches between toggle/hold mode via edge detection
+  // Air roll activation is handled by the directional air roll buttons (L1/R1) or touch DAR
 }
 
 /* ===========================
@@ -773,8 +731,8 @@ export function getAirRoll() {
   return AirRollController.getAirRoll();
 }
 
-export function getLastActiveAirRoll() {
-  return AirRollController.getLastActiveAirRoll();
+export function getSelectedAirRoll() {
+  return AirRollController.getSelectedAirRoll();
 }
 
 export function getAirRollIsToggle() {

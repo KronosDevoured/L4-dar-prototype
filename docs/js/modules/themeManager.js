@@ -25,12 +25,12 @@ export class ThemeManager {
         fogNear: 1000,
         fogFar: 2500,
         ambient: 0xffffff,
-        ambientIntensity: 1.5,
+        ambientIntensity: 1.2,
         directional: 0xffffff,
-        directionalIntensity: 1.2,
+        directionalIntensity: 2.5,
         gridMain: 0x4a5060,
         gridSub: 0x353945,
-        gridOpacity: 0.7,
+        gridOpacity: 0.5,
         gridY: -160
       },
       light: {
@@ -39,12 +39,12 @@ export class ThemeManager {
         fogNear: 900,
         fogFar: 2200,
         ambient: 0xffffff,
-        ambientIntensity: 0.8,
+        ambientIntensity: 1.0,
         directional: 0xffffff,
-        directionalIntensity: 1.15,
+        directionalIntensity: 2.0,
         gridMain: 0x8a95a5,
         gridSub: 0xb5bec8,
-        gridOpacity: 0.85,
+        gridOpacity: 0.6,
         gridY: -160
       }
     };

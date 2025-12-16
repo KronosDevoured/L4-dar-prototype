@@ -11,9 +11,9 @@ import { saveSettings } from '../settings.js';
 // ============================================================================
 
 // Air roll values: -1 = left, 0 = off, +1 = right, 2 = free
-let airRoll = 0;
-let lastActiveAirRoll = -1; // Remember last active for DAR toggle
-let airRollIsToggle = false; // Default: hold mode
+let airRoll = 0; // Currently active air roll
+let selectedAirRoll = -1; // User's selection from menu (Left/Right/Free)
+let airRollIsToggle = false; // Default: hold mode (for gamepad)
 
 // ============================================================================
 // CORE FUNCTIONS
@@ -21,33 +21,31 @@ let airRollIsToggle = false; // Default: hold mode
 
 export function setRoll(dir, skipSave = false) {
   airRoll = dir;
-  // Remember last active air roll for DAR toggle (but not 0)
-  if (dir !== 0) {
-    lastActiveAirRoll = dir;
-  }
   if (!skipSave) {
-    saveSettings({ airRoll, lastActiveAirRoll });
+    saveSettings({ airRoll });
   }
   return dir;
 }
 
-export function toggleRoll(dir) {
+export function toggleRoll(dir, skipSave = false) {
   // For toggle mode: tap to activate, tap again to deactivate
-  // Skip save - this is called during gameplay (gamepad/keyboard)
+  // For hold mode: directly set the direction
   if (airRollIsToggle) {
     if (airRoll === dir) {
-      setRoll(0, true); // Turn off if already active
+      setRoll(0, skipSave); // Turn off if already active
     } else {
-      setRoll(dir, true); // Switch to this mode
+      setRoll(dir, skipSave); // Switch to this direction
     }
   } else {
     // For hold mode: handled by button state
-    setRoll(dir, true);
+    setRoll(dir, skipSave);
   }
 }
 
 export function selectAirRoll(dir) {
-  setRoll(dir);
+  // Menu selection - just remember the choice, don't activate
+  selectedAirRoll = dir;
+  saveSettings({ selectedAirRoll });
 }
 
 // ============================================================================
@@ -62,7 +60,7 @@ export function setAirRollIsToggle(isToggle) {
 export function loadAirRollState(savedState) {
   if (savedState) {
     airRoll = savedState.airRoll ?? 0;
-    lastActiveAirRoll = savedState.lastActiveAirRoll ?? -1;
+    selectedAirRoll = savedState.selectedAirRoll ?? -1;
     airRollIsToggle = savedState.airRollIsToggle ?? false;
   }
 }
@@ -75,8 +73,8 @@ export function getAirRoll() {
   return airRoll;
 }
 
-export function getLastActiveAirRoll() {
-  return lastActiveAirRoll;
+export function getSelectedAirRoll() {
+  return selectedAirRoll;
 }
 
 export function getAirRollIsToggle() {
