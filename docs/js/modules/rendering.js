@@ -321,9 +321,13 @@ export function drawRingModeHUD(state) {
         ctx.restore();
       }
 
-      // Show arrow if ring is far away - keep on screen longer (5 seconds worth of distance)
-      // At max speed ~1400 units/s, 5 seconds = ~7000 units, use 3000 to be visible earlier
-      if (distance2D > 800) {
+      // Show arrow and distance for rings that started 1000+ units away
+      // Keep showing until car reaches the dashed circle (landing zone)
+      const wasInitiallyDistant = targetRing.initialDistance2D && targetRing.initialDistance2D >= 1000;
+      const ringRadius = targetRing.size / 2;
+      const showIndicator = wasInitiallyDistant ? distance2D > ringRadius : distance2D > 800;
+
+      if (showIndicator) {
         // Calculate direction angle (in 2D, looking down from above)
         // Negate dy because screen Y is inverted (increases downward, grid Y increases upward)
         const angle = Math.atan2(-dy, dx);

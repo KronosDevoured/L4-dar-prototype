@@ -180,16 +180,16 @@ export const DIFFICULTY_SETTINGS = {
   },
   hard: {
     // Ring properties
-    sizeMultiplier: 0.7,         // 30% smaller rings
-    speedMultiplier: 1.3,        // 30% faster
-    spawnIntervalMultiplier: 0.75, // Less time between rings
+    sizeMultiplier: 0.75,        // 25% smaller rings (slightly easier than before)
+    speedMultiplier: 1.1,        // 10% faster (reduced from 30% - more reaction time)
+    spawnIntervalMultiplier: 0.9, // 10% less time between rings (was 25% - more breathing room)
 
     // Progression
-    progressionRate: 1.5,        // Faster progression
+    progressionRate: 1.3,        // Moderately faster progression (was 1.5)
 
     // Patterns
     allowedPatterns: null,       // All patterns (immediate unlock)
-    patternAmplitudeMultiplier: 1.4, // Wider patterns
+    patternAmplitudeMultiplier: 1.15, // Slightly wider patterns (was 1.4 - much more reachable)
 
     // Other
     initialLives: 3              // Less forgiving
@@ -278,6 +278,49 @@ export const RING_PATTERNS = {
       }
       return positions;
     }
+  }
+};
+
+// ============================================================================
+// HARD MODE SECTION TYPES
+// ============================================================================
+
+export const HARD_MODE_SECTIONS = {
+  gauntlet: {
+    name: 'Gauntlet',
+    description: 'Rapid-fire rings in quick succession',
+    patterns: ['horizontal_line', 'vertical_line', 'single'],
+    duration: 8, // Number of rings in section
+    spawnIntervalMultiplier: 0.4, // Much faster spawning
+    speedMultiplier: 0.9, // Slightly slower to compensate for rapid spawning
+    amplitudeMultiplier: 0.6 // Tighter grouping
+  },
+  geometric: {
+    name: 'Geometric Shapes',
+    description: 'Rings form geometric patterns',
+    patterns: ['square', 'triangle', 'star', 'pentagon', 'spiral'],
+    duration: 12,
+    spawnIntervalMultiplier: 1.1, // Normal pacing
+    speedMultiplier: 1.0,
+    amplitudeMultiplier: 1.2
+  },
+  flowing: {
+    name: 'Flowing Path',
+    description: 'Smooth curved paths to follow',
+    patterns: ['sine_horizontal', 'sine_vertical', 'wave_combo', 'helix', 'figure8'],
+    duration: 15,
+    spawnIntervalMultiplier: 1.0,
+    speedMultiplier: 1.05, // Reduced from 1.15 - was too fast at high levels
+    amplitudeMultiplier: 1.0
+  },
+  chaos: {
+    name: 'Chaos',
+    description: 'Unpredictable random patterns',
+    patterns: ['random'],
+    duration: 10,
+    spawnIntervalMultiplier: 0.85,
+    speedMultiplier: 1.0,
+    amplitudeMultiplier: 1.3
   }
 };
 

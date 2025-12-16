@@ -63,12 +63,20 @@ let currentPattern = 'random';
 let patternProgress = 0; // Progress through current pattern (0-1)
 let patternLength = 15; // Number of rings in this pattern
 let patternRingCount = 0; // Rings spawned in current pattern
-const PATTERN_TYPES = ['sine_horizontal', 'sine_vertical', 'spiral', 'helix', 'figure8', 'vertical_line', 'horizontal_line', 'wave_combo', 'random'];
+const PATTERN_TYPES = ['sine_horizontal', 'sine_vertical', 'spiral', 'helix', 'figure8', 'vertical_line', 'horizontal_line', 'wave_combo', 'random', 'square', 'triangle', 'star', 'pentagon'];
 
 // Pattern parameters (randomized when pattern changes)
 let patternAmplitude = 400; // Wave/spiral amplitude
 let patternFrequency = 0.5; // Oscillation frequency
 let patternPhase = 0; // Starting phase offset
+
+// Hard mode section management
+let currentSection = null; // Current section type (gauntlet, geometric, flowing, chaos)
+let sectionRingCount = 0; // Rings spawned in current section
+let sectionDuration = 0; // Total rings in current section
+let sectionSpawnInterval = 1.0; // Spawn interval multiplier for this section
+let sectionSpeed = 1.0; // Speed multiplier for this section
+let sectionAmplitude = 1.0; // Amplitude multiplier for this section
 
 // Scene and camera references (set during initialization)
 let scene = null;
@@ -252,6 +260,15 @@ export function resetRingMode() {
   patternRingCount = 0;
   cameraTargetX = 0;
   cameraTargetY = 0;
+
+  // Reset section variables for hard mode
+  currentSection = null;
+  sectionRingCount = 0;
+  sectionDuration = 0;
+  sectionSpawnInterval = 1.0;
+  sectionSpeed = 1.0;
+  sectionAmplitude = 1.0;
+
   clearAllRings();
   clearBoostFlames();
 
@@ -296,6 +313,15 @@ export function startRingMode() {
   patternRingCount = 0;
   cameraTargetX = 0;
   cameraTargetY = 0;
+
+  // Reset section variables for hard mode
+  currentSection = null;
+  sectionRingCount = 0;
+  sectionDuration = 0;
+  sectionSpawnInterval = 1.0;
+  sectionSpeed = 1.0;
+  sectionAmplitude = 1.0;
+
   clearAllRings();
 
   // Resources already preloaded at startup, just spawn first ring
@@ -424,6 +450,24 @@ function clearAllRings() {
 // ============================================================================
 
 /**
+ * Select a new section for hard mode
+ */
+function selectNewSection() {
+  const sectionTypes = Object.keys(CONST.HARD_MODE_SECTIONS);
+  const sectionType = sectionTypes[Math.floor(Math.random() * sectionTypes.length)];
+  const section = CONST.HARD_MODE_SECTIONS[sectionType];
+
+  currentSection = sectionType;
+  sectionRingCount = 0;
+  sectionDuration = section.duration;
+  sectionSpawnInterval = section.spawnIntervalMultiplier;
+  sectionSpeed = section.speedMultiplier;
+  sectionAmplitude = section.amplitudeMultiplier;
+
+  return section;
+}
+
+/**
  * Select a new ring pattern based on difficulty and progression
  */
 function selectNewPattern() {
@@ -432,7 +476,38 @@ function selectNewPattern() {
   // Progressive difficulty based on rings completed (affected by difficulty setting)
   const difficultyLevel = Math.floor(ringModeRingCount / 5 * difficultySettings.progressionRate);
 
-  // Use difficulty-specific allowed patterns or progressive unlock
+  // HARD MODE: Use section-based pattern selection
+  if (currentDifficulty === 'hard') {
+    // Check if we need a new section
+    if (sectionRingCount === 0 || sectionRingCount >= sectionDuration) {
+      const section = selectNewSection();
+      // Pick pattern from section's allowed patterns
+      currentPattern = section.patterns[Math.floor(Math.random() * section.patterns.length)];
+      patternRingCount = 0;
+      patternLength = section.duration;
+    } else {
+      // Continue current section - optionally change pattern mid-section
+      const section = CONST.HARD_MODE_SECTIONS[currentSection];
+      if (patternRingCount >= patternLength) {
+        currentPattern = section.patterns[Math.floor(Math.random() * section.patterns.length)];
+        patternRingCount = 0;
+        patternLength = Math.max(3, Math.floor(section.duration / 2)); // Vary pattern within section
+      }
+    }
+
+    // Section-specific amplitude and frequency
+    const baseAmplitude = (250 + (difficultyLevel * 80)) * sectionAmplitude;
+    const amplitudeVariance = (150 + (difficultyLevel * 40)) * sectionAmplitude;
+    patternAmplitude = Math.min(baseAmplitude + Math.random() * amplitudeVariance, CONST.RING_GRID_BOUNDS * 0.9);
+
+    const baseFrequency = 0.4 + (difficultyLevel * 0.08);
+    patternFrequency = Math.min(baseFrequency + Math.random() * 0.4, 1.8);
+
+    patternPhase = Math.random() * Math.PI * 2;
+    return;
+  }
+
+  // NORMAL/EASY MODE: Original progressive unlock logic
   let availablePatterns = difficultySettings.allowedPatterns || PATTERN_TYPES;
 
   // If no specific pattern restriction, use progressive unlock (Normal/Hard modes)
@@ -529,6 +604,76 @@ function getPatternPosition(progress) {
       y = Math.cos(t * Math.PI * 2 * patternFrequency * 1.3) * (patternAmplitude * 0.6);
       break;
 
+    case 'square':
+      // Square path
+      const squareSide = Math.floor(t * 4); // 4 sides
+      const sideProgress = (t * 4) % 1; // Progress along current side
+      const squareSize = patternAmplitude * 0.8;
+      if (squareSide === 0) {
+        // Bottom side (left to right)
+        x = -squareSize + sideProgress * squareSize * 2;
+        y = -squareSize;
+      } else if (squareSide === 1) {
+        // Right side (bottom to top)
+        x = squareSize;
+        y = -squareSize + sideProgress * squareSize * 2;
+      } else if (squareSide === 2) {
+        // Top side (right to left)
+        x = squareSize - sideProgress * squareSize * 2;
+        y = squareSize;
+      } else {
+        // Left side (top to bottom)
+        x = -squareSize;
+        y = squareSize - sideProgress * squareSize * 2;
+      }
+      break;
+
+    case 'triangle':
+      // Triangle path
+      const triSide = Math.floor(t * 3); // 3 sides
+      const triProgress = (t * 3) % 1;
+      const triSize = patternAmplitude * 0.8;
+      if (triSide === 0) {
+        // Bottom side (left to right)
+        x = -triSize + triProgress * triSize * 2;
+        y = -triSize * 0.577; // Height of equilateral triangle
+      } else if (triSide === 1) {
+        // Right side (bottom-right to top)
+        x = triSize - triProgress * triSize;
+        y = -triSize * 0.577 + triProgress * triSize * 1.732;
+      } else {
+        // Left side (top to bottom-left)
+        x = 0 - triProgress * triSize;
+        y = triSize * 1.155 - triProgress * triSize * 1.732;
+      }
+      break;
+
+    case 'star':
+      // 5-pointed star
+      const starPoints = 10; // 5 outer + 5 inner points
+      const starIndex = Math.floor(t * starPoints) % starPoints;
+      const isOuter = starIndex % 2 === 0;
+      const starRadius = isOuter ? patternAmplitude : patternAmplitude * 0.4;
+      const pointAngle = (starIndex / starPoints) * Math.PI * 2 + patternPhase;
+      x = Math.cos(pointAngle) * starRadius;
+      y = Math.sin(pointAngle) * starRadius;
+      break;
+
+    case 'pentagon':
+      // Pentagon path
+      const pentSide = Math.floor(t * 5); // 5 sides
+      const pentProgress = (t * 5) % 1;
+      const pentRadius = patternAmplitude * 0.8;
+      const angle1 = (pentSide / 5) * Math.PI * 2 - Math.PI / 2 + patternPhase;
+      const angle2 = ((pentSide + 1) / 5) * Math.PI * 2 - Math.PI / 2 + patternPhase;
+      const x1 = Math.cos(angle1) * pentRadius;
+      const y1 = Math.sin(angle1) * pentRadius;
+      const x2 = Math.cos(angle2) * pentRadius;
+      const y2 = Math.sin(angle2) * pentRadius;
+      x = x1 + (x2 - x1) * pentProgress;
+      y = y1 + (y2 - y1) * pentProgress;
+      break;
+
     case 'random':
     default:
       // Pure random
@@ -586,17 +731,25 @@ function spawnRing() {
   const difficultySettings = CONST.DIFFICULTY_SETTINGS[currentDifficulty];
 
   // Calculate progression based on ring count (every 10 rings, affected by difficulty)
-  const progressionLevel = Math.floor(ringModeRingCount / 10 * difficultySettings.progressionRate);
+  // CAP at level 5 (50 rings) to prevent extreme difficulty at high ring counts
+  const progressionLevel = Math.min(Math.floor(ringModeRingCount / 10 * difficultySettings.progressionRate), 5);
 
-  // Size: -5% every 10 rings (max 50% reduction), then apply difficulty multiplier
+  // Size: -5% every 10 rings (max 50% reduction at level 10), then apply difficulty multiplier
   const sizeReduction = progressionLevel * 0.05;
   const ringSize = CONST.INITIAL_RING_SIZE * (1 - Math.min(sizeReduction, 0.5)) * difficultySettings.sizeMultiplier;
 
-  // Speed: +5% every 10 rings (max 50% increase), then apply difficulty multiplier
+  // Speed: +5% every 10 rings (max 25% increase at level 5), then apply difficulty multiplier
   const speedIncrease = progressionLevel * 0.05;
-  let ringSpeed = CONST.RING_BASE_SPEED * (1 + Math.min(speedIncrease, 0.5)) * difficultySettings.speedMultiplier;
+  const baseDifficultySpeed = CONST.RING_BASE_SPEED * (1 + speedIncrease) * difficultySettings.speedMultiplier;
 
-  // Distance-based speed modifier: slow down rings that spawn far away
+  // Apply section speed multiplier for hard mode (but cap total speed increase)
+  let ringSpeed = baseDifficultySpeed;
+  if (currentDifficulty === 'hard' && currentSection) {
+    ringSpeed *= sectionSpeed;
+  }
+
+  // Distance-based speed modifier: balance speed for rings at different distances
+  // This prevents impossible-to-reach rings while keeping good pacing
   const distanceToRing = Math.sqrt(
     (spawnX - ringModePosition.x) ** 2 +
     (spawnY - ringModePosition.y) ** 2
@@ -604,23 +757,52 @@ function spawnRing() {
   const MAX_RING_DISTANCE = CONST.RING_GRID_BOUNDS; // 1500 units
   const distanceRatio = distanceToRing / MAX_RING_DISTANCE; // 0.0 to 1.0
 
-  // If ring is far away (>50% of max distance), slow it down
-  // At max distance (1500 units), speed is reduced by 50%
-  if (distanceRatio > 0.5) {
-    const slowdownFactor = 1 - ((distanceRatio - 0.5) * 1.0); // 1.0 at 50%, 0.5 at 100%
-    ringSpeed *= slowdownFactor;
+  // Check if this will be a bonus ring (before speed adjustment)
+  const BONUS_RING_THRESHOLD = 0.85; // 85% of max distance
+  const isBonusRing = distanceRatio >= BONUS_RING_THRESHOLD;
+
+  // Apply distance-based speed balancing
+  // EXCEPTION: Bonus rings don't get slowed down - they keep full speed for better pacing
+  if (!isBonusRing) {
+    if (distanceRatio < 0.3) {
+      // VERY close rings (0-30%): slow down significantly to prevent impossibly fast reactions
+      // 0% distance: 70% speed
+      // 15% distance: 85% speed
+      // 30% distance: 100% speed
+      const normalizedClose = distanceRatio / 0.3; // 0.0 to 1.0
+      const closeSlowdown = 0.7 + (normalizedClose * 0.3); // 0.7 to 1.0
+      ringSpeed *= closeSlowdown;
+    } else if (distanceRatio > 0.5) {
+      // Far rings (50%+): slow down to make them reachable
+      // 50% distance: 100% speed (no slowdown)
+      // 75% distance: 85% speed
+      // 85% distance: 77% speed (just before bonus threshold)
+      const slowdownStart = 0.5;
+      const normalizedDistance = (distanceRatio - slowdownStart) / (1.0 - slowdownStart); // 0.0 to 1.0
+      const slowdownFactor = 1.0 - (normalizedDistance * 0.3); // 1.0 to 0.7
+      ringSpeed *= slowdownFactor;
+    }
+    // Medium distance rings (30-50%): keep full speed - sweet spot
   }
+  // Bonus rings keep full speed - no slowdown applied!
 
   const ring = createRing(spawnX, spawnY, spawnZ, ringSize, ringSpeed, ringSpawnIndex++);
 
   // Mark rings spawned at far distances (>85% of max) as bonus rings
   // Passing these grants an extra life
-  const BONUS_RING_THRESHOLD = 0.85; // 85% of max distance
-  ring.isBonusRing = distanceRatio >= BONUS_RING_THRESHOLD;
+  ring.isBonusRing = isBonusRing;
+
+  // Store initial 2D distance for distant ring indicator
+  ring.initialDistance2D = distanceToRing;
 
   // Visual indicator: bonus rings glow brighter
   if (ring.isBonusRing) {
     ring.mesh.material.emissiveIntensity = 1.5; // Brighter glow
+  }
+
+  // Track section progress for hard mode
+  if (currentDifficulty === 'hard') {
+    sectionRingCount++;
   }
 
   rings.push(ring);
@@ -1078,11 +1260,19 @@ export function updateRingModeRendering(dt) {
       }
     }
 
-    // Spawn new rings periodically (affected by difficulty)
+    // Spawn new rings periodically (affected by difficulty and section)
     // BUT: Do NOT spawn rings if rhythm mode is active (it handles its own ring spawning)
     if (!isRhythmMode) {
       ringSpawnTimer += dt;
-      const spawnInterval = CONST.RING_BASE_SPAWN_INTERVAL * CONST.DIFFICULTY_SETTINGS[currentDifficulty].spawnIntervalMultiplier;
+
+      // Calculate spawn interval with difficulty and section multipliers
+      let spawnInterval = CONST.RING_BASE_SPAWN_INTERVAL * CONST.DIFFICULTY_SETTINGS[currentDifficulty].spawnIntervalMultiplier;
+
+      // Apply section spawn interval multiplier for hard mode
+      if (currentDifficulty === 'hard' && currentSection) {
+        spawnInterval *= sectionSpawnInterval;
+      }
+
       if(ringSpawnTimer >= spawnInterval) {
         spawnRing();
         ringSpawnTimer = 0;
