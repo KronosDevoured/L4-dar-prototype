@@ -866,15 +866,19 @@ export function measureMaxAxis() {
  */
 export function printAxisData() {
   if (AXIS_MIN_DATA && AXIS_MAX_DATA) {
+    console.log('Copy these into physics.js:');
+    console.log(`let AXIS_MIN_DATA = {
   centerLocal: new THREE.Vector3(${AXIS_MIN_DATA.centerLocal.x}, ${AXIS_MIN_DATA.centerLocal.y}, ${AXIS_MIN_DATA.centerLocal.z}),
   axisLocal: new THREE.Vector3(${AXIS_MIN_DATA.axisLocal.x}, ${AXIS_MIN_DATA.axisLocal.y}, ${AXIS_MIN_DATA.axisLocal.z}),
   radius: ${AXIS_MIN_DATA.radius}
 };`);
+    console.log(`let AXIS_MAX_DATA = {
   centerLocal: new THREE.Vector3(${AXIS_MAX_DATA.centerLocal.x}, ${AXIS_MAX_DATA.centerLocal.y}, ${AXIS_MAX_DATA.centerLocal.z}),
   axisLocal: new THREE.Vector3(${AXIS_MAX_DATA.axisLocal.x}, ${AXIS_MAX_DATA.axisLocal.y}, ${AXIS_MAX_DATA.axisLocal.z}),
   radius: ${AXIS_MAX_DATA.radius}
 };`);
   } else {
+    console.log('No axis data measured yet. Call measureMinAxis() and measureMaxAxis()');
   }
 }
 

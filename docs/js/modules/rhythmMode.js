@@ -595,11 +595,6 @@ function spawnRing(time, x = 0, y = 0, lane = 'center') {
 
   scene.add(ring);
   rings.push(ring);
-
-    Position: (${ring.position.x.toFixed(1)}, ${ring.position.y.toFixed(1)}, ${ring.position.z.toFixed(1)})
-    Speed: ${ringSpeed.toFixed(1)} u/s (moving toward +Z)
-    Will reach car (Z=0) at t=${time.toFixed(2)}s
-    Current time: ${currentTime.toFixed(2)}s, time until beat: ${timeUntilBeat.toFixed(2)}s`);
 }
 
 /**

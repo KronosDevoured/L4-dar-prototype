@@ -486,6 +486,11 @@ export function initInput(hud, callbacks = {}) {
     onDARPress: handleDARPress,
     onDARRelease: handleDARRelease,
     onBoostPress: handleTouchBoostChange,
+    onRetryPress: () => {
+      if (retryCallback) {
+        retryCallback();
+      }
+    },
     showJoyHint: () => {}, // No-op for now
     showDARHint: () => {}, // No-op for now
     positionHints: () => {} // Handled internally by TouchInput

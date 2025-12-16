@@ -4,8 +4,6 @@
  * Includes ring pass/miss sounds, boost rumble, and 8-bit style background music
  */
 
-import { CHORD_PROGRESSION } from './constants.js';
-
 // ============================================================================
 // AUDIO STATE
 // ============================================================================
@@ -18,12 +16,10 @@ let gameMusicEnabled = true;
 let boostRumbleOscillator = null;
 let boostRumbleGain = null;
 
-// Background music
-let musicBassOsc = null;
-let musicChordOsc = null;
+// Background music file playback
+let musicAudioElement = null;
+let musicSourceNode = null;
 let musicGain = null;
-let musicIntervalId = null;
-let musicBeatIndex = 0;
 
 // ============================================================================
 // AUDIO INITIALIZATION
@@ -158,94 +154,30 @@ export function stopBoostRumble() {
 // ============================================================================
 
 /**
- * Start 8-bit style background music with drums
+ * Start background music from file
  */
 export function startBackgroundMusic() {
   if (!gameMusicEnabled) return;
-  if (musicIntervalId) return; // Already playing
+  if (musicAudioElement) return; // Already playing
 
   try {
     initAudioContext();
 
-    // Create main gain for all music
+    // Create audio element to load the music file
+    // Path is relative to index.html location (docs/), not this JS file
+    musicAudioElement = new Audio('songs/Video%20Game%20Synthwave%20Rock%20Full%20Version.wav');
+    musicAudioElement.loop = true; // Loop the music
+    musicAudioElement.volume = 0.3; // Set volume (0.0 to 1.0)
+
+    // Create MediaElementSource to connect to Web Audio API (for volume control)
+    musicSourceNode = audioContext.createMediaElementSource(musicAudioElement);
     musicGain = audioContext.createGain();
+    musicGain.gain.setValueAtTime(1.0, audioContext.currentTime);
+    musicSourceNode.connect(musicGain);
     musicGain.connect(audioContext.destination);
-    musicGain.gain.setValueAtTime(0.15, audioContext.currentTime); // Overall volume
 
-    // Bass oscillator (sine wave for smooth bass)
-    musicBassOsc = audioContext.createOscillator();
-    const bassGain = audioContext.createGain();
-    musicBassOsc.connect(bassGain);
-    bassGain.connect(musicGain);
-    musicBassOsc.type = 'sine';
-    musicBassOsc.frequency.setValueAtTime(110, audioContext.currentTime); // A2
-    bassGain.gain.setValueAtTime(0.3, audioContext.currentTime);
-    musicBassOsc.start();
-
-    // Chord pad (triangle wave for softer tone)
-    musicChordOsc = audioContext.createOscillator();
-    const chordGain = audioContext.createGain();
-    musicChordOsc.connect(chordGain);
-    chordGain.connect(musicGain);
-    musicChordOsc.type = 'triangle';
-    musicChordOsc.frequency.setValueAtTime(220, audioContext.currentTime); // A3
-    chordGain.gain.setValueAtTime(0.15, audioContext.currentTime);
-    musicChordOsc.start();
-
-    // Drum pattern function
-    function playBeat() {
-      const beat = musicBeatIndex % 16; // 16 beat pattern
-      const now = audioContext.currentTime;
-
-      // Kick drum (beats 0, 4, 8, 12)
-      if (beat % 4 === 0) {
-        const kickOsc = audioContext.createOscillator();
-        const kickGain = audioContext.createGain();
-        kickOsc.connect(kickGain);
-        kickGain.connect(musicGain);
-        kickOsc.frequency.setValueAtTime(150, now);
-        kickOsc.frequency.exponentialRampToValueAtTime(40, now + 0.1);
-        kickGain.gain.setValueAtTime(0.5, now);
-        kickGain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
-        kickOsc.start(now);
-        kickOsc.stop(now + 0.15);
-      }
-
-      // Hi-hat (beats 2, 6, 10, 14)
-      if (beat % 4 === 2) {
-        const noise = audioContext.createBufferSource();
-        const noiseBuffer = audioContext.createBuffer(1, 4410, 44100); // 0.1s
-        const noiseData = noiseBuffer.getChannelData(0);
-        for (let i = 0; i < noiseData.length; i++) {
-          noiseData[i] = Math.random() * 2 - 1;
-        }
-        noise.buffer = noiseBuffer;
-        const hihatGain = audioContext.createGain();
-        const hihatFilter = audioContext.createBiquadFilter();
-        hihatFilter.type = 'highpass';
-        hihatFilter.frequency.value = 7000;
-        noise.connect(hihatFilter);
-        hihatFilter.connect(hihatGain);
-        hihatGain.connect(musicGain);
-        hihatGain.gain.setValueAtTime(0.1, now);
-        hihatGain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
-        noise.start(now);
-        noise.stop(now + 0.05);
-      }
-
-      // Change chord every 4 beats
-      if (beat % 4 === 0) {
-        const chordIndex = Math.floor(beat / 4) % CHORD_PROGRESSION.length;
-        const rootNote = CHORD_PROGRESSION[chordIndex];
-        musicBassOsc.frequency.setValueAtTime(rootNote / 2, now); // Bass (octave below)
-        musicChordOsc.frequency.setValueAtTime(rootNote, now); // Chord root
-      }
-
-      musicBeatIndex++;
-    }
-
-    playBeat();
-    musicIntervalId = setInterval(playBeat, 300); // 100 BPM 16th notes
+    // Play the music
+    musicAudioElement.play();
   } catch (e) {
     console.warn('Music playback failed:', e);
   }
@@ -255,25 +187,27 @@ export function startBackgroundMusic() {
  * Stop background music
  */
 export function stopBackgroundMusic() {
-  if (!musicIntervalId) return;
+  if (!musicAudioElement) return;
 
   try {
-    clearInterval(musicIntervalId);
-    musicIntervalId = null;
-
+    // Fade out the music
     if (musicGain) {
-      musicGain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+      musicGain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
     }
-    if (musicBassOsc) {
-      musicBassOsc.stop(audioContext.currentTime + 0.1);
-      musicBassOsc = null;
-    }
-    if (musicChordOsc) {
-      musicChordOsc.stop(audioContext.currentTime + 0.1);
-      musicChordOsc = null;
-    }
-    musicGain = null;
-    musicBeatIndex = 0;
+
+    // Stop and clean up after fade
+    setTimeout(() => {
+      if (musicAudioElement) {
+        musicAudioElement.pause();
+        musicAudioElement.currentTime = 0;
+        musicAudioElement = null;
+      }
+      if (musicSourceNode) {
+        musicSourceNode.disconnect();
+        musicSourceNode = null;
+      }
+      musicGain = null;
+    }, 300);
   } catch (e) {
     console.warn('Stop music failed:', e);
   }

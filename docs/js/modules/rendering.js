@@ -408,13 +408,14 @@ export function drawRingModeHUD(state) {
     ctx.textBaseline = 'middle';
     ctx.fillText('PAUSED', innerWidth / 2, innerHeight / 2);
   } else if (!ringModeStarted) {
+    const messageY = innerHeight - 100;
     ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-    ctx.fillRect(0, innerHeight / 2 - 40, innerWidth, 80);
+    ctx.fillRect(0, messageY - 40, innerWidth, 80);
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 32px system-ui';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('Press Boost to Start!', innerWidth / 2, innerHeight / 2);
+    ctx.fillText('Press Boost to Start!', innerWidth / 2, messageY);
   }
 }
 

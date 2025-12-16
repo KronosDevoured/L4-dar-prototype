@@ -120,6 +120,17 @@ function clampBoostCenter() {
   BOOST_CENTER.y = Math.max(m, Math.min(innerHeight - m, BOOST_CENTER.y));
 }
 
+function inRetryButton(x, y) {
+  // Retry button dimensions from rendering.js
+  const retryButtonWidth = 200;
+  const retryButtonHeight = 50;
+  const retryButtonX = window.innerWidth / 2 - retryButtonWidth / 2;
+  const retryButtonY = window.innerHeight / 2 + 30;
+
+  return x >= retryButtonX && x <= retryButtonX + retryButtonWidth &&
+         y >= retryButtonY && y <= retryButtonY + retryButtonHeight;
+}
+
 function positionHints() {
   if (joyHint && darHint) {
     joyHint.style.left = (JOY_CENTER.x + JOY_BASE_R + 18) + 'px';
@@ -179,6 +190,10 @@ export function onPointerDown(e, callbacks) {
 
     // Don't allow relocation on hold - boost button should only boost
     // Relocation will be handled separately (e.g., through settings menu)
+  }
+  // Check Retry button (when game over)
+  else if (inRetryButton(x, y)) {
+    callbacks?.onRetryPress?.();
   }
 }
 
