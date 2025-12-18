@@ -1227,7 +1227,8 @@ function spawnRing() {
   patternProgress = patternRingCount / patternLength;
   const pos = getPatternPosition(patternProgress);
   const spawnX = pos.x;
-  const spawnY = pos.y;
+  // Easy difficulty: lock rings to X-axis only (no vertical movement)
+  const spawnY = currentDifficulty === 'easy' ? 0 : pos.y;
   const spawnZ = CONST.RING_SPAWN_DISTANCE;
 
   patternRingCount++;
@@ -1591,12 +1592,16 @@ export function updateRingModePhysics(dt, inputState, carQuaternion) {
 
   // Apply forces
   let accelX = 0;
-  let accelY = ringModeStarted ? CONST.RING_GRAVITY : 0; // Only apply gravity after first boost
+  // Easy difficulty: no vertical movement (no gravity)
+  let accelY = (ringModeStarted && currentDifficulty !== 'easy') ? CONST.RING_GRAVITY : 0;
 
   if (effectiveBoostActive) {
     // Boost in the direction car's nose is facing
     accelX += boostDirX * CONST.RING_BOOST_ACCEL;
-    accelY += boostDirY * CONST.RING_BOOST_ACCEL;
+    // Easy difficulty: no vertical boost component
+    if (currentDifficulty !== 'easy') {
+      accelY += boostDirY * CONST.RING_BOOST_ACCEL;
+    }
   }
 
   // Update boost flame visibility and position
@@ -1605,6 +1610,11 @@ export function updateRingModePhysics(dt, inputState, carQuaternion) {
   // Integrate velocity
   ringModeVelocity.x += accelX * dt;
   ringModeVelocity.y += accelY * dt;
+
+  // Easy difficulty: lock Y velocity to 0 (horizontal movement only)
+  if (currentDifficulty === 'easy') {
+    ringModeVelocity.y = 0;
+  }
 
   // Clamp to max speed
   const speed = ringModeVelocity.length();
@@ -1615,6 +1625,11 @@ export function updateRingModePhysics(dt, inputState, carQuaternion) {
   // Integrate position
   ringModePosition.x += ringModeVelocity.x * dt;
   ringModePosition.y += ringModeVelocity.y * dt;
+
+  // Easy difficulty: lock Y position to 0 (horizontal movement only)
+  if (currentDifficulty === 'easy') {
+    ringModePosition.y = 0;
+  }
 
   // Clamp to bounds
   ringModePosition.x = THREE.MathUtils.clamp(ringModePosition.x, -CONST.RING_GRID_BOUNDS, CONST.RING_GRID_BOUNDS);
