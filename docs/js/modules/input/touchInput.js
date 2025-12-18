@@ -199,8 +199,14 @@ export function onPointerDown(e, callbacks) {
     }
     // Note: No hold-to-relocate in free flight - use two-finger gesture instead
   }
-  // Check for second finger anywhere in open space (two-finger boost relocation)
-  else if (activePointers.size === 2 && boostSecondFingerId === null && showBoostButton) {
+  // Check Retry button (when game over)
+  else if (inRetryButton(x, y)) {
+    callbacks?.onRetryPress?.();
+  }
+
+  // INDEPENDENT CHECK: Two-finger boost relocation (runs regardless of other checks)
+  // This must run separately from the else-if chain above
+  if (activePointers.size === 2 && boostSecondFingerId === null && showBoostButton) {
     // Second finger detected - check if both fingers are in open space (not on controls)
     let firstPointer = null;
     let firstId = null;
@@ -238,10 +244,6 @@ export function onPointerDown(e, callbacks) {
         }
       }
     }
-  }
-  // Check Retry button (when game over)
-  else if (inRetryButton(x, y)) {
-    callbacks?.onRetryPress?.();
   }
 }
 
