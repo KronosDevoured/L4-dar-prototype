@@ -105,11 +105,86 @@ export function loadSettings() {
 }
 
 /**
+ * Validate a setting value based on its key
+ * @param {string} key - Setting key
+ * @param {*} value - Value to validate
+ * @returns {boolean} true if valid
+ */
+function validateSetting(key, value) {
+  // Type validation
+  if (value === undefined || value === null) return false;
+
+  // Numeric settings validation
+  const numericSettings = [
+    'maxAccelPitch', 'maxAccelYaw', 'maxAccelRoll', 'inputPow',
+    'damp', 'dampDAR', 'brakeOnRelease', 'wMax', 'wMaxPitch', 'wMaxYaw', 'wMaxRoll',
+    'circleTiltAngle', 'circleTiltModifier', 'circleScale', 'zoom', 'arrowScale',
+    'brightnessDark', 'brightnessLight', 'airRoll', 'lastActiveAirRoll',
+    'ringModeHighScore', 'ringModeHighScoreEasy', 'ringModeHighScoreNormal',
+    'ringModeHighScoreHard', 'ringCameraSpeed'
+  ];
+
+  if (numericSettings.includes(key)) {
+    if (typeof value !== 'number' || !isFinite(value)) return false;
+    // Prevent negative values for most settings
+    if (value < 0 && !['circleTiltModifier', 'airRoll', 'lastActiveAirRoll'].includes(key)) {
+      return false;
+    }
+    // Clamp zoom and scale values
+    if (['zoom', 'circleScale', 'arrowScale'].includes(key) && (value < 0.1 || value > 10)) {
+      return false;
+    }
+    return true;
+  }
+
+  // Boolean settings validation
+  const booleanSettings = [
+    'showArrow', 'showCircle', 'isDarkMode', 'airRollIsToggle',
+    'gpEnabled', 'gameSoundsEnabled', 'gameMusicEnabled'
+  ];
+
+  if (booleanSettings.includes(key)) {
+    return typeof value === 'boolean';
+  }
+
+  // String enum validation
+  if (key === 'selectedCarBody') {
+    return typeof value === 'string' && ['octane', 'dominus', 'placeholder'].includes(value);
+  }
+
+  if (key === 'gpPreset') {
+    return typeof value === 'string' && ['ps5', 'xbox', 'generic'].includes(value);
+  }
+
+  if (key === 'ringDifficulty') {
+    return typeof value === 'string' && ['easy', 'normal', 'hard', 'expert'].includes(value);
+  }
+
+  // Object/null validation for gpBindings
+  if (key === 'gpBindings') {
+    return value === null || typeof value === 'object';
+  }
+
+  // Unknown key - allow for backwards compatibility
+  return true;
+}
+
+/**
  * Save current settings to localStorage
  */
 export function saveSettings(partialSettings = {}) {
-  // Merge any partial updates
-  _settings = { ..._settings, ...partialSettings };
+  // Validate and filter partial settings
+  const validatedSettings = {};
+  for (const [key, value] of Object.entries(partialSettings)) {
+    if (validateSetting(key, value)) {
+      validatedSettings[key] = value;
+    } else {
+      console.warn(`Invalid setting value ignored: ${key} = ${value}`);
+    }
+  }
+
+  // Merge validated updates
+  _settings = { ..._settings, ...validatedSettings };
 
   // Skip localStorage save if not available
   if (!localStorageAvailable) {
@@ -145,15 +220,27 @@ export function updateSettingsInMemory(partialSettings = {}) {
  * Update a specific setting and save
  */
 export function updateSetting(key, value) {
-  _settings[key] = value;
-  saveSettings();
+  if (validateSetting(key, value)) {
+    _settings[key] = value;
+    saveSettings();
+  } else {
+    console.warn(`Invalid setting value rejected: ${key} = ${value}`);
+  }
 }
 
 /**
  * Update multiple settings and save
  */
 export function updateSettings(updates) {
-  Object.assign(_settings, updates);
+  const validatedUpdates = {};
+  for (const [key, value] of Object.entries(updates)) {
+    if (validateSetting(key, value)) {
+      validatedUpdates[key] = value;
+    } else {
+      console.warn(`Invalid setting value ignored: ${key} = ${value}`);
+    }
+  }
+  Object.assign(_settings, validatedUpdates);
   saveSettings();
 }
 
