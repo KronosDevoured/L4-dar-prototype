@@ -221,11 +221,14 @@ export function onPointerDown(e, callbacks) {
     }
 
     if (firstPointer) {
-      // Check that neither finger is on a control button
+      // Check that neither finger is assigned to a control OR touching a control
+      const firstAssignedToControl = (firstId === joyPointerId || firstId === darPointerId || firstId === boostPointerId);
+      const secondAssignedToControl = (id === joyPointerId || id === darPointerId || id === boostPointerId);
       const firstInControl = inJoyLoose(firstPointer.x, firstPointer.y) || inDAR(firstPointer.x, firstPointer.y) || inBoost(firstPointer.x, firstPointer.y);
       const secondInControl = inJoyLoose(x, y) || inDAR(x, y) || inBoost(x, y);
 
-      if (!firstInControl && !secondInControl) {
+      // Only allow relocation if BOTH fingers are completely free (not assigned and not touching controls)
+      if (!firstAssignedToControl && !secondAssignedToControl && !firstInControl && !secondInControl) {
         // Two fingers in open space - enable boost button relocation
         boostSecondFingerId = id;
         boostTwoFingerMode = true;
