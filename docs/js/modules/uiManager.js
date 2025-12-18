@@ -128,13 +128,9 @@ export class UIManager {
     const wmaxPitchTag = document.getElementById('wmaxPitchTag');
     const wmaxYawTag = document.getElementById('wmaxYawTag');
     const wmaxRollTag = document.getElementById('wmaxRollTag');
-    const circleTiltTag = document.getElementById('circleTiltTag');
-    const circleTiltModifierTag = document.getElementById('circleTiltModifierTag');
-    const circleScaleTag = document.getElementById('circleScaleTag');
     const stickVal = document.getElementById('stickVal');
     const zoomVal = document.getElementById('zoomVal');
     const arrowVal = document.getElementById('arrowVal');
-    const brightnessVal = document.getElementById('brightnessVal');
 
     accelPitchTag.textContent = settings.maxAccelPitch.toFixed(0);
     accelYawTag.textContent = settings.maxAccelYaw.toFixed(0);
@@ -147,17 +143,9 @@ export class UIManager {
     wmaxPitchTag.textContent = settings.wMaxPitch.toFixed(1);
     wmaxYawTag.textContent = settings.wMaxYaw.toFixed(1);
     wmaxRollTag.textContent = settings.wMaxRoll.toFixed(1);
-    circleTiltTag.textContent = `${settings.circleTiltAngle.toFixed(0)}°`;
-    circleTiltModifierTag.textContent = `${settings.circleTiltModifier.toFixed(0)}°`;
-    circleScaleTag.textContent = `${settings.circleScale.toFixed(2)}×`;
     stickVal.textContent = String(Math.round(getters.getJoyBaseR()));
     zoomVal.textContent = `${(settings.zoom || 1).toFixed(2)}×`;
     arrowVal.textContent = `${(settings.arrowScale || 1).toFixed(2)}×`;
-
-    const currentBrightness = settings.isDarkMode ? settings.brightnessDark : settings.brightnessLight;
-    brightnessVal.textContent = `${currentBrightness.toFixed(2)}×`;
-    const brightnessSlider = document.getElementById('brightnessSlider');
-    brightnessSlider.value = currentBrightness;
   }
 
   /**
@@ -180,12 +168,8 @@ export class UIManager {
     const wmaxPitchRange = document.getElementById('wmaxPitch');
     const wmaxYawRange = document.getElementById('wmaxYaw');
     const wmaxRollRange = document.getElementById('wmaxRoll');
-    const circleTiltRange = document.getElementById('circleTilt');
-    const circleTiltModifierRange = document.getElementById('circleTiltModifier');
-    const circleScaleRange = document.getElementById('circleScale');
     const zoomSlider = document.getElementById('zoomSlider');
     const arrowSlider = document.getElementById('arrowSlider');
-    const brightnessSlider = document.getElementById('brightnessSlider');
 
     const accelPitchTag = document.getElementById('accelPitchTag');
     const accelYawTag = document.getElementById('accelYawTag');
@@ -198,12 +182,8 @@ export class UIManager {
     const wmaxPitchTag = document.getElementById('wmaxPitchTag');
     const wmaxYawTag = document.getElementById('wmaxYawTag');
     const wmaxRollTag = document.getElementById('wmaxRollTag');
-    const circleTiltTag = document.getElementById('circleTiltTag');
-    const circleTiltModifierTag = document.getElementById('circleTiltModifierTag');
-    const circleScaleTag = document.getElementById('circleScaleTag');
     const zoomVal = document.getElementById('zoomVal');
     const arrowVal = document.getElementById('arrowVal');
-    const brightnessVal = document.getElementById('brightnessVal');
 
     const tagMappings = [
       {tag: accelPitchTag, slider: accelPitch, setter: (v) => settings.maxAccelPitch = Math.max(0, Math.min(1200, parseFloat(v) || 400))},
@@ -217,16 +197,8 @@ export class UIManager {
       {tag: wmaxPitchTag, slider: wmaxPitchRange, setter: (v) => settings.wMaxPitch = Math.max(6, Math.min(24, parseFloat(v) || 8.5))},
       {tag: wmaxYawTag, slider: wmaxYawRange, setter: (v) => settings.wMaxYaw = Math.max(6, Math.min(24, parseFloat(v) || 9))},
       {tag: wmaxRollTag, slider: wmaxRollRange, setter: (v) => settings.wMaxRoll = Math.max(4, Math.min(24, parseFloat(v) || 6))},
-      {tag: circleTiltTag, slider: circleTiltRange, setter: (v) => settings.circleTiltAngle = Math.max(0, Math.min(45, parseFloat(v) || 34))},
-      {tag: circleTiltModifierTag, slider: circleTiltModifierRange, setter: (v) => settings.circleTiltModifier = Math.max(-45, Math.min(45, parseFloat(v) || 0))},
-      {tag: circleScaleTag, slider: circleScaleRange, setter: (v) => settings.circleScale = Math.max(0.2, Math.min(2.0, parseFloat(v) || 0.3))},
       {tag: zoomVal, slider: zoomSlider, setter: (v) => { settings.zoom = Math.max(0.2, Math.min(4.0, parseFloat(v) || 1)); applyZoom(); }},
-      {tag: arrowVal, slider: arrowSlider, setter: (v) => settings.arrowScale = Math.max(0.6, Math.min(4, parseFloat(v) || 4))},
-      {tag: brightnessVal, slider: brightnessSlider, setter: (v) => {
-        const val = Math.max(0.5, Math.min(3, parseFloat(v) || 1));
-        if (settings.isDarkMode) settings.brightnessDark = val; else settings.brightnessLight = val;
-        applyTheme(settings.isDarkMode);
-      }}
+      {tag: arrowVal, slider: arrowSlider, setter: (v) => settings.arrowScale = Math.max(0.6, Math.min(4, parseFloat(v) || 4))}
     ];
 
     tagMappings.forEach(mapping => {
@@ -285,13 +257,9 @@ export class UIManager {
     const wmaxPitchRange = document.getElementById('wmaxPitch');
     const wmaxYawRange = document.getElementById('wmaxYaw');
     const wmaxRollRange = document.getElementById('wmaxRoll');
-    const circleTiltRange = document.getElementById('circleTilt');
-    const circleTiltModifierRange = document.getElementById('circleTiltModifier');
-    const circleScaleRange = document.getElementById('circleScale');
     const sizeSlider = document.getElementById('stickSizeSlider');
     const zoomSlider = document.getElementById('zoomSlider');
     const arrowSlider = document.getElementById('arrowSlider');
-    const brightnessSlider = document.getElementById('brightnessSlider');
     const presetSel = document.getElementById('presetSel');
 
     accelPitch.addEventListener('input', () => { settings.maxAccelPitch = parseFloat(accelPitch.value) || 400; syncTags(); saveSettings(); });
@@ -305,23 +273,9 @@ export class UIManager {
     wmaxPitchRange.addEventListener('input', () => { settings.wMaxPitch = parseFloat(wmaxPitchRange.value) || 8.5; syncTags(); saveSettings(); });
     wmaxYawRange.addEventListener('input', () => { settings.wMaxYaw = parseFloat(wmaxYawRange.value) || 9.0; syncTags(); saveSettings(); });
     wmaxRollRange.addEventListener('input', () => { settings.wMaxRoll = parseFloat(wmaxRollRange.value) || 6.0; syncTags(); saveSettings(); });
-    circleTiltRange.addEventListener('input', () => { settings.circleTiltAngle = parseFloat(circleTiltRange.value) || 38; syncTags(); saveSettings(); });
-    circleTiltModifierRange.addEventListener('input', () => { settings.circleTiltModifier = parseFloat(circleTiltModifierRange.value) || 0; syncTags(); saveSettings(); });
-    circleScaleRange.addEventListener('input', () => { settings.circleScale = parseFloat(circleScaleRange.value) || 0.3; syncTags(); saveSettings(); });
     sizeSlider.addEventListener('input', () => { setJoyBaseR(parseInt(sizeSlider.value, 10) || 100); setJoyKnobR(Math.round(getJoyBaseR() * 0.32)); clampJoyCenter(); positionHints(); syncTags(); });
     zoomSlider.addEventListener('input', () => { settings.zoom = parseFloat(zoomSlider.value) || 1.0; applyZoom(); syncTags(); saveSettings(); });
     arrowSlider.addEventListener('input', () => { settings.arrowScale = parseFloat(arrowSlider.value) || 4.0; syncTags(); saveSettings(); });
-    brightnessSlider.addEventListener('input', () => {
-      const val = parseFloat(brightnessSlider.value) || 1.0;
-      if (settings.isDarkMode) {
-        settings.brightnessDark = val;
-      } else {
-        settings.brightnessLight = val;
-      }
-      applyTheme(settings.isDarkMode);
-      syncTags();
-      saveSettings();
-    });
     presetSel.addEventListener('change', () => {
       buildCar(presetSel.value);
       resetAngularVelocity();

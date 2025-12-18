@@ -119,6 +119,7 @@ export const RING_MAX_SPEED = 1400; // Max speed cap (~60 mph equivalent)
 export const RING_BOOST_ACCEL = 1200; // Boost acceleration
 export const RING_GRAVITY = -600; // Constant downward gravity
 export const RING_GRID_BOUNDS = 1500; // Movement boundary
+export const RING_DAMPING = 2.96; // Deceleration damping (matches RL No-DAR damping)
 
 // Ring sizing
 export const INITIAL_RING_SIZE = CAR_WIDTH * 20; // Start at 20x car width (600 units diameter)
@@ -180,7 +181,7 @@ export const DIFFICULTY_SETTINGS = {
   },
   hard: {
     // Ring properties
-    sizeMultiplier: 0.75,        // 25% smaller rings (slightly easier than before)
+    sizeMultiplier: 0.75,        // 25% smaller rings (harder to pass through)
     speedMultiplier: 1.1,        // 10% faster (reduced from 30% - more reaction time)
     spawnIntervalMultiplier: 0.9, // 10% less time between rings (was 25% - more breathing room)
 
@@ -193,6 +194,22 @@ export const DIFFICULTY_SETTINGS = {
 
     // Other
     initialLives: 3              // Less forgiving
+  },
+  expert: {
+    // Ring properties
+    sizeMultiplier: 0.55,        // Much smaller rings - 45% smaller than normal
+    speedMultiplier: 1.1,        // Same speed as hard mode
+    spawnIntervalMultiplier: 0.9, // Same interval as hard mode
+
+    // Progression
+    progressionRate: 1.3,        // Same progression rate as hard mode
+
+    // Patterns
+    allowedPatterns: null,       // All patterns (immediate unlock)
+    patternAmplitudeMultiplier: 1.15, // Same pattern amplitude as hard mode
+
+    // Other
+    initialLives: 3              // Same lives as hard mode
   }
 };
 

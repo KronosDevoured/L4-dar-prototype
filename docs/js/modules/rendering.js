@@ -124,13 +124,24 @@ export function drawJoystick(state) {
 
 /**
  * Draw DAR (directional air roll) button on HUD
- * @param {object} state - DAR state { DAR_CENTER, DAR_R, darOn, airRoll, selectedAirRoll }
+ * @param {object} state - DAR state { DAR_CENTER, DAR_R, darOn, airRoll, selectedAirRoll, airRollIsToggle }
  */
 export function drawDAR(state) {
-  const { DAR_CENTER, DAR_R, darOn, airRoll, selectedAirRoll } = state;
+  const { DAR_CENTER, DAR_R, darOn, airRoll, selectedAirRoll, airRollIsToggle } = state;
   const cx = DAR_CENTER.x, cy = DAR_CENTER.y, r = DAR_R;
 
-  HfillCircle(cx, cy, r, darOn ? 'rgba(0,102,255,0.18)' : 'rgba(24,26,32,0.75)');
+  // Determine background color based on toggle mode and activation state
+  let bgColor;
+  if (airRollIsToggle) {
+    // Toggle mode is active - use solid blue background (matches .btn.active: #0066ff)
+    bgColor = darOn ? '#0066ff' : '#0066ff';
+  } else {
+    // Hold mode - show dark background, blue only when active
+    bgColor = darOn ? 'rgba(0,102,255,0.18)' : 'rgba(24,26,32,0.75)';
+  }
+
+  HfillCircle(cx, cy, r, bgColor);
+
   Hcircle(cx, cy, r, darOn ? '#4c8dff' : '#3a3d45', darOn ? 5 : 3);
   const a = (airRoll > 0) ? Math.PI / 2 : -Math.PI / 2;
   Htri(cx, cy, a, r * 0.55, darOn ? '#0e0f12' : '#e8e8ea');
@@ -216,42 +227,9 @@ export function drawRingModeHUD(state) {
     ctx.fillText('♥', 20, 20 + i * heartSpacing);
   }
 
-  // Ring landing indicator - dashed circle on grid
-  if (ringModeStarted && !ringModePaused && ringModeLives > 0 && rings.length > 0) {
-    // Find the target ring (oldest unpassed ring)
-    const targetRing = rings.find(r => !r.passed && !r.missed);
-
-    if (targetRing) {
-      // Convert ring position to screen coordinates
-      const playerScreenX = innerWidth / 2;
-      const playerScreenY = innerHeight / 2;
-      const ringScreenX = playerScreenX + (targetRing.mesh.position.x - ringModePosition.x);
-      const ringScreenY = playerScreenY - (targetRing.mesh.position.y - ringModePosition.y);
-
-      // Get ring color from material
-      const ringColor = targetRing.mesh.material.color;
-      const ringRadius = targetRing.size / 2;
-
-      ctx.save();
-
-      // Draw dashed circle with ring's color
-      ctx.strokeStyle = `rgb(${ringColor.r * 255}, ${ringColor.g * 255}, ${ringColor.b * 255})`;
-      ctx.lineWidth = 5;
-      ctx.setLineDash([15, 10]); // 15px dash, 10px gap
-      ctx.beginPath();
-      ctx.arc(ringScreenX, ringScreenY, ringRadius, 0, Math.PI * 2);
-      ctx.stroke();
-
-      // Add subtle glow (also dashed)
-      ctx.strokeStyle = `rgba(${ringColor.r * 255}, ${ringColor.g * 255}, ${ringColor.b * 255}, 0.3)`;
-      ctx.lineWidth = 10;
-      ctx.beginPath();
-      ctx.arc(ringScreenX, ringScreenY, ringRadius, 0, Math.PI * 2);
-      ctx.stroke();
-
-      ctx.restore();
-    }
-  }
+  // Ring landing indicator - NOW RENDERED AS 3D OBJECT IN ringMode.js
+  // (Disabled 2D canvas version - see updateLandingIndicator() in ringMode.js)
+  // The 3D version is properly attached to the grid and doesn't warp when the camera moves
 
   // Directional arrow compass for distant rings
   if (ringModeStarted && !ringModePaused && ringModeLives > 0 && rings.length > 0) {
@@ -342,15 +320,19 @@ export function drawRingModeHUD(state) {
 
         ctx.save();
 
-        // Draw semi-transparent dark circle background
+        // CRITICAL: Create a donut-shaped compass (hollow center) so the car shows through
+        // This makes the car appear "on top" of the compass indicator
         ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
         ctx.beginPath();
-        ctx.arc(compassCenterX, compassCenterY, compassRadius, 0, Math.PI * 2);
+        ctx.arc(compassCenterX, compassCenterY, compassRadius, 0, Math.PI * 2); // Outer circle
+        ctx.arc(compassCenterX, compassCenterY, 40, 0, Math.PI * 2, true); // Inner cutout (reverse direction)
         ctx.fill();
 
         // Draw circle outline
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
         ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(compassCenterX, compassCenterY, compassRadius, 0, Math.PI * 2);
         ctx.stroke();
 
         // Calculate arrow position on circle perimeter
@@ -462,7 +444,8 @@ export function renderHUD(state) {
     DAR_R: state.DAR_R,
     darOn: state.darOn,
     airRoll: state.airRoll,
-    selectedAirRoll: state.selectedAirRoll
+    selectedAirRoll: state.selectedAirRoll,
+    airRollIsToggle: state.airRollIsToggle
   });
 
   // Draw Ring Mode HUD if active

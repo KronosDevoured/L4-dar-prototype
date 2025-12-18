@@ -163,9 +163,7 @@ function updateTornadoCircle() {
 
 function integrate(dt) {
   // Skip physics when menu is open OR when Ring Mode is paused
-  // EXCEPT during automated measurement mode
-  const allowMeasurement = window.measurementState && window.measurementState.active;
-  if (!allowMeasurement && (uiManager.getChromeShown() || (RingMode.getRingModeActive() && RingMode.getRingModePaused()))) {
+  if (uiManager.getChromeShown() || (RingMode.getRingModeActive() && RingMode.getRingModePaused())) {
     return;
   }
 
@@ -175,9 +173,6 @@ function integrate(dt) {
     showArrow: settings.showArrow,
     showCircle: settings.showCircle,
     arrowScale: settings.arrowScale,
-    circleScale: settings.circleScale,
-    circleTiltAngle: settings.circleTiltAngle,
-    circleTiltModifier: settings.circleTiltModifier,
 
     // Input shaping
     inputPow: settings.inputPow,
@@ -225,6 +220,7 @@ function renderHUD(){
     darOn: Input.getDarOn(),
     airRoll: Input.getAirRoll(),
     selectedAirRoll: Input.getSelectedAirRoll(),
+    airRollIsToggle: Input.getAirRollIsToggle(),
     // Boost button state
     BOOST_CENTER: Input.getBoostCenter(),
     BOOST_R: Input.getBoostR(),
@@ -251,38 +247,11 @@ function tick(){
   const dt = Math.min(0.033, Math.max(0.001, t - lastT));
   lastT = t;
 
-  // Handle measurement mode timing
-  if (window.measurementState && window.measurementState.active) {
-    // Wait for warmup period
-    window.measurementState.warmupTime += dt;
-
-    if (window.measurementState.warmupTime < window.measurementState.warmupDuration) {
-    } else if (window.measurementState.warmupTime >= window.measurementState.warmupDuration && !window.measurementState.started) {
-      // Warmup complete - start measurement
-      window.measurementState.started = true;
-      if (window.measurementState.targetMag === 0.10) {
-        Physics.measureMinAxis();
-      } else {
-        Physics.measureMaxAxis();
-      }
-    }
-  }
-
   // Update camera orbit
   cameraController.update(dt);
 
   // Update input state from Input module
   Input.updateInput(dt);
-
-  // Override input AFTER Input.updateInput() processes keyboard
-  if (window.measurementState && window.measurementState.active) {
-    const joyBaseR = TouchInput.getJoyBaseR();
-    const setX = window.measurementState.input.x * joyBaseR;
-    const setY = -window.measurementState.input.y * joyBaseR;
-    TouchInput.setJoyVec(setX, setY);
-    // Force immediate smJoy update with dt=0 to avoid smoothing lag
-    TouchInput.updateTouch(0);
-  }
 
   integrate(dt);
 
@@ -301,18 +270,21 @@ function tick(){
   renderer.setViewport(0,0,innerWidth,innerHeight);
   renderer.render(scene, camera);
 
-  if(Car.car){
+  // Gizmo rendering (only if gizmoFrame element exists)
+  const gizmoFrameElement = document.getElementById('gizmoFrame');
+  if (gizmoFrameElement && Car.car) {
     gizmoTarget.quaternion.copy(Car.car.quaternion);
     gizmoAxes.quaternion.copy(gizmoTarget.quaternion);
+
+    const gf = gizmoFrameElement.getBoundingClientRect();
+    const sx = Math.floor(gf.left), sy = Math.floor(innerHeight - gf.bottom);
+    const sw = Math.floor(gf.width), sh = Math.floor(gf.height);
+    renderer.setScissorTest(true);
+    renderer.setScissor(sx,sy,sw,sh);
+    renderer.setViewport(sx,sy,sw,sh);
+    renderer.render(gizmoScene, gizmoCam);
+    renderer.setScissorTest(false);
   }
-  const gf = document.getElementById('gizmoFrame').getBoundingClientRect();
-  const sx = Math.floor(gf.left), sy = Math.floor(innerHeight - gf.bottom);
-  const sw = Math.floor(gf.width), sh = Math.floor(gf.height);
-  renderer.setScissorTest(true);
-  renderer.setScissor(sx,sy,sw,sh);
-  renderer.setViewport(sx,sy,sw,sh);
-  renderer.render(gizmoScene, gizmoCam);
-  renderer.setScissorTest(false);
 
   renderHUD();
   requestAnimationFrame(tick);
@@ -321,10 +293,13 @@ function tick(){
 function resize(){
   sceneManager.resize();
 
-  // Update gizmo camera aspect ratio
-  const gizmoRect = document.getElementById('gizmoFrame').getBoundingClientRect();
-  gizmoCam.aspect = gizmoRect.width/gizmoRect.height;
-  gizmoCam.updateProjectionMatrix();
+  // Update gizmo camera aspect ratio (only if gizmoFrame exists)
+  const gizmoRectElement = document.getElementById('gizmoFrame');
+  if (gizmoRectElement) {
+    const gizmoRect = gizmoRectElement.getBoundingClientRect();
+    gizmoCam.aspect = gizmoRect.width/gizmoRect.height;
+    gizmoCam.updateProjectionMatrix();
+  }
 
   Rendering.sizeHud();
   Input.handleResize();
@@ -372,9 +347,6 @@ export function init() {
   settings.wMaxPitch = savedSettings.wMaxPitch ?? 8.5;
   settings.wMaxYaw = savedSettings.wMaxYaw ?? 9.0;
   settings.wMaxRoll = savedSettings.wMaxRoll ?? 6.0;
-  settings.circleTiltAngle = savedSettings.circleTiltAngle ?? 34;
-  settings.circleTiltModifier = savedSettings.circleTiltModifier ?? 0;
-  settings.circleScale = savedSettings.circleScale ?? 0.3;
   settings.zoom = savedSettings.zoom ?? 1.0;
   settings.arrowScale = savedSettings.arrowScale ?? 4.0;
   settings.showArrow = savedSettings.showArrow ?? true;
@@ -417,9 +389,6 @@ export function init() {
   const wmaxPitchRange = document.getElementById('wmaxPitch');
   const wmaxYawRange = document.getElementById('wmaxYaw');
   const wmaxRollRange = document.getElementById('wmaxRoll');
-  const circleTiltRange = document.getElementById('circleTilt');
-  const circleTiltModifierRange = document.getElementById('circleTiltModifier');
-  const circleScaleRange = document.getElementById('circleScale');
   const zoomSlider = document.getElementById('zoomSlider');
   const arrowSlider = document.getElementById('arrowSlider');
 
@@ -434,9 +403,6 @@ export function init() {
   wmaxPitchRange.value = settings.wMaxPitch;
   wmaxYawRange.value = settings.wMaxYaw;
   wmaxRollRange.value = settings.wMaxRoll;
-  circleTiltRange.value = settings.circleTiltAngle;
-  circleTiltModifierRange.value = settings.circleTiltModifier;
-  circleScaleRange.value = settings.circleScale;
   zoomSlider.value = settings.zoom;
   arrowSlider.value = settings.arrowScale;
 
@@ -646,6 +612,117 @@ export function init() {
       btn.title = 'Enter Fullscreen';
     }
   });
+
+  // Ring Mode button - opens menu instead of directly toggling
+  document.getElementById('ringModeBtn').addEventListener('click', () => {
+    const overlay = document.getElementById('ringModeOverlay');
+    overlay.style.display = 'block';
+
+    // Sync menu controls with current settings
+    syncRingModeMenuControls();
+  });
+
+  // Ring Mode menu close button
+  document.getElementById('ringModeCloseBtn').addEventListener('click', () => {
+    document.getElementById('ringModeOverlay').style.display = 'none';
+  });
+
+  // Ring Mode overlay click (close when clicking outside panel)
+  document.getElementById('ringModeOverlay').addEventListener('click', (e) => {
+    if (e.target.id === 'ringModeOverlay') {
+      document.getElementById('ringModeOverlay').style.display = 'none';
+    }
+  });
+
+  // Start Ring Mode button
+  document.getElementById('startRingModeBtn').addEventListener('click', () => {
+    // Close the menu
+    document.getElementById('ringModeOverlay').style.display = 'none';
+
+    // Start Ring Mode
+    const active = RingMode.toggleRingMode();
+    const btn = document.getElementById('ringModeBtn');
+    btn.classList.toggle('active', active);
+  });
+
+  // Ring Mode menu controls - sync with main settings
+  function syncRingModeMenuControls() {
+    // Difficulty
+    const difficultyMenu = document.getElementById('ringDifficultyMenu');
+    const difficultyMain = document.getElementById('ringDifficulty');
+    difficultyMenu.value = difficultyMain.value;
+
+    // Camera speed
+    const cameraSpeedMenu = document.getElementById('ringCameraSpeedMenu');
+    const cameraSpeedMain = document.getElementById('ringCameraSpeed');
+    cameraSpeedMenu.value = cameraSpeedMain.value;
+    document.getElementById('ringCameraSpeedMenuVal').textContent = parseFloat(cameraSpeedMenu.value).toFixed(2);
+
+    // Sounds
+    const soundsMenu = document.getElementById('toggleSoundsMenu');
+    const soundsStatusMenu = document.getElementById('soundsStatusMenu');
+    soundsMenu.classList.toggle('active', settings.gameSoundsEnabled);
+    soundsStatusMenu.textContent = settings.gameSoundsEnabled ? 'Enabled' : 'Disabled';
+
+    // Music
+    const musicMenu = document.getElementById('toggleMusicMenu');
+    const musicStatusMenu = document.getElementById('musicStatusMenu');
+    musicMenu.classList.toggle('active', settings.gameMusicEnabled);
+    musicStatusMenu.textContent = settings.gameMusicEnabled ? 'Enabled' : 'Disabled';
+  }
+
+  // Ring Mode menu difficulty - sync back to main settings
+  document.getElementById('ringDifficultyMenu').addEventListener('change', (e) => {
+    document.getElementById('ringDifficulty').value = e.target.value;
+    document.getElementById('ringDifficulty').dispatchEvent(new Event('change'));
+  });
+
+  // Ring Mode menu camera speed - sync back to main settings
+  document.getElementById('ringCameraSpeedMenu').addEventListener('input', (e) => {
+    const value = parseFloat(e.target.value);
+    document.getElementById('ringCameraSpeed').value = value;
+    document.getElementById('ringCameraSpeedMenuVal').textContent = value.toFixed(2);
+    document.getElementById('ringCameraSpeed').dispatchEvent(new Event('input'));
+  });
+
+  // Ring Mode menu sounds toggle
+  document.getElementById('toggleSoundsMenu').addEventListener('click', () => {
+    document.getElementById('toggleSounds').click();
+    syncRingModeMenuControls();
+  });
+
+  // Ring Mode menu music toggle
+  document.getElementById('toggleMusicMenu').addEventListener('click', () => {
+    document.getElementById('toggleMusic').click();
+    syncRingModeMenuControls();
+  });
+
+  // Button repositioning on window resize
+  // Ensures buttons stay in correct positions when screen is resized
+  function repositionButtons() {
+    // Get all fixed-position buttons
+    const fullscreenBtn = document.getElementById('fullscreenBtn');
+    const themeBtn = document.getElementById('themeBtn');
+    const menuBtn = document.getElementById('menuBtn');
+    const ringModeBtn = document.getElementById('ringModeBtn');
+
+    // Force reflow by reading computed styles
+    // This ensures CSS positioning is recalculated
+    if (fullscreenBtn) window.getComputedStyle(fullscreenBtn).position;
+    if (themeBtn) window.getComputedStyle(themeBtn).position;
+    if (menuBtn) window.getComputedStyle(menuBtn).position;
+    if (ringModeBtn) window.getComputedStyle(ringModeBtn).position;
+  }
+
+  // Reposition on window resize with debouncing
+  let resizeTimeout;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(repositionButtons, 100);
+  });
+
+  // Initial positioning
+  repositionButtons();
 
   // Stop music when page loses focus (tab switching, app backgrounding)
   document.addEventListener('visibilitychange', () => {
@@ -873,49 +950,4 @@ export function init() {
   window.printAxisData = Physics.printAxisData;
 
   // Measurement state
-  window.measurementState = {
-    active: false,
-    input: { x: 0, y: 0 },
-    warmupTime: 0,
-    warmupDuration: 1.0
-  };
-
-  document.getElementById('measureMinBtn').addEventListener('click', () => {
-    if (window.measurementState.active) {
-      return;
-    }
-
-    // Close menu so input works
-    uiManager.closeMenu();
-
-    window.measurementState.active = true;
-    window.measurementState.input.x = 0.10; // 10% right
-    window.measurementState.input.y = 0;
-    window.measurementState.warmupTime = 0;
-    window.measurementState.targetMag = 0.10;
-    window.measurementState.started = false;
-
-    // Enable DAR Right if not already
-    Input.selectAirRoll(1); // Air Roll Right
-  });
-
-  document.getElementById('measureMaxBtn').addEventListener('click', () => {
-    if (window.measurementState.active) {
-      return;
-    }
-
-    // Close menu so input works
-    uiManager.closeMenu();
-
-    window.measurementState.active = true;
-    window.measurementState.input.x = 1.0; // 100% right
-    window.measurementState.input.y = 0;
-    window.measurementState.warmupTime = 0;
-    window.measurementState.targetMag = 1.0;
-    window.measurementState.started = false;
-
-    // Enable DAR Right if not already
-    Input.selectAirRoll(1); // Air Roll Right
-  });
-
 }

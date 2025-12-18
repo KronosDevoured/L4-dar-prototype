@@ -92,12 +92,19 @@ export class CameraController {
   toggleOrbitCW() {
     if (this.orbitOn && this.orbitDir === 1) {
       // Turn off if already orbiting CW
+      // Calculate current angle to preserve camera position
+      const currentAngle = Math.atan2(this.camera.position.x, this.camera.position.z);
+      this.orbitPhase = currentAngle / (0.35 * this.orbitDir);
       this.orbitOn = false;
       return false;
     } else {
       // If switching from CCW to CW, maintain camera position
       if (this.orbitOn && this.orbitDir === -1) {
         this.orbitPhase = -this.orbitPhase;
+      } else if (!this.orbitOn) {
+        // If turning on from stopped, calculate phase from current camera position
+        const currentAngle = Math.atan2(this.camera.position.x, this.camera.position.z);
+        this.orbitPhase = currentAngle / 0.35;
       }
       // Turn on CW orbit
       this.orbitOn = true;
@@ -113,12 +120,19 @@ export class CameraController {
   toggleOrbitCCW() {
     if (this.orbitOn && this.orbitDir === -1) {
       // Turn off if already orbiting CCW
+      // Calculate current angle to preserve camera position
+      const currentAngle = Math.atan2(this.camera.position.x, this.camera.position.z);
+      this.orbitPhase = currentAngle / (0.35 * this.orbitDir);
       this.orbitOn = false;
       return false;
     } else {
       // If switching from CW to CCW, maintain camera position
       if (this.orbitOn && this.orbitDir === 1) {
         this.orbitPhase = -this.orbitPhase;
+      } else if (!this.orbitOn) {
+        // If turning on from stopped, calculate phase from current camera position
+        const currentAngle = Math.atan2(this.camera.position.x, this.camera.position.z);
+        this.orbitPhase = currentAngle / -0.35;
       }
       // Turn on CCW orbit
       this.orbitOn = true;
