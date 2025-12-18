@@ -18,6 +18,9 @@ import { getSetting, saveSettings } from './settings.js';
 // Reference to central game state (injected via init() to avoid circular dependency)
 let gameState = null;
 
+// Reference to Input module (injected via init() to avoid circular dependency)
+let Input = null;
+
 // ============================================================================
 // PRIVATE STATE VARIABLES
 // ============================================================================
@@ -104,9 +107,11 @@ let externalOrbitOn = null; // Orbit mode flag (object with value property)
  * Initialize the RingMode module with game state dependency
  * This breaks the circular dependency by injecting dependencies at runtime
  * @param {GameState} state - Central game state instance
+ * @param {object} inputModule - Input module for boost button control
  */
-export function init(state) {
+export function init(state, inputModule) {
   gameState = state;
+  Input = inputModule;
 }
 
 // ============================================================================
@@ -560,6 +565,11 @@ export function startRingMode() {
   ringModeActive = true;
   gameState.setRingModeActive(true);
 
+  // Show boost button
+  if (Input) {
+    Input.setRingModeActive(true);
+  }
+
   // Initialize Ring Mode
   ringModeScore = 0;
   ringModeLives = CONST.DIFFICULTY_SETTINGS[currentDifficulty].initialLives;
@@ -615,6 +625,11 @@ export function startRingMode() {
 export function stopRingMode() {
   ringModeActive = false;
   gameState.setRingModeActive(false);
+
+  // Hide boost button
+  if (Input) {
+    Input.setRingModeActive(false);
+  }
 
   // Clean up
   ringModeVelocity.set(0, 0);

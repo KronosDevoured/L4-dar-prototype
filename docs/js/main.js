@@ -373,7 +373,7 @@ export function init() {
 
   // Initialize modules with game state (dependency injection)
   Physics.init(gameState, RingMode);
-  RingMode.init(gameState);
+  RingMode.init(gameState, Input);
   RhythmMode.init(gameState);
   RhythmModeUI.initRhythmModeUI(sceneManager.getScene(), sceneManager.getCamera(), uiManager);
 
