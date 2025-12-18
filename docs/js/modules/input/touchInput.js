@@ -46,6 +46,7 @@ let boostRelocating = false;
 let boostHoldTimer = null;
 let boostPressT = 0;
 let showBoostButton = false;
+let boostButtonEverShown = false; // Track if button was ever shown (for repositioning)
 
 // Multi-touch pointer tracking
 let joyPointerId = null;
@@ -319,7 +320,11 @@ export function setJoyKnobR(r) {
 }
 
 export function setShowBoostButton(show) {
-  showBoostButton = show;
+  if (show) {
+    boostButtonEverShown = true; // Remember that boost button was shown
+  }
+  // Keep button visible if it was ever shown (allows repositioning in free flight)
+  showBoostButton = boostButtonEverShown;
 }
 
 export function setJoyVec(x, y) {
