@@ -588,8 +588,7 @@ export function updateInput(dt) {
 }
 
 export function handleResize() {
-  TouchInput.clampJoyCenter();
-  // DAR and Boost centers are clamped in touch module
+  TouchInput.handleTouchResize();
 }
 
 export function updateJoystickSize(size) {

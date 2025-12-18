@@ -565,9 +565,10 @@ export function startRingMode() {
   ringModeActive = true;
   gameState.setRingModeActive(true);
 
-  // Show boost button
+  // Show boost button and ensure positions are correct
   if (Input) {
     Input.setRingModeActive(true);
+    Input.handleResize(); // Ensure button positions are updated for current window size
   }
 
   // Initialize Ring Mode

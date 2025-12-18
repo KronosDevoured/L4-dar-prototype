@@ -331,6 +331,9 @@ export function initTouch(hud, callbacks = {}) {
   hud.addEventListener('pointerup', (e) => endPtr(e.pointerId, callbacks), { passive: false });
   hud.addEventListener('pointercancel', (e) => endPtr(e.pointerId, callbacks), { passive: false });
 
+  // Ensure all button positions are correct for current window size
+  handleTouchResize();
+
   // Position hints
   positionHints();
 }
