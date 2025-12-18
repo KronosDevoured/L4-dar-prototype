@@ -218,13 +218,16 @@ export function drawRingModeHUD(state) {
   ctx.font = `bold ${Math.floor(24 * textScale)}px system-ui`;
   ctx.fillText(`Rings: ${ringModeRingCount}`, innerWidth / 2, 20 + (40 * textScale));
 
-  // Lives - top left with heart symbols
+  // Lives - top left with heart symbols (below fullscreen button)
+  // Fullscreen button is 44px tall + 10px margin from top = ~54px total
+  // Start hearts at 65px to stack below the fullscreen button
   ctx.textAlign = 'left';
   ctx.font = `bold ${Math.floor(28 * textScale)}px system-ui`;
   const heartSpacing = 35 * textScale;
+  const heartStartY = 65 * textScale; // Start below fullscreen button
   for (let i = 0; i < Math.min(ringModeLives, 10); i++) {
     ctx.fillStyle = '#ff5c5c';
-    ctx.fillText('♥', 20, 20 + i * heartSpacing);
+    ctx.fillText('♥', 20, heartStartY + i * heartSpacing);
   }
 
   // Ring landing indicator - NOW RENDERED AS 3D OBJECT IN ringMode.js
