@@ -320,12 +320,10 @@ export function drawRingModeHUD(state) {
 
         ctx.save();
 
-        // CRITICAL: Create a donut-shaped compass (hollow center) so the car shows through
-        // This makes the car appear "on top" of the compass indicator
+        // Solid compass circle (car will draw on top via render order)
         ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
         ctx.beginPath();
-        ctx.arc(compassCenterX, compassCenterY, compassRadius, 0, Math.PI * 2); // Outer circle
-        ctx.arc(compassCenterX, compassCenterY, 40, 0, Math.PI * 2, true); // Inner cutout (reverse direction)
+        ctx.arc(compassCenterX, compassCenterY, compassRadius, 0, Math.PI * 2);
         ctx.fill();
 
         // Draw circle outline
@@ -335,11 +333,14 @@ export function drawRingModeHUD(state) {
         ctx.arc(compassCenterX, compassCenterY, compassRadius, 0, Math.PI * 2);
         ctx.stroke();
 
+        ctx.restore();
+
         // Calculate arrow position on circle perimeter
         const arrowX = compassCenterX + Math.cos(angle) * compassRadius;
         const arrowY = compassCenterY + Math.sin(angle) * compassRadius;
 
         // Draw arrow at edge of circle pointing toward ring
+        ctx.save();
         ctx.translate(arrowX, arrowY);
         ctx.rotate(angle);
 
@@ -358,16 +359,21 @@ export function drawRingModeHUD(state) {
 
         ctx.restore();
 
-        // Distance text in center of compass
+        // Distance text next to arrow (offset outward from circle)
         const distText = `${Math.round(distance2D)}u`;
+        // Position text outside the arrow, offset by 45 units from arrow position
+        const textOffsetDistance = 45;
+        const textX = arrowX + Math.cos(angle) * textOffsetDistance;
+        const textY = arrowY + Math.sin(angle) * textOffsetDistance;
+
         ctx.font = 'bold 24px system-ui';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillStyle = '#ffffff';
         ctx.strokeStyle = '#000000';
         ctx.lineWidth = 4;
-        ctx.strokeText(distText, compassCenterX, compassCenterY);
-        ctx.fillText(distText, compassCenterX, compassCenterY);
+        ctx.strokeText(distText, textX, textY);
+        ctx.fillText(distText, textX, textY);
       }
     }
   }
