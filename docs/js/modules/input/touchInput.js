@@ -191,36 +191,41 @@ export function onPointerDown(e, callbacks) {
     boostPressT = performance.now();
 
     // Only activate boost if Ring Mode is active
-    // During free flight, holding enables relocation instead
     const ringModeActive = callbacks?.getRingModeActive?.() || false;
 
     if (ringModeActive) {
-      // In Ring Mode: boost immediately, no relocation
+      // In Ring Mode: boost immediately
       callbacks?.onBoostPress?.(true);
-    } else {
-      // In free flight: hold to relocate (boost not needed in free flight)
-      clearTimeout(boostHoldTimer);
-      boostHoldTimer = setTimeout(() => {
-        if (boostPointerId !== null && !boostRelocating) {
-          boostRelocating = true;
-          callbacks?.showBoostHint?.();
-        }
-      }, RELOCATE_HOLD_MS);
     }
+    // Note: No hold-to-relocate in free flight - use two-finger gesture instead
   }
-  // Check for second finger on boost button (two-finger relocation)
-  else if (boostPointerId !== null && boostSecondFingerId === null && showBoostButton && inBoost(x, y)) {
-    // Second finger detected on boost button - enable two-finger relocation mode
-    boostSecondFingerId = id;
-    boostTwoFingerMode = true;
-    boostRelocating = true;
-    clearTimeout(boostHoldTimer); // Cancel single-finger hold timer
-    callbacks?.showBoostHint?.();
+  // Check for second finger anywhere in open space (two-finger boost relocation)
+  else if (activePointers.size === 1 && boostSecondFingerId === null && showBoostButton) {
+    // Second finger detected anywhere - check if first finger is in open space too
+    const firstPointer = activePointers.values().next().value;
+    const firstId = activePointers.keys().next().value;
 
-    // Deactivate boost if it was active
-    const ringModeActive = callbacks?.getRingModeActive?.() || false;
-    if (ringModeActive) {
-      callbacks?.onBoostPress?.(false);
+    // Check that neither finger is on a control button
+    const firstInControl = inJoyLoose(firstPointer.x, firstPointer.y) || inDAR(firstPointer.x, firstPointer.y);
+    const secondInControl = inJoyLoose(x, y) || inDAR(x, y);
+
+    if (!firstInControl && !secondInControl) {
+      // Two fingers in open space - enable boost button relocation
+      boostSecondFingerId = id;
+      boostTwoFingerMode = true;
+      boostRelocating = true;
+
+      // Move boost button to second finger position
+      BOOST_CENTER.set(x, y);
+      clampBoostCenter();
+
+      callbacks?.showBoostHint?.();
+
+      // Deactivate boost if it was active
+      const ringModeActive = callbacks?.getRingModeActive?.() || false;
+      if (ringModeActive && boostPointerId !== null) {
+        callbacks?.onBoostPress?.(false);
+      }
     }
   }
   // Check Retry button (when game over)
@@ -260,8 +265,8 @@ export function onPointerMove(e, callbacks) {
     clampDARCenter();
     callbacks?.positionHints?.();
   }
-  // Boost repositioning
-  else if (id === boostPointerId && boostRelocating) {
+  // Boost repositioning (drag with second finger in two-finger mode)
+  else if (id === boostSecondFingerId && boostRelocating) {
     BOOST_CENTER.set(x, y);
     clampBoostCenter();
     callbacks?.positionHints?.();
@@ -294,21 +299,24 @@ export function endPtr(id, callbacks) {
   // Boost release
   else if (id === boostPointerId) {
     boostPointerId = null;
-    const heldTime = performance.now() - boostPressT;
-    // Only trigger boost release if it wasn't a relocation
-    if (!boostTwoFingerMode && (heldTime < RELOCATE_HOLD_MS || !boostRelocating)) {
+    // Only trigger boost release if it was a normal boost press (not relocation)
+    if (!boostTwoFingerMode && !boostRelocating) {
       callbacks?.onBoostPress?.(false);
     }
-    boostRelocating = false;
-    boostTwoFingerMode = false;
-    boostSecondFingerId = null;
-    clearTimeout(boostHoldTimer);
+    // If in two-finger mode, exit it when boost finger releases
+    if (boostTwoFingerMode) {
+      boostSecondFingerId = null;
+      boostTwoFingerMode = false;
+      boostRelocating = false;
+      callbacks?.hideBoostHint?.();
+    }
   }
   // Second finger release during two-finger boost relocation
   else if (id === boostSecondFingerId) {
     boostSecondFingerId = null;
     boostTwoFingerMode = false;
     boostRelocating = false;
+    callbacks?.hideBoostHint?.();
   }
 }
 
