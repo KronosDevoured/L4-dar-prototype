@@ -188,8 +188,14 @@ export function onPointerDown(e, callbacks) {
     boostPressT = performance.now();
     callbacks?.onBoostPress?.(true);
 
-    // Don't allow relocation on hold - boost button should only boost
-    // Relocation will be handled separately (e.g., through settings menu)
+    // Hold to relocate (like DAR button)
+    clearTimeout(boostHoldTimer);
+    boostHoldTimer = setTimeout(() => {
+      if (boostPointerId !== null && !boostRelocating) {
+        boostRelocating = true;
+        callbacks?.showBoostHint?.();
+      }
+    }, RELOCATE_HOLD_MS);
   }
   // Check Retry button (when game over)
   else if (inRetryButton(x, y)) {
@@ -228,8 +234,12 @@ export function onPointerMove(e, callbacks) {
     clampDARCenter();
     callbacks?.positionHints?.();
   }
-  // Boost button - no relocation on drag (boost should only boost)
-  // Relocation will be handled separately through settings
+  // Boost repositioning
+  else if (id === boostPointerId && boostRelocating) {
+    BOOST_CENTER.set(x, y);
+    clampBoostCenter();
+    callbacks?.positionHints?.();
+  }
 }
 
 export function endPtr(id, callbacks) {
@@ -258,9 +268,13 @@ export function endPtr(id, callbacks) {
   // Boost release
   else if (id === boostPointerId) {
     boostPointerId = null;
+    const heldTime = performance.now() - boostPressT;
+    // Only trigger boost release if it wasn't a relocation
+    if (heldTime < RELOCATE_HOLD_MS || !boostRelocating) {
+      callbacks?.onBoostPress?.(false);
+    }
     boostRelocating = false;
     clearTimeout(boostHoldTimer);
-    callbacks?.onBoostPress?.(false);
   }
 }
 

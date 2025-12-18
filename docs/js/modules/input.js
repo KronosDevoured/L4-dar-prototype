@@ -451,6 +451,7 @@ export function initInput(hud, callbacks = {}) {
     },
     showJoyHint: () => {}, // No-op for now
     showDARHint: () => {}, // No-op for now
+    showBoostHint: () => {}, // No-op for now
     positionHints: () => {} // Handled internally by TouchInput
   };
 
