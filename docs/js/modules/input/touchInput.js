@@ -47,6 +47,8 @@ let boostHoldTimer = null;
 let boostPressT = 0;
 let showBoostButton = false;
 let boostButtonEverShown = false; // Track if button was ever shown (for repositioning)
+let boostTwoFingerMode = false; // Track if two fingers are on boost button for relocation
+let boostSecondFingerId = null; // Track the second finger's pointer ID
 
 // Multi-touch pointer tracking
 let joyPointerId = null;
@@ -206,6 +208,21 @@ export function onPointerDown(e, callbacks) {
       }, RELOCATE_HOLD_MS);
     }
   }
+  // Check for second finger on boost button (two-finger relocation)
+  else if (boostPointerId !== null && boostSecondFingerId === null && showBoostButton && inBoost(x, y)) {
+    // Second finger detected on boost button - enable two-finger relocation mode
+    boostSecondFingerId = id;
+    boostTwoFingerMode = true;
+    boostRelocating = true;
+    clearTimeout(boostHoldTimer); // Cancel single-finger hold timer
+    callbacks?.showBoostHint?.();
+
+    // Deactivate boost if it was active
+    const ringModeActive = callbacks?.getRingModeActive?.() || false;
+    if (ringModeActive) {
+      callbacks?.onBoostPress?.(false);
+    }
+  }
   // Check Retry button (when game over)
   else if (inRetryButton(x, y)) {
     callbacks?.onRetryPress?.();
@@ -279,11 +296,19 @@ export function endPtr(id, callbacks) {
     boostPointerId = null;
     const heldTime = performance.now() - boostPressT;
     // Only trigger boost release if it wasn't a relocation
-    if (heldTime < RELOCATE_HOLD_MS || !boostRelocating) {
+    if (!boostTwoFingerMode && (heldTime < RELOCATE_HOLD_MS || !boostRelocating)) {
       callbacks?.onBoostPress?.(false);
     }
     boostRelocating = false;
+    boostTwoFingerMode = false;
+    boostSecondFingerId = null;
     clearTimeout(boostHoldTimer);
+  }
+  // Second finger release during two-finger boost relocation
+  else if (id === boostSecondFingerId) {
+    boostSecondFingerId = null;
+    boostTwoFingerMode = false;
+    boostRelocating = false;
   }
 }
 
