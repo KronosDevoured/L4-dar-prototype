@@ -10,6 +10,9 @@ import { PHYSICS_DEFAULTS } from './constants.js';
 // SETTINGS STATE (PRIVATE)
 // ============================================================================
 
+// Track if localStorage is available
+let localStorageAvailable = true;
+
 // Private settings object - not exported directly to prevent external mutation
 let _settings = {
   // Physics
@@ -73,18 +76,30 @@ let _settings = {
  * Load settings from localStorage
  */
 export function loadSettings() {
-  const saved = localStorage.getItem('darSettings');
-  if (saved) {
-    try {
-      const parsed = JSON.parse(saved);
+  try {
+    const saved = localStorage.getItem('darSettings');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
 
-      // Merge saved settings with defaults
-      _settings = { ..._settings, ...parsed };
-      return { ..._settings }; // Return copy to prevent external mutation
-    } catch (e) {
-      console.error('Failed to parse saved settings:', e);
-      return { ..._settings }; // Return copy
+        // Validate that parsed is an object
+        if (typeof parsed !== 'object' || parsed === null) {
+          console.warn('Invalid settings format in localStorage - using defaults');
+          return { ..._settings };
+        }
+
+        // Merge saved settings with defaults
+        _settings = { ..._settings, ...parsed };
+        return { ..._settings }; // Return copy to prevent external mutation
+      } catch (e) {
+        console.error('Failed to parse saved settings:', e);
+        return { ..._settings }; // Return copy
+      }
     }
+  } catch (e) {
+    // localStorage access failed (might be disabled or in private mode)
+    console.warn('localStorage not available:', e);
+    localStorageAvailable = false;
   }
   return { ..._settings }; // Return copy
 }
@@ -93,18 +108,27 @@ export function loadSettings() {
  * Save current settings to localStorage
  */
 export function saveSettings(partialSettings = {}) {
-  try {
-    // Merge any partial updates
-    _settings = { ..._settings, ...partialSettings };
+  // Merge any partial updates
+  _settings = { ..._settings, ...partialSettings };
 
+  // Skip localStorage save if not available
+  if (!localStorageAvailable) {
+    console.info('localStorage not available - settings stored in memory only');
+    return;
+  }
+
+  try {
     const json = JSON.stringify(_settings);
     localStorage.setItem('darSettings', json);
   } catch (e) {
     // Handle quota exceeded error specifically
     if (e.name === 'QuotaExceededError') {
-      console.warn('localStorage quota exceeded. Settings not saved. Consider clearing browser data or using private browsing.');
+      console.warn('localStorage quota exceeded. Switching to in-memory mode.');
+      localStorageAvailable = false;
     } else {
       console.error('Failed to save settings:', e);
+      // If localStorage is broken, switch to in-memory mode
+      localStorageAvailable = false;
     }
   }
 }

@@ -613,6 +613,11 @@ export function init() {
   document.getElementById('ringModeBtn').addEventListener('click', () => {
     const overlay = document.getElementById('ringModeOverlay');
     overlay.style.display = 'block';
+
+    // Update START/END GAME button text based on current state
+    const startBtn = document.getElementById('startRingModeBtn');
+    const isActive = RingMode.getRingModeActive();
+    startBtn.textContent = isActive ? 'END GAME' : 'START GAME';
   });
 
   // Ring Mode menu close button
@@ -627,15 +632,27 @@ export function init() {
     }
   });
 
-  // Start Ring Mode button
+  // Start/End Ring Mode button
   document.getElementById('startRingModeBtn').addEventListener('click', () => {
+    const startBtn = document.getElementById('startRingModeBtn');
+    const isActive = RingMode.getRingModeActive();
+
+    if (isActive) {
+      // End Ring Mode
+      RingMode.toggleRingMode();
+      startBtn.textContent = 'START GAME';
+      const btn = document.getElementById('ringModeBtn');
+      btn.classList.remove('active');
+    } else {
+      // Start Ring Mode
+      RingMode.toggleRingMode();
+      startBtn.textContent = 'END GAME';
+      const btn = document.getElementById('ringModeBtn');
+      btn.classList.add('active');
+    }
+
     // Close the menu
     document.getElementById('ringModeOverlay').style.display = 'none';
-
-    // Start Ring Mode
-    const active = RingMode.toggleRingMode();
-    const btn = document.getElementById('ringModeBtn');
-    btn.classList.toggle('active', active);
   });
 
   // Ring Mode menu controls are now primary - no sync needed
@@ -852,7 +869,7 @@ export function init() {
       // Ring Mode might need to disable orbit - not fully implemented yet
     }
   };
-  RingMode.initRingMode(sceneManager.getScene(), sceneManager.getCamera(), sceneManager.getRenderer(), null, orbitOnRef);
+  RingMode.initRingMode(sceneManager.getScene(), sceneManager.getCamera(), sceneManager.getRenderer(), orbitOnRef);
 
   // Apply zoom and theme
   cameraController.applyZoom();

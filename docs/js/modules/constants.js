@@ -214,6 +214,31 @@ export const DIFFICULTY_SETTINGS = {
 };
 
 // ============================================================================
+// RING MODE SPAWN SAFEGUARDS & PHYSICS CALCULATIONS
+// ============================================================================
+
+export const RING_MIN_Z_SPACING = 650; // Minimum units between rings on Z-axis
+export const RING_PLAYER_REACTION_TIME = 0.2; // Seconds for player to react to new ring
+export const RING_PLAYER_ORIENTATION_TIME = 0.5; // Time to orient car toward ring
+export const RING_PLAYER_STABILIZATION_TIME = 1.0; // Time to stabilize and wait for ring to pass
+export const RING_CLOSE_DISTANCE_THRESHOLD = 100; // Distance threshold for "very close" rings
+export const RING_CLOSE_RING_SIMPLIFIED_TIME = 0.5; // Additional time for very close ring calculations
+export const RING_SKILL_START_COUNT = 100; // Ring count where skill scaling starts (normal/hard)
+export const RING_SKILL_END_COUNT = 200; // Ring count where skill scaling reaches maximum
+export const RING_SKILL_HUMAN_EFFICIENCY = 0.5; // Boost efficiency for human play (50%)
+export const RING_SKILL_SKILLED_EFFICIENCY = 0.75; // Boost efficiency for skilled play (75%)
+export const RING_SKILL_EXPERT_START_EFFICIENCY = 0.92; // Expert mode starting efficiency (92%)
+export const RING_SKILL_EXPERT_MAX_EFFICIENCY = 1.0; // Expert mode max efficiency (100% - perfect play)
+export const RING_MIN_ARRIVAL_SEPARATION_HARD = 2.5; // Minimum seconds between ring arrivals (hard)
+export const RING_MIN_ARRIVAL_SEPARATION_NORMAL = 2.0; // Minimum seconds between ring arrivals (normal/easy)
+export const RING_MOMENTUM_COMMITMENT_TIME = 3.0; // Seconds when player is committed to reaching next ring
+export const RING_OPPOSITE_DIRECTION_THRESHOLD = -0.5; // Dot product threshold for opposite directions
+export const RING_DIFFICULTY_MULTIPLIER_EASY = 0.85; // Easy mode gets 15% more time
+export const RING_EXPERT_SPEED_BOOST = 2.0; // Speed multiplier for expert mode proximity spawns
+export const RING_BONUS_THRESHOLD_EXPERT = 0.96; // Distance ratio for bonus rings (expert: 96%)
+export const RING_BONUS_THRESHOLD_NORMAL = 0.85; // Distance ratio for bonus rings (normal: 85%)
+
+// ============================================================================
 // RING MODE PATTERNS
 // ============================================================================
 

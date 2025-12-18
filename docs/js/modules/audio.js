@@ -110,25 +110,42 @@ export function startBoostRumble() {
   if (!gameSoundsEnabled) return;
   if (boostRumbleOscillator) return; // Already playing
 
+  let oscillator = null;
+  let gain = null;
+
   try {
     initAudioContext();
 
-    boostRumbleOscillator = audioContext.createOscillator();
-    boostRumbleGain = audioContext.createGain();
+    oscillator = audioContext.createOscillator();
+    gain = audioContext.createGain();
 
-    boostRumbleOscillator.connect(boostRumbleGain);
-    boostRumbleGain.connect(audioContext.destination);
+    oscillator.connect(gain);
+    gain.connect(audioContext.destination);
 
     // Very low frequency for deep rumble (30 Hz - sub-bass)
-    boostRumbleOscillator.frequency.setValueAtTime(30, audioContext.currentTime);
-    boostRumbleOscillator.type = 'sawtooth'; // Rough, engine-like sound
+    oscillator.frequency.setValueAtTime(30, audioContext.currentTime);
+    oscillator.type = 'sawtooth'; // Rough, engine-like sound
 
     // Low volume so it doesn't drown out ring sounds
-    boostRumbleGain.gain.setValueAtTime(0.03, audioContext.currentTime);
+    gain.gain.setValueAtTime(0.03, audioContext.currentTime);
 
-    boostRumbleOscillator.start(audioContext.currentTime);
+    oscillator.start(audioContext.currentTime);
+
+    // Only assign to module variables if everything succeeded
+    boostRumbleOscillator = oscillator;
+    boostRumbleGain = gain;
   } catch (e) {
     console.warn('Boost rumble failed:', e);
+    // Cleanup orphaned nodes if error occurred
+    try {
+      if (oscillator) {
+        oscillator.disconnect();
+        oscillator.stop();
+      }
+      if (gain) gain.disconnect();
+    } catch (cleanupError) {
+      // Ignore cleanup errors
+    }
   }
 }
 
@@ -138,23 +155,35 @@ export function startBoostRumble() {
 export function stopBoostRumble() {
   if (!boostRumbleOscillator || !audioContext) return;
 
+  const oscillator = boostRumbleOscillator;
+  const gain = boostRumbleGain;
+
+  // Clear references immediately to prevent re-entry
+  boostRumbleOscillator = null;
+  boostRumbleGain = null;
+
   try {
     // Check audio context state before attempting to ramp
-    if (audioContext.state === 'running' && boostRumbleGain) {
-      boostRumbleGain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.05);
-      boostRumbleOscillator.stop(audioContext.currentTime + 0.05);
+    if (audioContext.state === 'running' && gain) {
+      gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.05);
+      oscillator.stop(audioContext.currentTime + 0.05);
     } else {
       // Audio context not running, just stop immediately
-      if (boostRumbleOscillator) {
-        boostRumbleOscillator.stop();
-      }
+      oscillator.stop();
     }
-    boostRumbleOscillator = null;
-    boostRumbleGain = null;
+
+    // Disconnect nodes to free resources
+    oscillator.disconnect();
+    if (gain) gain.disconnect();
   } catch (e) {
     console.warn('Stop boost rumble failed:', e);
-    boostRumbleOscillator = null;
-    boostRumbleGain = null;
+    // Ensure cleanup even if error occurs
+    try {
+      oscillator.disconnect();
+      if (gain) gain.disconnect();
+    } catch (cleanupError) {
+      // Ignore cleanup errors
+    }
   }
 }
 

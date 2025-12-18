@@ -851,6 +851,11 @@ export function updatePhysics(dt, settings, chromeShown) {
  * Hold DAR + stick at ~25%, call this, then rotate 180°
  */
 export function measureMinAxis() {
+  if (!Car.car) {
+    console.warn('Cannot measure axis: car not initialized');
+    return;
+  }
+
   tornadoMeasurement.measuring = true;
   tornadoMeasurement.targetStickMag = 0.10;
   const carQuat = Car.car.quaternion.clone();
@@ -868,6 +873,11 @@ export function measureMinAxis() {
  * Hold DAR + stick at 100%, call this, then rotate 180°
  */
 export function measureMaxAxis() {
+  if (!Car.car) {
+    console.warn('Cannot measure axis: car not initialized');
+    return;
+  }
+
   tornadoMeasurement.measuring = true;
   tornadoMeasurement.targetStickMag = 1.0;
   const carQuat = Car.car.quaternion.clone();
