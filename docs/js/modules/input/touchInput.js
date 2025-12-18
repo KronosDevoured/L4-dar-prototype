@@ -186,16 +186,24 @@ export function onPointerDown(e, callbacks) {
   else if (boostPointerId === null && showBoostButton && inBoost(x, y)) {
     boostPointerId = id;
     boostPressT = performance.now();
-    callbacks?.onBoostPress?.(true);
 
-    // Hold to relocate (like DAR button)
-    clearTimeout(boostHoldTimer);
-    boostHoldTimer = setTimeout(() => {
-      if (boostPointerId !== null && !boostRelocating) {
-        boostRelocating = true;
-        callbacks?.showBoostHint?.();
-      }
-    }, RELOCATE_HOLD_MS);
+    // Only activate boost if Ring Mode is active
+    // During free flight, holding enables relocation instead
+    const ringModeActive = callbacks?.getRingModeActive?.() || false;
+
+    if (ringModeActive) {
+      // In Ring Mode: boost immediately, no relocation
+      callbacks?.onBoostPress?.(true);
+    } else {
+      // In free flight: hold to relocate (boost not needed in free flight)
+      clearTimeout(boostHoldTimer);
+      boostHoldTimer = setTimeout(() => {
+        if (boostPointerId !== null && !boostRelocating) {
+          boostRelocating = true;
+          callbacks?.showBoostHint?.();
+        }
+      }, RELOCATE_HOLD_MS);
+    }
   }
   // Check Retry button (when game over)
   else if (inRetryButton(x, y)) {

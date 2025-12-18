@@ -284,6 +284,9 @@ let closeMenuCallback = null;
 let retryCallback = null;
 let getRingModeLives = () => 0;
 
+// Ring Mode active state (tracked for boost button relocation logic)
+let ringModeActiveState = false;
+
 /* ===========================
  * INPUT COORDINATION
  * =========================== */
@@ -452,6 +455,11 @@ export function initInput(hud, callbacks = {}) {
     showJoyHint: () => {}, // No-op for now
     showDARHint: () => {}, // No-op for now
     showBoostHint: () => {}, // No-op for now
+    getRingModeActive: () => {
+      // Import RingMode dynamically to check if it's active
+      // This allows boost button relocation only when NOT in Ring Mode
+      return ringModeActiveState;
+    },
     positionHints: () => {} // Handled internally by TouchInput
   };
 
@@ -651,6 +659,7 @@ export function setChromeShown(shown) {
 export function setRingModeActive(active) {
   // Note: Ring Mode state is now owned by ringMode.js
   // This function only handles input-related side effects
+  ringModeActiveState = active; // Track state for boost button relocation logic
   TouchInput.setShowBoostButton(active); // Show boost button on all devices when ring mode is active
 }
 
