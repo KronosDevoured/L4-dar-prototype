@@ -470,26 +470,19 @@ export function init() {
     btn.classList.toggle('active', locked);
   });
 
-  // Ring Mode button
-  document.getElementById('ringMode').addEventListener('click', () => {
-    const active = RingMode.toggleRingMode();
-    const btn = document.getElementById('ringMode');
-    btn.classList.toggle('active', active);
-    // Update Input module so it knows Ring Mode is active (for retry button)
-    Input.setRingModeActive(active);
-  });
+  // Ring Mode button removed from main menu - now only in Ring Mode menu panel
 
-  // Ring Mode camera speed slider
-  const ringCameraSpeedSlider = document.getElementById('ringCameraSpeed');
-  const ringCameraSpeedVal = document.getElementById('ringCameraSpeedVal');
+  // Ring Mode camera speed slider (Menu version is now primary)
+  const ringCameraSpeedSlider = document.getElementById('ringCameraSpeedMenu');
+  const ringCameraSpeedVal = document.getElementById('ringCameraSpeedMenuVal');
   ringCameraSpeedSlider.addEventListener('input', () => {
     const speed = parseFloat(ringCameraSpeedSlider.value);
     RingMode.setRingCameraSpeed(speed);
     ringCameraSpeedVal.textContent = speed.toFixed(2);
   });
 
-  // Ring Mode difficulty selector
-  const ringDifficultySelector = document.getElementById('ringDifficulty');
+  // Ring Mode difficulty selector (Menu version is now primary)
+  const ringDifficultySelector = document.getElementById('ringDifficultyMenu');
   ringDifficultySelector.addEventListener('change', () => {
     const difficulty = ringDifficultySelector.value;
     RingMode.setCurrentDifficulty(difficulty);
@@ -501,11 +494,11 @@ export function init() {
     }
   });
 
-  // Audio toggles
-  const toggleSoundsBtn = document.getElementById('toggleSounds');
-  const soundsStatusTag = document.getElementById('soundsStatus');
-  const toggleMusicBtn = document.getElementById('toggleMusic');
-  const musicStatusTag = document.getElementById('musicStatus');
+  // Audio toggles (Menu versions are now primary)
+  const toggleSoundsBtn = document.getElementById('toggleSoundsMenu');
+  const soundsStatusTag = document.getElementById('soundsStatusMenu');
+  const toggleMusicBtn = document.getElementById('toggleMusicMenu');
+  const musicStatusTag = document.getElementById('musicStatusMenu');
 
   // Set initial button states
   toggleSoundsBtn.classList.toggle('active', settings.gameSoundsEnabled);
@@ -539,6 +532,9 @@ export function init() {
 
     saveSettings();
   });
+
+  // NOTE: Ring Mode settings consolidated into Ring Mode menu only
+  // Main menu Ring Mode card has been removed - all settings now in ringModePanel
 
   // Restart button
   document.getElementById('restart').addEventListener('click',()=>{
@@ -617,9 +613,6 @@ export function init() {
   document.getElementById('ringModeBtn').addEventListener('click', () => {
     const overlay = document.getElementById('ringModeOverlay');
     overlay.style.display = 'block';
-
-    // Sync menu controls with current settings
-    syncRingModeMenuControls();
   });
 
   // Ring Mode menu close button
@@ -645,57 +638,7 @@ export function init() {
     btn.classList.toggle('active', active);
   });
 
-  // Ring Mode menu controls - sync with main settings
-  function syncRingModeMenuControls() {
-    // Difficulty
-    const difficultyMenu = document.getElementById('ringDifficultyMenu');
-    const difficultyMain = document.getElementById('ringDifficulty');
-    difficultyMenu.value = difficultyMain.value;
-
-    // Camera speed
-    const cameraSpeedMenu = document.getElementById('ringCameraSpeedMenu');
-    const cameraSpeedMain = document.getElementById('ringCameraSpeed');
-    cameraSpeedMenu.value = cameraSpeedMain.value;
-    document.getElementById('ringCameraSpeedMenuVal').textContent = parseFloat(cameraSpeedMenu.value).toFixed(2);
-
-    // Sounds
-    const soundsMenu = document.getElementById('toggleSoundsMenu');
-    const soundsStatusMenu = document.getElementById('soundsStatusMenu');
-    soundsMenu.classList.toggle('active', settings.gameSoundsEnabled);
-    soundsStatusMenu.textContent = settings.gameSoundsEnabled ? 'Enabled' : 'Disabled';
-
-    // Music
-    const musicMenu = document.getElementById('toggleMusicMenu');
-    const musicStatusMenu = document.getElementById('musicStatusMenu');
-    musicMenu.classList.toggle('active', settings.gameMusicEnabled);
-    musicStatusMenu.textContent = settings.gameMusicEnabled ? 'Enabled' : 'Disabled';
-  }
-
-  // Ring Mode menu difficulty - sync back to main settings
-  document.getElementById('ringDifficultyMenu').addEventListener('change', (e) => {
-    document.getElementById('ringDifficulty').value = e.target.value;
-    document.getElementById('ringDifficulty').dispatchEvent(new Event('change'));
-  });
-
-  // Ring Mode menu camera speed - sync back to main settings
-  document.getElementById('ringCameraSpeedMenu').addEventListener('input', (e) => {
-    const value = parseFloat(e.target.value);
-    document.getElementById('ringCameraSpeed').value = value;
-    document.getElementById('ringCameraSpeedMenuVal').textContent = value.toFixed(2);
-    document.getElementById('ringCameraSpeed').dispatchEvent(new Event('input'));
-  });
-
-  // Ring Mode menu sounds toggle
-  document.getElementById('toggleSoundsMenu').addEventListener('click', () => {
-    document.getElementById('toggleSounds').click();
-    syncRingModeMenuControls();
-  });
-
-  // Ring Mode menu music toggle
-  document.getElementById('toggleMusicMenu').addEventListener('click', () => {
-    document.getElementById('toggleMusic').click();
-    syncRingModeMenuControls();
-  });
+  // Ring Mode menu controls are now primary - no sync needed
 
   // Button repositioning on window resize
   // Ensures buttons stay in correct positions when screen is resized
