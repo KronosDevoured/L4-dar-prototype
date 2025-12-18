@@ -40,6 +40,7 @@ let darOn = false;
 let darRelocating = false;
 let darHoldTimer = null;
 let darPressT = 0;
+let darPressStartPos = new THREE.Vector2(0, 0);
 
 // Boost state
 let boostRelocating = false;
@@ -175,6 +176,7 @@ export function onPointerDown(e, callbacks) {
     darPointerId = id;
     darPressT = performance.now();
     darOn = true;
+    darPressStartPos.set(x, y);
     callbacks?.onDARPress?.(true);
 
     clearTimeout(darHoldTimer);
@@ -275,11 +277,20 @@ export function onPointerMove(e, callbacks) {
       joyVec.copy(vecFromJoyPx(x, y));
     }
   }
-  // DAR repositioning
-  else if (id === darPointerId && darRelocating) {
-    DAR_CENTER.set(x, y);
-    clampDARCenter();
-    callbacks?.positionHints?.();
+  // DAR movement
+  else if (id === darPointerId) {
+    // Cancel relocate timer if pointer has moved significantly
+    const moved = darPressStartPos.distanceTo(new THREE.Vector2(x, y));
+    if (moved > 10 && darHoldTimer) {
+      clearTimeout(darHoldTimer);
+      darHoldTimer = null;
+    }
+
+    if (darRelocating) {
+      DAR_CENTER.set(x, y);
+      clampDARCenter();
+      callbacks?.positionHints?.();
+    }
   }
   // Boost repositioning (drag with second finger in two-finger mode)
   else if (id === boostSecondFingerId && boostRelocating) {
