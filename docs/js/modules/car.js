@@ -138,6 +138,25 @@ export function loadCarModel(presetName, scene) {
     undefined,
     (err) => {
       console.error("Failed to load", url, err);
+
+      // FALLBACK: Create a simple placeholder car if GLB fails to load
+      console.warn("Using fallback placeholder geometry for car");
+
+      // Create a simple box mesh as fallback (matches hitbox dimensions)
+      const fallbackGeometry = new THREE.BoxGeometry(BOX.hx * 2, BOX.hy * 2, BOX.hz * 2);
+      const fallbackMaterial = new THREE.MeshStandardMaterial({
+        color: 0xff6600, // Orange color to indicate fallback
+        emissive: 0xff3300,
+        emissiveIntensity: 0.3,
+        metalness: 0.7,
+        roughness: 0.3
+      });
+      const fallbackMesh = new THREE.Mesh(fallbackGeometry, fallbackMaterial);
+
+      // Position to match hitbox (bottom at y=0)
+      fallbackMesh.position.set(0, -BOX.hy, 0);
+
+      car.add(fallbackMesh);
     }
   );
 }

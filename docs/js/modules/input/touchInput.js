@@ -201,9 +201,15 @@ export function onPointerDown(e, callbacks) {
     }
     // Note: No hold-to-relocate in free flight - use two-finger gesture instead
   }
-  // Check Retry button (when game over)
+  // Check Retry button (only when Ring Mode is active and game over)
   else if (inRetryButton(x, y)) {
-    callbacks?.onRetryPress?.();
+    const ringModeActive = callbacks?.getRingModeActive?.() || false;
+    const ringModeLives = callbacks?.getRingModeLives?.() || 0;
+
+    // Only trigger retry if Ring Mode is active and lives are 0 (game over)
+    if (ringModeActive && ringModeLives <= 0) {
+      callbacks?.onRetryPress?.();
+    }
   }
 
   // INDEPENDENT CHECK: Two-finger boost relocation (runs regardless of other checks)

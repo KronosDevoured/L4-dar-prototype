@@ -333,13 +333,16 @@ function updateLandingIndicator() {
       if (landingIndicator.geometry) {
         // It's a Mesh (filled state)
         landingIndicator.geometry.dispose();
-        landingIndicator.material.dispose();
+        if (landingIndicator.material) {
+          landingIndicator.material.dispose();
+        }
       } else if (landingIndicator.children) {
         // It's a Group (hollow state)
         landingIndicator.children.forEach(child => {
           if (child.geometry) child.geometry.dispose();
           if (child.material) child.material.dispose();
         });
+        landingIndicator.children.length = 0;
       }
 
       landingIndicator = null;
@@ -445,15 +448,19 @@ function updateLandingIndicator() {
 
     // Clean up based on type (Mesh or Group)
     if (landingIndicator.geometry) {
-      // It's a Mesh (filled state)
+      // It's a Mesh (filled state with merged geometry)
       landingIndicator.geometry.dispose();
-      landingIndicator.material.dispose();
+      if (landingIndicator.material) {
+        landingIndicator.material.dispose();
+      }
     } else if (landingIndicator.children) {
-      // It's a Group (hollow state)
+      // It's a Group (hollow state with multiple line segments)
       landingIndicator.children.forEach(child => {
         if (child.geometry) child.geometry.dispose();
         if (child.material) child.material.dispose();
       });
+      // Clear children array
+      landingIndicator.children.length = 0;
     }
 
     landingIndicator = null;
@@ -695,6 +702,15 @@ export function toggleRingMode() {
  * @returns {Object} Ring object
  */
 function createRing(x, y, z, size, speed, spawnIndex) {
+  // VALIDATION: Ensure all position values are finite numbers
+  if (!isFinite(x) || !isFinite(y) || !isFinite(z)) {
+    console.error('Invalid ring position detected:', { x, y, z });
+    // Use safe defaults if NaN detected (center of grid)
+    x = isFinite(x) ? x : 0;
+    y = isFinite(y) ? y : 0;
+    z = isFinite(z) ? z : -1000; // Default spawn distance
+  }
+
   const color = CONST.RING_COLORS[currentColorIndex];
   currentColorIndex = (currentColorIndex + 1) % CONST.RING_COLORS.length;
 
@@ -739,6 +755,9 @@ function createRing(x, y, z, size, speed, spawnIndex) {
  * @param {object} ring - Ring object to dispose
  */
 function disposeRing(ring) {
+  // Null safety: ensure ring and ring.mesh exist
+  if (!ring || !ring.mesh) return;
+
   // Remove from scene
   scene.remove(ring.mesh);
 
@@ -1353,6 +1372,8 @@ function checkSpawnSafeguards(spawnX, spawnY, spawnZ, ringSpeed) {
   const activeRings = [];
   for (let i = 0; i < rings.length; i++) {
     const ring = rings[i];
+    // Null safety: ensure ring.mesh exists before accessing
+    if (!ring || !ring.mesh) continue;
     if (!ring.passed && !ring.missed && ring.mesh.position.z < 0) {
       const distanceToArrival = Math.abs(ring.mesh.position.z);
       const arrivalTime = distanceToArrival / ring.speed;
@@ -1384,6 +1405,8 @@ function checkSpawnSafeguards(spawnX, spawnY, spawnZ, ringSpeed) {
 
   // Only check momentum conflict if player is committed to next ring
   if (nextRing.arrivalTime < MOMENTUM_COMMITMENT_TIME) {
+    // Null safety: ensure next ring mesh exists
+    if (!nextRing.ring || !nextRing.ring.mesh) return true;
     const nextRingPos = nextRing.ring.mesh.position;
 
     // Calculate direction vectors
@@ -1494,7 +1517,7 @@ function spawnRing() {
   ring.initialDistance2D = distanceToRing;
 
   // Visual indicator: bonus rings glow brighter
-  if (ring.isBonusRing) {
+  if (ring.isBonusRing && ring.mesh && ring.mesh.material) {
     ring.mesh.material.emissiveIntensity = 1.5; // Brighter glow
   }
 
@@ -1720,6 +1743,14 @@ export function updateRingModeRendering(dt) {
 
   // Override car position to stay on grid
   if (Car.car) {
+    // VALIDATION: Ensure car position values are finite before assignment
+    if (!isFinite(ringModePosition.x) || !isFinite(ringModePosition.y)) {
+      console.error('Invalid ringModePosition detected:', ringModePosition);
+      // Reset to safe center position
+      ringModePosition.x = 0;
+      ringModePosition.y = 0;
+    }
+
     Car.car.position.x = ringModePosition.x;
     Car.car.position.y = ringModePosition.y;
 
@@ -1780,6 +1811,9 @@ export function updateRingModeRendering(dt) {
 
     for (let i = 0; i < upcomingRings.length; i++) {
       const ring = upcomingRings[i];
+      // Null safety: skip if ring.mesh is missing
+      if (!ring || !ring.mesh) continue;
+
       const ringDepth = Math.abs(ring.mesh.position.z);
 
       // Weight based on depth - closer rings have more influence
@@ -1872,7 +1906,7 @@ export function updateRingModeRendering(dt) {
     lookAtX = ringModePosition.x;
     lookAtY = ringModePosition.y;
     lookAtZ = 0;
-  } else if (targetRing) {
+  } else if (targetRing && targetRing.mesh) {
     // Car is outside target ring - blend between car and ring
     // Calculate full 3D distance from car to ring
     const dx = targetRing.mesh.position.x - ringModePosition.x;
@@ -1895,6 +1929,9 @@ export function updateRingModeRendering(dt) {
   if (!ringModePaused && ringModeStarted && ringModeLives > 0) {
     for(let i = rings.length - 1; i >= 0; i--) {
       const ring = rings[i];
+      // Null safety: skip if ring.mesh is missing (can happen during disposal)
+      if (!ring || !ring.mesh) continue;
+
       const prevZ = ring.mesh.position.z;
       ring.mesh.position.z += ring.speed * dt; // Use individual ring speed for progression
       const newZ = ring.mesh.position.z;

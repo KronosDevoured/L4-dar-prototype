@@ -225,8 +225,14 @@ export function startBackgroundMusic() {
     musicSourceNode.connect(musicGain);
     musicGain.connect(audioContext.destination);
 
-    // Play the music
-    musicAudioElement.play();
+    // Play the music - handle Promise rejection (autoplay policy)
+    const playPromise = musicAudioElement.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(err => {
+        console.warn('Music autoplay prevented (user interaction required):', err);
+        // Music will start on first user interaction via initAudioContext
+      });
+    }
   } catch (e) {
     console.warn('Music playback failed:', e);
   }
@@ -252,7 +258,12 @@ export function resumeBackgroundMusic() {
   if (!musicAudioElement) return;
 
   try {
-    musicAudioElement.play();
+    const playPromise = musicAudioElement.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(err => {
+        console.warn('Resume music failed (user interaction required):', err);
+      });
+    }
   } catch (e) {
     console.warn('Resume music failed:', e);
   }

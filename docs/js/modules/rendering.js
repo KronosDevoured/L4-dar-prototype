@@ -245,26 +245,105 @@ export function drawRingModeHUD(state) {
       const dy = targetRing.mesh.position.y - ringModePosition.y;
       const distance2D = Math.sqrt(dx * dx + dy * dy);
 
-      // Draw dashed trail from player to ring position on grid
-      // This shows the path you need to travel
-      if (distance2D > 200) { // Only show trail for distant rings
-        // Convert grid positions to screen positions
-        // Player is always at screen center
-        const playerScreenX = innerWidth / 2;
-        const playerScreenY = innerHeight / 2;
+      // Convert grid positions to screen positions
+      // Player is always at screen center
+      const playerScreenX = innerWidth / 2;
+      const playerScreenY = innerHeight / 2;
 
-        // Ring position relative to player (offset from center)
-        // Screen Y is inverted (positive = down), so negate dy
-        const ringScreenX = playerScreenX + dx;
-        const ringScreenY = playerScreenY - dy;
+      // Ring position relative to player (offset from center)
+      // Screen Y is inverted (positive = down), so negate dy
+      const ringScreenX = playerScreenX + dx;
+      const ringScreenY = playerScreenY - dy;
 
-        // Calculate start point offset from player (to avoid drawing over car)
-        const carRadius = 50; // Visual radius to skip around car
-        const angle = Math.atan2(ringScreenY - playerScreenY, ringScreenX - playerScreenX);
-        const startX = playerScreenX + Math.cos(angle) * carRadius;
-        const startY = playerScreenY + Math.sin(angle) * carRadius;
+      // Show arrow and distance for rings that started 1000+ units away
+      // Keep showing until car reaches the dashed circle (landing zone)
+      const wasInitiallyDistant = targetRing.initialDistance2D && targetRing.initialDistance2D >= 1000;
+      const ringRadius = targetRing.size / 2;
+      const showIndicator = wasInitiallyDistant ? distance2D > ringRadius : distance2D > 800;
 
-        // Draw dashed line (starting from edge of car visual)
+      // Calculate arrow position (will be used for dashed line start point)
+      let arrowX, arrowY;
+
+      if (showIndicator) {
+        // Calculate direction angle (in 2D, looking down from above)
+        // Negate dy because screen Y is inverted (increases downward, grid Y increases upward)
+        const angle = Math.atan2(-dy, dx);
+
+        // Convert player grid position to screen position (centered on screen)
+        // The car is always at screen center, so the compass is also at screen center
+        const compassCenterX = innerWidth / 2;
+        const compassCenterY = innerHeight / 2;
+
+        // Draw compass circle - large enough to not overlap the car
+        const compassRadius = 150;
+        const innerCutoutRadius = 130; // Larger cutout so car is fully visible
+
+        ctx.save();
+
+        // Draw compass circle with transparent center (donut shape) so car shows through
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.beginPath();
+        ctx.arc(compassCenterX, compassCenterY, compassRadius, 0, Math.PI * 2);
+        ctx.arc(compassCenterX, compassCenterY, innerCutoutRadius, 0, Math.PI * 2, true); // Inner cutout
+        ctx.fill();
+
+        // Draw circle outline
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(compassCenterX, compassCenterY, compassRadius, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.restore();
+
+        // Calculate arrow position on circle perimeter
+        arrowX = compassCenterX + Math.cos(angle) * compassRadius;
+        arrowY = compassCenterY + Math.sin(angle) * compassRadius;
+
+        // Draw arrow at edge of circle pointing toward ring
+        ctx.save();
+        ctx.translate(arrowX, arrowY);
+        ctx.rotate(angle);
+
+        // Draw prominent arrow shape
+        const arrowSize = 30;
+        ctx.fillStyle = '#ff5c5c';
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(arrowSize, 0); // Arrow tip (pointing right = direction of rotation)
+        ctx.lineTo(-arrowSize / 2, -arrowSize / 2); // Top back
+        ctx.lineTo(-arrowSize / 2, arrowSize / 2); // Bottom back
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.restore();
+
+        // Distance text next to arrow (offset outward from circle)
+        const distText = `${Math.round(distance2D)}u`;
+        // Position text outside the arrow with extra spacing so it doesn't overlap
+        const textOffsetDistance = 65; // Increased from 45 to give arrow more space
+        const textX = arrowX + Math.cos(angle) * textOffsetDistance;
+        const textY = arrowY + Math.sin(angle) * textOffsetDistance;
+
+        ctx.font = 'bold 24px system-ui';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#ffffff';
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 4;
+        ctx.strokeText(distText, textX, textY);
+        ctx.fillText(distText, textX, textY);
+      }
+
+      // Draw dashed trail from arrow to ring position on grid
+      // Only show when arrow/compass is showing
+      if (showIndicator && arrowX && arrowY) {
+        const startX = arrowX;
+        const startY = arrowY;
+
+        // Draw dashed line (starting from arrow or car edge)
         ctx.save();
         ctx.strokeStyle = 'rgba(255, 92, 92, 0.6)'; // Semi-transparent red
         ctx.lineWidth = 3;
@@ -300,83 +379,6 @@ export function drawRingModeHUD(state) {
         ctx.arc(ringScreenX - 4, ringScreenY - 4, 5, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
-      }
-
-      // Show arrow and distance for rings that started 1000+ units away
-      // Keep showing until car reaches the dashed circle (landing zone)
-      const wasInitiallyDistant = targetRing.initialDistance2D && targetRing.initialDistance2D >= 1000;
-      const ringRadius = targetRing.size / 2;
-      const showIndicator = wasInitiallyDistant ? distance2D > ringRadius : distance2D > 800;
-
-      if (showIndicator) {
-        // Calculate direction angle (in 2D, looking down from above)
-        // Negate dy because screen Y is inverted (increases downward, grid Y increases upward)
-        const angle = Math.atan2(-dy, dx);
-
-        // Convert player grid position to screen position (centered on screen)
-        // The car is always at screen center, so the compass is also at screen center
-        const compassCenterX = innerWidth / 2;
-        const compassCenterY = innerHeight / 2;
-
-        // Draw compass circle - size of medium ring (~150 units radius on screen)
-        const compassRadius = 120;
-
-        ctx.save();
-
-        // Solid compass circle (car will draw on top via render order)
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-        ctx.beginPath();
-        ctx.arc(compassCenterX, compassCenterY, compassRadius, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Draw circle outline
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.arc(compassCenterX, compassCenterY, compassRadius, 0, Math.PI * 2);
-        ctx.stroke();
-
-        ctx.restore();
-
-        // Calculate arrow position on circle perimeter
-        const arrowX = compassCenterX + Math.cos(angle) * compassRadius;
-        const arrowY = compassCenterY + Math.sin(angle) * compassRadius;
-
-        // Draw arrow at edge of circle pointing toward ring
-        ctx.save();
-        ctx.translate(arrowX, arrowY);
-        ctx.rotate(angle);
-
-        // Draw prominent arrow shape
-        const arrowSize = 30;
-        ctx.fillStyle = '#ff5c5c';
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.moveTo(arrowSize, 0); // Arrow tip (pointing right = direction of rotation)
-        ctx.lineTo(-arrowSize / 2, -arrowSize / 2); // Top back
-        ctx.lineTo(-arrowSize / 2, arrowSize / 2); // Bottom back
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-
-        ctx.restore();
-
-        // Distance text next to arrow (offset outward from circle)
-        const distText = `${Math.round(distance2D)}u`;
-        // Position text outside the arrow, offset by 45 units from arrow position
-        const textOffsetDistance = 45;
-        const textX = arrowX + Math.cos(angle) * textOffsetDistance;
-        const textY = arrowY + Math.sin(angle) * textOffsetDistance;
-
-        ctx.font = 'bold 24px system-ui';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillStyle = '#ffffff';
-        ctx.strokeStyle = '#000000';
-        ctx.lineWidth = 4;
-        ctx.strokeText(distText, textX, textY);
-        ctx.fillText(distText, textX, textY);
       }
     }
   }
