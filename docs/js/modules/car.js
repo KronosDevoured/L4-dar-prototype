@@ -25,6 +25,7 @@ export let bodyMesh = null;
 export let yellowTornadoLine = null;
 export let magentaLinePoint = null;
 export let magentaCircle = null;
+export let tornadoCircle = null;
 export let debugLine1 = null; // Nose to magenta
 export let debugLine2 = null; // Perpendicular 1
 export let debugLine3 = null; // Perpendicular 2
@@ -104,8 +105,21 @@ export function loadCarModel(presetName, scene) {
         }
       });
 
-      // Center / height
-      model.position.set(0, -BOX.hy, 0);
+      // Preset-specific pivot point offsets
+      // These offsets position the visual model relative to the car Group's rotation point
+      let xOffset = 0; // Forward/backward offset (positive = forward)
+      let yOffset = -BOX.hy; // Vertical offset (baseline: bottom of hitbox)
+      let zOffset = 0; // Left/right offset
+
+      if (presetName === 'dominus') {
+        // Dominus: Shift model BACKWARD so rotation happens around a forward-biased point
+        // Research shows Dominus center of mass is ~13-14 units forward of geometric center
+        xOffset = -14; // Negative moves model backward, making rotation point forward
+        yOffset = -BOX.hy + 15; // RAISE the model by 15 units to lower the pivot point on the car
+      }
+
+      // Apply position with offsets
+      model.position.set(xOffset, yOffset, zOffset);
 
       // Scale the GLB
       const CAR_SCALE = 1.6;
@@ -173,9 +187,6 @@ export function buildCar(boxDims, presetName = "placeholder", scene) {
   carScene = scene; // Store scene reference
   car = new THREE.Group();
   car.position.set(0, 0, 0); // At grid intersection
-
-  // No initial rotation - let physics handle orientation
-  // car.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
 
   scene.add(car);
 

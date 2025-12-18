@@ -57,7 +57,10 @@ let _settings = {
   gameMusicEnabled: true,
 
   // Ring Mode
-  ringModeHighScore: 0,
+  ringModeHighScore: 0, // Legacy - kept for backwards compatibility
+  ringModeHighScoreEasy: 0,
+  ringModeHighScoreNormal: 0,
+  ringModeHighScoreHard: 0,
   ringDifficulty: 'normal',
   ringCameraSpeed: 0.1
 };
@@ -97,7 +100,12 @@ export function saveSettings(partialSettings = {}) {
     const json = JSON.stringify(_settings);
     localStorage.setItem('darSettings', json);
   } catch (e) {
-    console.error('Failed to save settings:', e);
+    // Handle quota exceeded error specifically
+    if (e.name === 'QuotaExceededError') {
+      console.warn('localStorage quota exceeded. Settings not saved. Consider clearing browser data or using private browsing.');
+    } else {
+      console.error('Failed to save settings:', e);
+    }
   }
 }
 

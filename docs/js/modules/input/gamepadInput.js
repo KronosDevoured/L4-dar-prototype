@@ -94,6 +94,13 @@ function onGamepadConnected(e) {
 function onGamepadDisconnected(e) {
   if (e.gamepad.index === gpIndex) {
     gpIndex = -1;
+
+    // Reset remapping state if gamepad disconnects during remap
+    if (gpRemapping) {
+      gpRemapping = false;
+      gpRemapReady = false;
+      console.warn('Gamepad disconnected during remapping - reset to normal mode');
+    }
   }
   updateStatus(gpEnabled ? 'Enabled (waiting for gamepad)' : 'No gamepad');
 }

@@ -117,10 +117,11 @@ let tornadoMeasurement = {
 const KP_ROLL = 3.2, KD_ROLL = 0.25;
 
 // PD control gains for pitch/yaw/roll
-// Increased from 18.0 to 36.0 for much more responsive air control in Ring Mode (DAR)
-const KpPitch = 36.0, KdPitch = 4.0;
-const KpYaw   = 36.0, KdYaw   = 4.0;
-const KpRoll  = 12.0, KdRoll  = 3.0;
+// Kp increased to 200.0 to allow car to reach 5.5 rad/s velocity cap
+// Kd set to 0.0 - deceleration ONLY from exponential damping when stick released (matches RL physics)
+const KpPitch = 200.0, KdPitch = 0.0;
+const KpYaw   = 200.0, KdYaw   = 0.0;
+const KpRoll  = 200.0, KdRoll  = 0.0;
 
 // ============================================================================
 // INITIALIZATION
@@ -363,6 +364,11 @@ export function updatePhysics(dt, settings, chromeShown) {
     return;
   }
 
+  // Skip physics if car hasn't been built yet
+  if (!Car.car) {
+    return;
+  }
+
   // Destructure settings for easier access
   const {
     showArrow,
@@ -403,7 +409,7 @@ export function updatePhysics(dt, settings, chromeShown) {
   }
 
   // === RING MODE: Calculate movement forces (normal rotation physics will run below) ===
-  if (gameState.getRingModeActive()) {
+  if (gameState.getRingModeActive() && RingMode && Car.car) {
     // Always call updateRingModePhysics so it can handle game-over logic (like stopping boost sound)
     RingMode.updateRingModePhysics(dt, {
       boostActive: Input.getRingModeBoostActive()
@@ -411,7 +417,7 @@ export function updatePhysics(dt, settings, chromeShown) {
   }
 
   // === RHYTHM MODE: Calculate movement forces (normal rotation physics will run below) ===
-  if (gameState.getRhythmModeActive()) {
+  if (gameState.getRhythmModeActive() && RingMode && Car.car) {
     RingMode.updateRingModePhysics(dt, {
       boostActive: Input.getRingModeBoostActive()
     }, Car.car.quaternion);
@@ -764,13 +770,27 @@ export function updatePhysics(dt, settings, chromeShown) {
   }
 
   // --- 5. PD control → angular acceleration per axis ---
-  const ax_des = KpPitch * (wx_des - w.x) - KdPitch * w.x;
-  const ay_des = KpYaw   * (wy_des - w.y) - KdYaw   * w.y;
-  const az_des = KpRoll  * (wz_des - w.z) - KdRoll  * w.z;
+  // CRITICAL: Only apply PD control when stick is active OR directional air roll is active!
+  // When stick is released (eff < 0.02) AND no air roll command, PD control would aggressively
+  // drive velocity to zero, causing the car to stop in ~0.25s instead of coasting naturally over ~1.5s.
+  // Rocket League uses ONLY exponential damping when inputs are released (no PD control).
+  const hasStickInput = eff >= 0.02;
+  const hasRollCommand = Math.abs(targetRollSpeed) > 0.01; // Air Roll Left/Right or DAR active
+  const noInput = !hasStickInput && !hasRollCommand;
 
-  const ax = THREE.MathUtils.clamp(ax_des, -maxAccelPitchRad, maxAccelPitchRad);
-  const ay = THREE.MathUtils.clamp(ay_des, -maxAccelYawRad,   maxAccelYawRad);
-  const az = THREE.MathUtils.clamp(az_des, -maxAccelRollRad,  maxAccelRollRad);
+  let ax = 0, ay = 0, az = 0;
+
+  if (!noInput) {
+    // Input is active (stick or air roll) - apply PD control to reach desired velocities
+    const ax_des = KpPitch * (wx_des - w.x) - KdPitch * w.x;
+    const ay_des = KpYaw   * (wy_des - w.y) - KdYaw   * w.y;
+    const az_des = KpRoll  * (wz_des - w.z) - KdRoll  * w.z;
+
+    ax = THREE.MathUtils.clamp(ax_des, -maxAccelPitchRad, maxAccelPitchRad);
+    ay = THREE.MathUtils.clamp(ay_des, -maxAccelYawRad,   maxAccelYawRad);
+    az = THREE.MathUtils.clamp(az_des, -maxAccelRollRad,  maxAccelRollRad);
+  }
+  // else: All inputs released - no PD control, only damping will apply later
 
   // --- 6. Integrate angular velocity ---
   w.x += ax * dt;
@@ -783,9 +803,8 @@ export function updatePhysics(dt, settings, chromeShown) {
   if (rollLocked) w.z = 0;
 
   // --- 7. Damping + release brake ---
-  // CRITICAL: Damping only applies when inputs are released!
-  const noStick = eff < 0.08;
-  if (noStick) {
+  // CRITICAL: Damping only applies when ALL inputs are released!
+  if (noInput) {
     // Check if DAR is active from ANY source (gamepad or touch)
     const isDARActive = isDirectionalAirRoll || Input.getDarOn();
     const baseDamp = isDARActive ? dampDAR : damp;

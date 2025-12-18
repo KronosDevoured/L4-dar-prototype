@@ -5,6 +5,7 @@
  */
 
 import * as THREE from 'three';
+import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import * as CONST from './constants.js';
 import * as Car from './car.js';
 import * as Audio from './audio.js';
@@ -24,7 +25,7 @@ let gameState = null;
 // Ring Mode state
 let ringModeActive = false;
 let ringModeScore = 0;
-let ringModeHighScore = getSetting('ringModeHighScore') ?? 0;
+let ringModeHighScore = 0; // Current difficulty high score (loaded based on difficulty)
 let ringModeLives = 5;
 let ringModeRingCount = 0;
 let ringCameraSpeed = getSetting('ringCameraSpeed') ?? 0.1;
@@ -38,6 +39,14 @@ let ignoreBoostUntilRelease = false; // Ignore boost input after respawn until r
 
 // Boost flame effects
 let boostFlames = [];
+
+// Boundary visualization
+let boundaryGrid = null; // Visual indicator showing the kill barrier
+let landingIndicator = null; // 3D dashed circle showing where target ring will land on grid
+
+// Landing indicator cache (to avoid rebuilding every frame)
+let cachedTargetRingId = null; // Track which ring we built the indicator for
+let cachedPlayerInsideState = null; // Track if player was inside/outside
 
 // Camera smooth path tracking
 let cameraTargetX = 0; // Smooth interpolated camera target position
@@ -120,6 +129,43 @@ export function getCameraTarget() { return { x: cameraTargetX, y: cameraTargetY 
 export function getBoostFlames() { return boostFlames; }
 
 // ============================================================================
+// HIGH SCORE HELPERS
+// ============================================================================
+
+/**
+ * Get the settings key for the current difficulty's high score
+ * @param {string} difficulty - Difficulty level ('easy', 'normal', 'hard', 'expert')
+ * @returns {string} Settings key for that difficulty's high score
+ */
+function getHighScoreKey(difficulty) {
+  switch (difficulty) {
+    case 'easy': return 'ringModeHighScoreEasy';
+    case 'hard': return 'ringModeHighScoreHard';
+    case 'expert': return 'ringModeHighScoreExpert';
+    case 'normal':
+    default: return 'ringModeHighScoreNormal';
+  }
+}
+
+/**
+ * Load high score for current difficulty
+ */
+function loadHighScoreForDifficulty() {
+  const key = getHighScoreKey(currentDifficulty);
+  ringModeHighScore = getSetting(key) ?? 0;
+}
+
+/**
+ * Save high score for current difficulty
+ */
+function saveHighScoreForDifficulty() {
+  const key = getHighScoreKey(currentDifficulty);
+  const settings = {};
+  settings[key] = ringModeHighScore;
+  saveSettings(settings);
+}
+
+// ============================================================================
 // EXPORTED SETTERS
 // ============================================================================
 
@@ -133,6 +179,8 @@ export function setRingCameraSpeed(speed) { ringCameraSpeed = speed; }
 export function setCurrentDifficulty(diff) {
   currentDifficulty = diff;
   saveSettings({ ringDifficulty: diff });
+  // Load the high score for the new difficulty
+  loadHighScoreForDifficulty();
 }
 export function setRingModeLives(lives) { ringModeLives = lives; }
 export function setRingModePosition(x, y) { ringModePosition.set(x, y); }
@@ -158,9 +206,11 @@ export function initRingMode(sceneRef, cameraRef, rendererRef, wRef, orbitOnRef)
   externalOrbitOn = orbitOnRef;
 
   // Load settings
-  ringModeHighScore = getSetting('ringModeHighScore') ?? 0;
   currentDifficulty = getSetting('ringDifficulty') ?? 'normal';
   ringCameraSpeed = getSetting('ringCameraSpeed') ?? 0.1;
+
+  // Load difficulty-specific high score
+  loadHighScoreForDifficulty();
 
   // Preload resources
   preloadRingResources();
@@ -175,8 +225,9 @@ export function initRingMode(sceneRef, cameraRef, rendererRef, wRef, orbitOnRef)
  * Preload ring resources to prevent lag on first spawn
  */
 function preloadRingResources() {
-  if (ringResourcesPreloaded) return;
-
+  if (ringResourcesPreloaded) {
+    return;
+  }
 
   // Cache shared geometry (all rings use same torus geometry)
   ringGeometryCache = new THREE.TorusGeometry(CONST.INITIAL_RING_SIZE / 2, CONST.RING_TUBE_RADIUS, 16, 32);
@@ -214,10 +265,12 @@ function preloadRingResources() {
   dummyLight.dispose();
 
   // Preload boost flame geometry/material (compile shaders)
-  if (!Car.car) {
-    console.warn('[Ring Mode] Car not loaded yet, skipping boost flame preload');
-  } else {
-    createBoostFlames();
+  if (Car.car) {
+    // Create boost flames if they don't exist
+    if (boostFlames.length === 0) {
+      createBoostFlames();
+    }
+
     // Briefly activate to compile shaders
     updateBoostFlames(true, null);
     renderer.render(scene, camera);
@@ -225,6 +278,215 @@ function preloadRingResources() {
   }
 
   ringResourcesPreloaded = true;
+}
+
+/**
+ * Create boundary box visualization showing the kill barrier
+ */
+function createBoundaryGrid() {
+  if (boundaryGrid) {
+    // Clean up existing boundary
+    scene.remove(boundaryGrid);
+    boundaryGrid.geometry.dispose();
+    boundaryGrid.material.dispose();
+  }
+
+  const size = CONST.RING_GRID_BOUNDS; // 1500 units
+
+  // Create a simple box outline in XY plane (car moves in XY at z=0)
+  // Box dimensions: width (X), height (Y), depth (Z toward camera)
+  const geometry = new THREE.BoxGeometry(size * 2, size * 2, 10);
+  const edges = new THREE.EdgesGeometry(geometry);
+  const material = new THREE.LineBasicMaterial({
+    color: 0xff0000, // Red
+    opacity: 0.4,
+    transparent: true
+  });
+
+  const boundaryBox = new THREE.LineSegments(edges, material);
+  boundaryBox.position.z = 0; // Same Z as car (2D movement plane)
+
+  geometry.dispose(); // Clean up the temporary geometry
+
+  boundaryGrid = boundaryBox;
+  scene.add(boundaryGrid);
+}
+
+/**
+ * Create or update the 3D dashed circle landing indicator on the grid
+ * This shows where the target ring will be positioned on the grid plane
+ * Dashes are thick arcs that are hollow when player is outside, filled when inside
+ * OPTIMIZATION: Only rebuilds geometry when ring changes or player crosses threshold
+ */
+function updateLandingIndicator() {
+  // Find the target ring (oldest unpassed ring)
+  const targetRing = rings.find(r => !r.passed && !r.missed);
+
+  if (!targetRing) {
+    // No target ring - hide indicator
+    if (landingIndicator) {
+      scene.remove(landingIndicator);
+
+      // Clean up based on type (Mesh or Group)
+      if (landingIndicator.geometry) {
+        // It's a Mesh (filled state)
+        landingIndicator.geometry.dispose();
+        landingIndicator.material.dispose();
+      } else if (landingIndicator.children) {
+        // It's a Group (hollow state)
+        landingIndicator.children.forEach(child => {
+          if (child.geometry) child.geometry.dispose();
+          if (child.material) child.material.dispose();
+        });
+      }
+
+      landingIndicator = null;
+      cachedTargetRingId = null;
+      cachedPlayerInsideState = null;
+    }
+    return;
+  }
+
+  // Get ring's grid position (XY on the grid plane)
+  const ringX = targetRing.mesh.position.x;
+  const ringY = targetRing.mesh.position.y;
+  const ringRadius = targetRing.size / 2;
+  const ringColor = targetRing.mesh.material.color;
+
+  // Check if player is inside the circle
+  const distanceToRing = Math.sqrt(
+    (ringModePosition.x - ringX) ** 2 +
+    (ringModePosition.y - ringY) ** 2
+  );
+  const isPlayerInside = distanceToRing <= ringRadius;
+
+  // PERFORMANCE OPTIMIZATION: Only rebuild if ring changed or player crossed threshold
+  const ringId = targetRing.spawnIndex; // Use spawn index as unique ID
+  if (cachedTargetRingId === ringId && cachedPlayerInsideState === isPlayerInside && landingIndicator) {
+    // Ring and state unchanged - just update position (ring might be moving toward player)
+    landingIndicator.position.set(ringX, ringY, 0);
+    return;
+  }
+
+  // Cache miss - need to rebuild geometry
+  cachedTargetRingId = ringId;
+  cachedPlayerInsideState = isPlayerInside;
+
+  // Dash configuration
+  const dashCount = 24; // Number of dashes around circle
+  const dashThickness = 12; // Thickness of each dash
+  const dashOuterRadius = ringRadius;
+  const dashInnerRadius = ringRadius - dashThickness;
+  const dashAngle = 12; // degrees per dash
+  const gapAngle = 3; // degrees between dashes
+
+  // Create geometry for all dashes
+  const dashGeometries = [];
+
+  for (let i = 0; i < dashCount; i++) {
+    const startAngle = i * (dashAngle + gapAngle) * (Math.PI / 180);
+    const endAngle = (i * (dashAngle + gapAngle) + dashAngle) * (Math.PI / 180);
+
+    if (isPlayerInside) {
+      // FILLED: Draw solid dash segment
+      const shape = new THREE.Shape();
+
+      // Start at outer arc
+      shape.moveTo(Math.cos(startAngle) * dashOuterRadius, Math.sin(startAngle) * dashOuterRadius);
+      // Draw outer arc
+      shape.absarc(0, 0, dashOuterRadius, startAngle, endAngle, false);
+      // Line to inner radius
+      shape.lineTo(Math.cos(endAngle) * dashInnerRadius, Math.sin(endAngle) * dashInnerRadius);
+      // Draw inner arc backwards
+      shape.absarc(0, 0, dashInnerRadius, endAngle, startAngle, true);
+      // Close path
+      shape.closePath();
+
+      const geometry = new THREE.ShapeGeometry(shape);
+      dashGeometries.push(geometry);
+    } else {
+      // HOLLOW: Draw only outer and inner arc outlines
+      const outerPoints = [];
+      const innerPoints = [];
+      const segments = 16; // Segments per dash arc
+
+      // Outer arc
+      for (let j = 0; j <= segments; j++) {
+        const angle = startAngle + (endAngle - startAngle) * (j / segments);
+        outerPoints.push(new THREE.Vector3(
+          Math.cos(angle) * dashOuterRadius,
+          Math.sin(angle) * dashOuterRadius,
+          0
+        ));
+      }
+
+      // Inner arc
+      for (let j = 0; j <= segments; j++) {
+        const angle = startAngle + (endAngle - startAngle) * (j / segments);
+        innerPoints.push(new THREE.Vector3(
+          Math.cos(angle) * dashInnerRadius,
+          Math.sin(angle) * dashInnerRadius,
+          0
+        ));
+      }
+
+      const outerGeometry = new THREE.BufferGeometry().setFromPoints(outerPoints);
+      const innerGeometry = new THREE.BufferGeometry().setFromPoints(innerPoints);
+      dashGeometries.push(outerGeometry, innerGeometry);
+    }
+  }
+
+  // Remove old indicator
+  if (landingIndicator) {
+    scene.remove(landingIndicator);
+
+    // Clean up based on type (Mesh or Group)
+    if (landingIndicator.geometry) {
+      // It's a Mesh (filled state)
+      landingIndicator.geometry.dispose();
+      landingIndicator.material.dispose();
+    } else if (landingIndicator.children) {
+      // It's a Group (hollow state)
+      landingIndicator.children.forEach(child => {
+        if (child.geometry) child.geometry.dispose();
+        if (child.material) child.material.dispose();
+      });
+    }
+
+    landingIndicator = null;
+  }
+
+  if (isPlayerInside) {
+    // Merge all filled dash geometries into one mesh
+    const mergedGeometry = BufferGeometryUtils.mergeGeometries(dashGeometries);
+    dashGeometries.forEach(g => g.dispose());
+
+    const material = new THREE.MeshBasicMaterial({
+      color: ringColor,
+      transparent: true,
+      opacity: 0.7,
+      side: THREE.DoubleSide
+    });
+
+    landingIndicator = new THREE.Mesh(mergedGeometry, material);
+  } else {
+    // Create line segments for hollow dashes
+    const material = new THREE.LineBasicMaterial({
+      color: ringColor,
+      transparent: true,
+      opacity: 0.8,
+      linewidth: 2
+    });
+
+    landingIndicator = new THREE.Group();
+    dashGeometries.forEach(geom => {
+      const line = new THREE.Line(geom, material);
+      landingIndicator.add(line);
+    });
+  }
+
+  landingIndicator.position.set(ringX, ringY, 0); // Position on grid at z=0
+  scene.add(landingIndicator);
 }
 
 // ============================================================================
@@ -324,6 +586,9 @@ export function startRingMode() {
 
   clearAllRings();
 
+  // Create boundary grid visualization
+  createBoundaryGrid();
+
   // Resources already preloaded at startup, just spawn first ring
   spawnRing();
 
@@ -356,6 +621,34 @@ export function stopRingMode() {
   ringModePosition.set(0, 0);
   clearAllRings();
   clearBoostFlames();
+
+  // Remove boundary grid
+  if (boundaryGrid) {
+    scene.remove(boundaryGrid);
+    boundaryGrid.geometry.dispose();
+    boundaryGrid.material.dispose();
+    boundaryGrid = null;
+  }
+
+  // Remove landing indicator
+  if (landingIndicator) {
+    scene.remove(landingIndicator);
+
+    // Clean up based on type (Mesh or Group)
+    if (landingIndicator.geometry) {
+      // It's a Mesh (filled state)
+      landingIndicator.geometry.dispose();
+      landingIndicator.material.dispose();
+    } else if (landingIndicator.children) {
+      // It's a Group (hollow state)
+      landingIndicator.children.forEach(child => {
+        if (child.geometry) child.geometry.dispose();
+        if (child.material) child.material.dispose();
+      });
+    }
+
+    landingIndicator = null;
+  }
 
   // Stop background music
   Audio.stopBackgroundMusic();
@@ -438,7 +731,15 @@ function clearAllRings() {
     if (r.mesh.geometry !== ringGeometryCache) {
       r.mesh.geometry.dispose();
     }
-    if (!ringMaterialCache.has(r.mesh.material.color.getHex())) {
+    // Check if material is cached by comparing against cached materials
+    let isCached = false;
+    for (const cachedMaterial of ringMaterialCache.values()) {
+      if (cachedMaterial === r.mesh.material) {
+        isCached = true;
+        break;
+      }
+    }
+    if (!isCached) {
       r.mesh.material.dispose();
     }
   });
@@ -532,7 +833,9 @@ function selectNewPattern() {
   patternLength = 8 + Math.floor(Math.random() * 12); // 8-20 rings per pattern
 
   // Progressive amplitude and frequency increase (affected by difficulty)
-  const baseAmplitude = (200 + (difficultyLevel * 100)) * difficultySettings.patternAmplitudeMultiplier;
+  // Expert mode starts with wider spreads immediately (baseAmplitude boosted by +400)
+  const expertBoost = currentDifficulty === 'expert' ? 400 : 0;
+  const baseAmplitude = (200 + expertBoost + (difficultyLevel * 100)) * difficultySettings.patternAmplitudeMultiplier;
   const amplitudeVariance = (200 + (difficultyLevel * 50)) * difficultySettings.patternAmplitudeMultiplier;
   patternAmplitude = Math.min(baseAmplitude + Math.random() * amplitudeVariance, CONST.RING_GRID_BOUNDS * 0.9);
 
@@ -606,7 +909,7 @@ function getPatternPosition(progress) {
 
     case 'square':
       // Square path
-      const squareSide = Math.floor(t * 4); // 4 sides
+      const squareSide = Math.min(Math.floor(t * 4), 3); // 4 sides, clamp to 0-3
       const sideProgress = (t * 4) % 1; // Progress along current side
       const squareSize = patternAmplitude * 0.8;
       if (squareSide === 0) {
@@ -630,7 +933,7 @@ function getPatternPosition(progress) {
 
     case 'triangle':
       // Triangle path
-      const triSide = Math.floor(t * 3); // 3 sides
+      const triSide = Math.min(Math.floor(t * 3), 2); // 3 sides, clamp to 0-2
       const triProgress = (t * 3) % 1;
       const triSize = patternAmplitude * 0.8;
       if (triSide === 0) {
@@ -661,7 +964,7 @@ function getPatternPosition(progress) {
 
     case 'pentagon':
       // Pentagon path
-      const pentSide = Math.floor(t * 5); // 5 sides
+      const pentSide = Math.min(Math.floor(t * 5), 4); // 5 sides, clamp to 0-4
       const pentProgress = (t * 5) % 1;
       const pentRadius = patternAmplitude * 0.8;
       const angle1 = (pentSide / 5) * Math.PI * 2 - Math.PI / 2 + patternPhase;
@@ -700,10 +1003,195 @@ function getPatternPosition(progress) {
 }
 
 /**
+ * Calculate minimum time needed to reach a ring position
+ * Based on physics: reaction time + orientation time + travel time + stabilization time
+ * Properly accounts for gravity, current momentum, and direction changes
+ *
+ * @param {number} targetX - Ring X position
+ * @param {number} targetY - Ring Y position
+ * @param {number} currentX - Current car X position
+ * @param {number} currentY - Current car Y position
+ * @param {number} currentVelX - Current car X velocity
+ * @param {number} currentVelY - Current car Y velocity
+ * @param {number} ringCount - Current ring count for progressive skill scaling
+ * @returns {number} Minimum time in seconds to reach the ring
+ */
+function calculateMinimumTimeToReach(targetX, targetY, currentX, currentY, currentVelX, currentVelY, ringCount = 0, difficulty = 'normal') {
+  // Time components (based on user requirements)
+  const REACTION_TIME = 0.2; // Time for player to see and react to new ring
+  const ORIENTATION_TIME = 0.5; // Time to orient car toward ring
+  const STABILIZATION_TIME = 1.0; // Time to stabilize and wait for ring to pass
+
+  // Calculate distance components
+  const dx = targetX - currentX;
+  const dy = targetY - currentY;
+  const distance = Math.sqrt(dx * dx + dy * dy);
+
+  // If very close (< 100 units), use simplified timing
+  if (distance < 100) {
+    return REACTION_TIME + ORIENTATION_TIME + 0.5 + STABILIZATION_TIME;
+  }
+
+  // Physics constants
+  const MAX_SPEED = CONST.RING_MAX_SPEED; // 1400 units/s
+  const BOOST_ACCEL = CONST.RING_BOOST_ACCEL; // 1200 units/s²
+  const GRAVITY = Math.abs(CONST.RING_GRAVITY); // 600 units/s² (downward)
+
+  // PROGRESSIVE SKILL SCALING: Transition from human play to skilled play
+  // Normal/Hard modes:
+  //   Rings 0-100: 50% boost efficiency (human play - lots of corrections)
+  //   Rings 100-200: Gradually increase from 50% to 75% (mastery progression)
+  //   Rings 200+: 75% boost efficiency (skilled/perfect play expected)
+  // Expert mode:
+  //   Rings 0+: Start at 92% (near-perfect play required from the start)
+  //   Rings 0-200: Gradually increase from 92% to 100% (approaching theoretical perfection)
+  //   Rings 200+: 100% boost efficiency (perfect play - theoretical limit)
+  const SKILL_START_RING = 100; // Start increasing skill requirement (normal/hard)
+  const SKILL_END_RING = 200;   // Reach max skill requirement
+  let skillFactor = 0.5; // Default: 50% boost efficiency (human play)
+
+  if (difficulty === 'expert') {
+    // Expert mode: 92% -> 100% over 200 rings
+    if (ringCount >= SKILL_END_RING) {
+      skillFactor = 1.0; // Perfect play - theoretical limit
+    } else {
+      // Linear interpolation from 0.92 to 1.0 over 200 rings
+      const progress = Math.min(ringCount / SKILL_END_RING, 1.0);
+      skillFactor = 0.92 + (progress * 0.08); // 0.92 -> 1.0
+    }
+  } else {
+    // Normal/Hard modes: 50% -> 75% scaling
+    if (ringCount >= SKILL_END_RING) {
+      skillFactor = 0.75; // Skilled play
+    } else if (ringCount > SKILL_START_RING) {
+      // Linear interpolation from 0.5 to 0.75
+      const progress = (ringCount - SKILL_START_RING) / (SKILL_END_RING - SKILL_START_RING);
+      skillFactor = 0.5 + (progress * 0.25); // 0.5 -> 0.75
+    }
+  }
+
+  // Calculate travel time separately for X and Y axes, then use the max
+  // This accounts for gravity affecting Y differently than X
+
+  // === HORIZONTAL (X) MOVEMENT ===
+  const absX = Math.abs(dx);
+  let timeX = 0;
+
+  if (absX > 10) {
+    // Apply progressive skill scaling
+    // Early rings: 50% boost efficiency (human play)
+    // Late rings: 75% boost efficiency (skilled play)
+    const accelX = Math.max(100, BOOST_ACCEL * skillFactor); // Prevent divide-by-zero
+
+    // Current velocity in X direction (considering if we're going toward or away from target)
+    const velTowardX = dx > 0 ? currentVelX : -currentVelX;
+
+    if (velTowardX < 0) {
+      // Moving away from target - need to stop first, then accelerate toward it
+      const timeToStop = Math.abs(velTowardX) / accelX;
+      const distanceWhileStopping = 0.5 * accelX * timeToStop * timeToStop;
+      const remainingX = absX + distanceWhileStopping; // Extra distance because we moved away
+
+      // Time to cover remaining distance from stopped position
+      const timeAfterStop = Math.sqrt(2 * remainingX / accelX);
+      timeX = timeToStop + timeAfterStop;
+    } else {
+      // Moving toward target or stationary
+      // Simple kinematic: d = v₀*t + 0.5*a*t²
+      // Solve for t using quadratic formula
+      const a = 0.5 * accelX;
+      const b = velTowardX;
+      const c = -absX;
+      const discriminant = b * b - 4 * a * c;
+      timeX = (-b + Math.sqrt(Math.max(0, discriminant))) / (2 * a);
+    }
+  }
+
+  // === VERTICAL (Y) MOVEMENT WITH GRAVITY ===
+  const absY = Math.abs(dy);
+  let timeY = 0;
+
+  if (absY > 10) {
+    // Going UP: boost acceleration minus gravity (fighting gravity)
+    // Going DOWN: boost acceleration plus gravity (gravity helps)
+    const isGoingUp = dy > 0;
+    const effectiveAccelY = isGoingUp
+      ? (BOOST_ACCEL - GRAVITY) * skillFactor  // Progressive skill scaling
+      : (BOOST_ACCEL + GRAVITY) * skillFactor; // Progressive skill scaling
+
+    // Current velocity in Y direction (considering direction to target)
+    const velTowardY = dy > 0 ? currentVelY : -currentVelY;
+
+    if (velTowardY < 0) {
+      // Moving away from target - need to stop first
+      const decelY = isGoingUp ? (BOOST_ACCEL + GRAVITY) : (BOOST_ACCEL - GRAVITY);
+      const timeToStop = Math.abs(velTowardY) / Math.max(100, decelY);
+      const distanceWhileStopping = 0.5 * decelY * timeToStop * timeToStop;
+      const remainingY = absY + distanceWhileStopping;
+
+      // Time to cover remaining distance from stopped position
+      const timeAfterStop = Math.sqrt(2 * remainingY / Math.max(100, effectiveAccelY));
+      timeY = timeToStop + timeAfterStop;
+    } else {
+      // Moving toward target or stationary
+      const a = 0.5 * Math.max(100, effectiveAccelY);
+      const b = velTowardY;
+      const c = -absY;
+      const discriminant = b * b - 4 * a * c;
+      timeY = (-b + Math.sqrt(Math.max(0, discriminant))) / (2 * a);
+    }
+
+    // Extra time penalty for going upward against gravity
+    if (isGoingUp) {
+      timeY *= 1.25; // 25% more time when fighting gravity
+    }
+  }
+
+  // Use the MAXIMUM of X and Y times (can't reach target until both axes align)
+  // Progressive buffer scaling: More forgiving early, tighter late
+  // Rings 0-100: 1.5× buffer (50% extra time for human corrections)
+  // Rings 100-200: Gradually reduce to 1.2× buffer
+  // Rings 200+: 1.2× buffer (20% extra time for skilled play)
+  let bufferMultiplier = 1.5; // Default: human play buffer
+  if (ringCount >= SKILL_END_RING) {
+    bufferMultiplier = 1.2; // Skilled play buffer
+  } else if (ringCount > SKILL_START_RING) {
+    const progress = (ringCount - SKILL_START_RING) / (SKILL_END_RING - SKILL_START_RING);
+    bufferMultiplier = 1.5 - (progress * 0.3); // 1.5 -> 1.2
+  }
+  const travelTime = Math.max(timeX, timeY) * bufferMultiplier;
+
+  // Total time = reaction + orientation + travel + stabilization
+  const totalTime = REACTION_TIME + ORIENTATION_TIME + travelTime + STABILIZATION_TIME;
+
+  return totalTime;
+}
+
+/**
  * Spawn a new ring
+ *
+ * CRITICAL SAFEGUARDS TO PROTECT PLAYER FROM UNFAIR SITUATIONS:
+ *
+ * 1. Z-Spacing Check: Prevents rings from spawning too close together in space
+ * 2. Arrival Time Collision: Prevents multiple rings from arriving at nearly the same time
+ * 3. Momentum/Directional Conflict: Prevents opposite-direction rings when player is committed
+ *
+ * Safeguard 2 (Arrival Time) protects against:
+ * - Player waiting for a slow-moving far ring
+ * - Fast-moving close ring spawning and arriving milliseconds later
+ * - Impossible situation requiring player to be in two places at once
+ *
+ * Safeguard 3 (Momentum Conflict) protects against:
+ * - Player rushing toward Ring A (building momentum)
+ * - Ring B spawning in OPPOSITE direction
+ * - Player must fight momentum for Ring A AND prepare for opposite Ring B
+ * - Compound difficulty spike from directional reversal + tight timing
+ *
+ * By enforcing minimum arrival separation (1.5s) and momentum-aware directional checks,
+ * we ensure fair, sequential challenges rather than simultaneous impossible scenarios.
  */
 function spawnRing() {
-  // Check if there's already a ring too close to spawn position
+  // SAFEGUARD 1: Z-Spacing Check
   // Prevent clustering by enforcing minimum Z-distance between rings
   // At base speed (200 u/s) and 3s interval, rings should be ~600 units apart
   const MIN_RING_Z_SPACING = 650; // Minimum units between rings on Z-axis
@@ -738,18 +1226,7 @@ function spawnRing() {
   const sizeReduction = progressionLevel * 0.05;
   const ringSize = CONST.INITIAL_RING_SIZE * (1 - Math.min(sizeReduction, 0.5)) * difficultySettings.sizeMultiplier;
 
-  // Speed: +5% every 10 rings (max 25% increase at level 5), then apply difficulty multiplier
-  const speedIncrease = progressionLevel * 0.05;
-  const baseDifficultySpeed = CONST.RING_BASE_SPEED * (1 + speedIncrease) * difficultySettings.speedMultiplier;
-
-  // Apply section speed multiplier for hard mode (but cap total speed increase)
-  let ringSpeed = baseDifficultySpeed;
-  if (currentDifficulty === 'hard' && currentSection) {
-    ringSpeed *= sectionSpeed;
-  }
-
-  // Distance-based speed modifier: balance speed for rings at different distances
-  // This prevents impossible-to-reach rings while keeping good pacing
+  // Calculate 2D distance to ring
   const distanceToRing = Math.sqrt(
     (spawnX - ringModePosition.x) ** 2 +
     (spawnY - ringModePosition.y) ** 2
@@ -757,40 +1234,199 @@ function spawnRing() {
   const MAX_RING_DISTANCE = CONST.RING_GRID_BOUNDS; // 1500 units
   const distanceRatio = distanceToRing / MAX_RING_DISTANCE; // 0.0 to 1.0
 
-  // Check if this will be a bonus ring (before speed adjustment)
-  const BONUS_RING_THRESHOLD = 0.85; // 85% of max distance
+  // Check if this will be a bonus ring (very far away)
+  // Expert mode requires 96% distance (very rare)
+  // Hard/Easy/Normal modes require 85% distance
+  const BONUS_RING_THRESHOLD = currentDifficulty === 'expert' ? 0.96 : 0.85;
   const isBonusRing = distanceRatio >= BONUS_RING_THRESHOLD;
 
-  // Apply distance-based speed balancing
-  // EXCEPTION: Bonus rings don't get slowed down - they keep full speed for better pacing
-  if (!isBonusRing) {
-    if (distanceRatio < 0.3) {
-      // VERY close rings (0-30%): slow down significantly to prevent impossibly fast reactions
-      // 0% distance: 70% speed
-      // 15% distance: 85% speed
-      // 30% distance: 100% speed
-      const normalizedClose = distanceRatio / 0.3; // 0.0 to 1.0
-      const closeSlowdown = 0.7 + (normalizedClose * 0.3); // 0.7 to 1.0
-      ringSpeed *= closeSlowdown;
-    } else if (distanceRatio > 0.5) {
-      // Far rings (50%+): slow down to make them reachable
-      // 50% distance: 100% speed (no slowdown)
-      // 75% distance: 85% speed
-      // 85% distance: 77% speed (just before bonus threshold)
-      const slowdownStart = 0.5;
-      const normalizedDistance = (distanceRatio - slowdownStart) / (1.0 - slowdownStart); // 0.0 to 1.0
-      const slowdownFactor = 1.0 - (normalizedDistance * 0.3); // 1.0 to 0.7
-      ringSpeed *= slowdownFactor;
+  // PHYSICS-BASED TIMING CALCULATION
+  // Calculate minimum time needed to reach this ring based on actual car physics
+  // Pass current ring count for progressive skill scaling and difficulty for expert mode
+  const minTimeToReach = calculateMinimumTimeToReach(
+    spawnX, spawnY,
+    ringModePosition.x, ringModePosition.y,
+    ringModeVelocity.x, ringModeVelocity.y,
+    ringModeRingCount,
+    currentDifficulty
+  );
+
+  // Ring needs to travel from spawn point (z = -1100) to pass-through point (z = 0)
+  const ringTravelDistance = Math.abs(CONST.RING_SPAWN_DISTANCE); // 1100 units
+
+  // Calculate base ring speed from physics timing
+  // Ring speed = distance / time
+  let ringSpeed = ringTravelDistance / minTimeToReach;
+
+  // Apply difficulty base multiplier, but scale it down for far rings
+  // Far rings already have physics-calculated difficulty, don't make them impossible
+  let difficultyMultiplier = 1.0;
+
+  if (currentDifficulty === 'easy') {
+    difficultyMultiplier = 0.85; // 15% more time (easier)
+  } else if (currentDifficulty === 'hard') {
+    // For close rings (< 40% distance), apply full hard multiplier
+    // For far rings (> 40% distance), scale down the multiplier based on distance
+    if (distanceRatio < 0.4) {
+      difficultyMultiplier = 1.10; // 10% less time for close rings
+    } else {
+      // Gradually reduce multiplier for far rings
+      // At 40% distance: 1.10×
+      // At 70% distance: 1.0× (no multiplier)
+      // At 85%+ distance: 0.95× (actually SLOWER for bonus rings)
+      const farRingFactor = (distanceRatio - 0.4) / 0.5; // 0.0 at 40%, 1.0 at 90%
+      difficultyMultiplier = 1.10 - (farRingFactor * 0.15); // Scales from 1.10 to 0.95
     }
-    // Medium distance rings (30-50%): keep full speed - sweet spot
   }
-  // Bonus rings keep full speed - no slowdown applied!
+
+  ringSpeed *= difficultyMultiplier;
+
+  // Very light progression (only in hard mode, only for close rings)
+  // Far rings don't need progression - they're already hard enough!
+  if (currentDifficulty === 'hard' && distanceRatio < 0.5) {
+    const progressionBonus = Math.min(progressionLevel * 0.015, 0.075); // Reduced from 2% to 1.5%
+    ringSpeed *= (1 + progressionBonus);
+  }
+
+  // Hard mode section multipliers (only for close-medium rings)
+  if (currentDifficulty === 'hard' && currentSection && distanceRatio < 0.6) {
+    // Scale section multipliers down since physics already handles base difficulty
+    const scaledSectionSpeed = 1.0 + (sectionSpeed - 1.0) * 0.4; // Reduced from 50% to 40%
+    ringSpeed *= scaledSectionSpeed;
+  }
+
+  // Bonus rings: NO speed increase - they're already the hardest to reach
+  // Being far away is the difficulty, not the speed
+
+  // EXPERT MODE: Speed boost for rings spawning near the edge of the current target ring
+  // This creates fast-reaction scenarios while the player is still maneuvering through the current ring
+  if (currentDifficulty === 'expert') {
+    // Find the current target ring (closest unpassed ring by arrival time)
+    const upcomingRings = rings.filter(r => !r.passed && !r.missed && r.mesh.position.z < 0);
+    if (upcomingRings.length > 0) {
+      upcomingRings.sort((a, b) => {
+        const aTime = Math.abs(a.mesh.position.z) / a.speed;
+        const bTime = Math.abs(b.mesh.position.z) / b.speed;
+        return aTime - bTime;
+      });
+
+      const targetRing = upcomingRings[0];
+
+      // Calculate 2D distance from new ring spawn position to target ring center
+      const dx = spawnX - targetRing.mesh.position.x;
+      const dy = spawnY - targetRing.mesh.position.y;
+      const distanceToTargetRing = Math.sqrt(dx * dx + dy * dy);
+
+      // Target ring's outer edge (including tube thickness)
+      const targetRingRadius = targetRing.size / 2 + CONST.RING_TUBE_RADIUS;
+
+      // Check if new ring spawns within one ring's diameter from the edge of target ring
+      // "One ring's distance" = the current ring size being spawned
+      const edgeProximityThreshold = targetRingRadius + ringSize;
+
+      if (distanceToTargetRing <= edgeProximityThreshold) {
+        // New ring is spawning very close to the current target ring's edge
+        // Apply up to 2x speed boost (making it arrive faster, creating pressure)
+        const expertSpeedBoost = 2.0;
+        ringSpeed *= expertSpeedBoost;
+      }
+    }
+  }
+
+  // Clamp ring speed to reasonable bounds (prevent extreme cases)
+  ringSpeed = Math.max(80, Math.min(350, ringSpeed));
+
+  // SAFEGUARD 2 & 3: Combined Arrival Time and Momentum Conflict Detection
+  // OPTIMIZATION: Check both safeguards in single pass through active rings
+
+  // Calculate when THIS ring will arrive at the player (Z = 0)
+  const thisRingArrivalTime = Math.abs(spawnZ) / ringSpeed;
+
+  // Constants for conflict detection
+  const MIN_ARRIVAL_TIME_SEPARATION = currentDifficulty === 'hard' ? 2.5 : 2.0;
+  const MOMENTUM_COMMITMENT_TIME = 3.0;
+  const OPPOSITE_DIRECTION_THRESHOLD = -0.5;
+
+  // Find active rings (not passed/missed, still approaching)
+  // OPTIMIZATION: Filter once instead of multiple times
+  const activeRings = [];
+  for (let i = 0; i < rings.length; i++) {
+    const ring = rings[i];
+    if (!ring.passed && !ring.missed && ring.mesh.position.z < 0) {
+      const distanceToArrival = Math.abs(ring.mesh.position.z);
+      const arrivalTime = distanceToArrival / ring.speed;
+      activeRings.push({ ring, arrivalTime });
+    }
+  }
+
+  // Early exit if no active rings
+  if (activeRings.length === 0) {
+    // No conflicts possible, proceed to spawn
+  } else {
+    // SAFEGUARD 2: Arrival Time Collision Check
+    for (let i = 0; i < activeRings.length; i++) {
+      const arrivalTimeDifference = Math.abs(thisRingArrivalTime - activeRings[i].arrivalTime);
+      if (arrivalTimeDifference < MIN_ARRIVAL_TIME_SEPARATION) {
+        // CONFLICT: Rings would arrive too close together
+        return;
+      }
+    }
+
+    // SAFEGUARD 3: Momentum Conflict Check
+    // Find the soonest arriving ring (already calculated arrival times)
+    let nextRing = activeRings[0];
+    for (let i = 1; i < activeRings.length; i++) {
+      if (activeRings[i].arrivalTime < nextRing.arrivalTime) {
+        nextRing = activeRings[i];
+      }
+    }
+
+    // Only check momentum conflict if player is committed to next ring
+    if (nextRing.arrivalTime < MOMENTUM_COMMITMENT_TIME) {
+      const nextRingPos = nextRing.ring.mesh.position;
+
+      // Calculate direction vectors
+      const dx1 = nextRingPos.x - ringModePosition.x;
+      const dy1 = nextRingPos.y - ringModePosition.y;
+      const dx2 = spawnX - ringModePosition.x;
+      const dy2 = spawnY - ringModePosition.y;
+
+      const dist1 = Math.sqrt(dx1 * dx1 + dy1 * dy1);
+      const dist2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
+
+      if (dist1 > 10 && dist2 > 10) {
+        // Normalize and compute dot product
+        const dotProduct = (dx1 / dist1) * (dx2 / dist2) + (dy1 / dist1) * (dy2 / dist2);
+
+        // Check for opposite directions
+        if (dotProduct < OPPOSITE_DIRECTION_THRESHOLD) {
+          const arrivalGap = Math.abs(thisRingArrivalTime - nextRing.arrivalTime);
+          if (arrivalGap < 2.5) {
+            // CONFLICT: Opposite direction with tight timing
+            return;
+          }
+        }
+      }
+    }
+  }
+
+  // All safeguards passed - safe to create ring
 
   const ring = createRing(spawnX, spawnY, spawnZ, ringSize, ringSpeed, ringSpawnIndex++);
 
-  // Mark rings spawned at far distances (>85% of max) as bonus rings
-  // Passing these grants an extra life
+  // Mark rings spawned at far distances as bonus rings
   ring.isBonusRing = isBonusRing;
+
+  // Determine if this bonus ring actually grants a life (chance-based by difficulty)
+  // Easy: 100% chance (all bonus rings grant life)
+  // Normal: 75% chance (3 in 4 bonus rings grant life)
+  // Hard: 50% chance (1 in 2 bonus rings grant life)
+  // Expert: 33% chance (1 in 3 bonus rings grant life)
+  const bonusLifeChance = currentDifficulty === 'easy' ? 1.0 :
+                          currentDifficulty === 'normal' ? 0.75 :
+                          currentDifficulty === 'hard' ? 0.5 :
+                          currentDifficulty === 'expert' ? 0.33 : 1.0;
+  ring.grantsLife = isBonusRing && (Math.random() < bonusLifeChance);
 
   // Store initial 2D distance for distant ring indicator
   ring.initialDistance2D = distanceToRing;
@@ -1036,12 +1672,15 @@ export function updateRingModeRendering(dt) {
       return b.mesh.position.z - a.mesh.position.z;
     });
 
-    // Oldest unpassed ring is the target
-    targetRing = activeRings[0];
+    // Safety check: ensure we have rings before accessing
+    if (activeRings.length > 0) {
+      // Oldest unpassed ring is the target
+      targetRing = activeRings[0];
 
-    // Next oldest unpassed ring (if exists)
-    if (activeRings.length > 1) {
-      nextRing = activeRings[1];
+      // Next oldest unpassed ring (if exists)
+      if (activeRings.length > 1) {
+        nextRing = activeRings[1];
+      }
     }
   }
 
@@ -1129,10 +1768,24 @@ export function updateRingModeRendering(dt) {
   const targetCamY = ringModePosition.y + cameraOffsetY;
   const targetCamZ = CONST.CAM_BASE.z;
 
-  // Lerp camera position for smooth movement
-  camera.position.x += (targetCamX - camera.position.x) * ringCameraSpeed;
-  camera.position.y += (targetCamY - camera.position.y) * ringCameraSpeed;
-  camera.position.z = targetCamZ;
+  // NaN safety check - if position becomes NaN, reset to safe defaults
+  if (!isFinite(targetCamX) || !isFinite(targetCamY) || !isFinite(targetCamZ)) {
+    console.warn('Camera target position is NaN - resetting to origin');
+    camera.position.set(0, CONST.CAM_BASE.y, CONST.CAM_BASE.z);
+    ringModePosition.set(0, 0);
+    ringModeVelocity.set(0, 0);
+  } else {
+    // Lerp camera position for smooth movement
+    camera.position.x += (targetCamX - camera.position.x) * ringCameraSpeed;
+    camera.position.y += (targetCamY - camera.position.y) * ringCameraSpeed;
+    camera.position.z = targetCamZ;
+
+    // Additional safety: check if camera position became NaN after lerp
+    if (!isFinite(camera.position.x) || !isFinite(camera.position.y) || !isFinite(camera.position.z)) {
+      console.warn('Camera position became NaN after lerp - resetting');
+      camera.position.set(0, CONST.CAM_BASE.y, CONST.CAM_BASE.z);
+    }
+  }
 
   // Look at point between car and next ring to keep distant rings visible
   let lookAtX = ringModePosition.x;
@@ -1214,16 +1867,15 @@ export function updateRingModeRendering(dt) {
           ringModeScore++;
           ringModeRingCount++;
 
-          // Bonus life for passing distant rings
-          if (ring.isBonusRing) {
+          // Bonus life for passing rings that grant lives
+          if (ring.grantsLife) {
             ringModeLives++;
-          } else {
           }
 
-          // Update high score
+          // Update high score (difficulty-specific)
           if (ringModeScore > ringModeHighScore) {
             ringModeHighScore = ringModeScore;
-            saveSettings({ ringModeHighScore: ringModeHighScore });
+            saveHighScoreForDifficulty();
           }
 
           // Audio feedback - play success sound
@@ -1279,4 +1931,7 @@ export function updateRingModeRendering(dt) {
       }
     }
   }
+
+  // Update the 3D dashed circle landing indicator on the grid
+  updateLandingIndicator();
 }

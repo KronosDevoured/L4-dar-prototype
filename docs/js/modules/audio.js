@@ -136,16 +136,25 @@ export function startBoostRumble() {
  * Stop boost rumble sound
  */
 export function stopBoostRumble() {
-  if (!boostRumbleOscillator) return;
+  if (!boostRumbleOscillator || !audioContext) return;
 
   try {
-    // Fade out quickly
-    boostRumbleGain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.05);
-    boostRumbleOscillator.stop(audioContext.currentTime + 0.05);
+    // Check audio context state before attempting to ramp
+    if (audioContext.state === 'running' && boostRumbleGain) {
+      boostRumbleGain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.05);
+      boostRumbleOscillator.stop(audioContext.currentTime + 0.05);
+    } else {
+      // Audio context not running, just stop immediately
+      if (boostRumbleOscillator) {
+        boostRumbleOscillator.stop();
+      }
+    }
     boostRumbleOscillator = null;
     boostRumbleGain = null;
   } catch (e) {
     console.warn('Stop boost rumble failed:', e);
+    boostRumbleOscillator = null;
+    boostRumbleGain = null;
   }
 }
 
@@ -184,14 +193,40 @@ export function startBackgroundMusic() {
 }
 
 /**
- * Stop background music
+ * Pause background music (can be resumed)
+ */
+export function pauseBackgroundMusic() {
+  if (!musicAudioElement) return;
+
+  try {
+    musicAudioElement.pause();
+  } catch (e) {
+    console.warn('Pause music failed:', e);
+  }
+}
+
+/**
+ * Resume background music
+ */
+export function resumeBackgroundMusic() {
+  if (!musicAudioElement) return;
+
+  try {
+    musicAudioElement.play();
+  } catch (e) {
+    console.warn('Resume music failed:', e);
+  }
+}
+
+/**
+ * Stop background music (stops and cleans up)
  */
 export function stopBackgroundMusic() {
   if (!musicAudioElement) return;
 
   try {
-    // Fade out the music
-    if (musicGain) {
+    // Fade out the music only if audio context is running
+    if (musicGain && audioContext && audioContext.state === 'running') {
       musicGain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
     }
 
