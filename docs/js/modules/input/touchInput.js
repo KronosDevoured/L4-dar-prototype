@@ -200,31 +200,42 @@ export function onPointerDown(e, callbacks) {
     // Note: No hold-to-relocate in free flight - use two-finger gesture instead
   }
   // Check for second finger anywhere in open space (two-finger boost relocation)
-  else if (activePointers.size === 1 && boostSecondFingerId === null && showBoostButton) {
-    // Second finger detected anywhere - check if first finger is in open space too
-    const firstPointer = activePointers.values().next().value;
-    const firstId = activePointers.keys().next().value;
+  else if (activePointers.size === 2 && boostSecondFingerId === null && showBoostButton) {
+    // Second finger detected - check if both fingers are in open space (not on controls)
+    let firstPointer = null;
+    let firstId = null;
 
-    // Check that neither finger is on a control button
-    const firstInControl = inJoyLoose(firstPointer.x, firstPointer.y) || inDAR(firstPointer.x, firstPointer.y);
-    const secondInControl = inJoyLoose(x, y) || inDAR(x, y);
+    // Find the first pointer (the one that's not the current id)
+    for (const [pointerId, pointer] of activePointers.entries()) {
+      if (pointerId !== id) {
+        firstPointer = pointer;
+        firstId = pointerId;
+        break;
+      }
+    }
 
-    if (!firstInControl && !secondInControl) {
-      // Two fingers in open space - enable boost button relocation
-      boostSecondFingerId = id;
-      boostTwoFingerMode = true;
-      boostRelocating = true;
+    if (firstPointer) {
+      // Check that neither finger is on a control button
+      const firstInControl = inJoyLoose(firstPointer.x, firstPointer.y) || inDAR(firstPointer.x, firstPointer.y) || inBoost(firstPointer.x, firstPointer.y);
+      const secondInControl = inJoyLoose(x, y) || inDAR(x, y) || inBoost(x, y);
 
-      // Move boost button to second finger position
-      BOOST_CENTER.set(x, y);
-      clampBoostCenter();
+      if (!firstInControl && !secondInControl) {
+        // Two fingers in open space - enable boost button relocation
+        boostSecondFingerId = id;
+        boostTwoFingerMode = true;
+        boostRelocating = true;
 
-      callbacks?.showBoostHint?.();
+        // Move boost button to second finger position
+        BOOST_CENTER.set(x, y);
+        clampBoostCenter();
 
-      // Deactivate boost if it was active
-      const ringModeActive = callbacks?.getRingModeActive?.() || false;
-      if (ringModeActive && boostPointerId !== null) {
-        callbacks?.onBoostPress?.(false);
+        callbacks?.showBoostHint?.();
+
+        // Deactivate boost if it was active
+        const ringModeActive = callbacks?.getRingModeActive?.() || false;
+        if (ringModeActive && boostPointerId !== null) {
+          callbacks?.onBoostPress?.(false);
+        }
       }
     }
   }
