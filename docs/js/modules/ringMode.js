@@ -735,28 +735,46 @@ function createRing(x, y, z, size, speed, spawnIndex) {
 }
 
 /**
+ * Properly dispose a ring's resources (geometry, material, lights)
+ * @param {object} ring - Ring object to dispose
+ */
+function disposeRing(ring) {
+  // Remove from scene
+  scene.remove(ring.mesh);
+
+  // Dispose point light (child of ring mesh)
+  if (ring.mesh.children && ring.mesh.children.length > 0) {
+    ring.mesh.children.forEach(child => {
+      if (child instanceof THREE.Light) {
+        child.dispose(); // Dispose light resources
+      }
+    });
+  }
+
+  // Don't dispose geometry/materials - they're cached and reused!
+  // Only dispose if not using cache (fallback case)
+  if (ring.mesh.geometry !== ringGeometryCache) {
+    ring.mesh.geometry.dispose();
+  }
+
+  // Check if material is cached by comparing against cached materials
+  let isCached = false;
+  for (const cachedMaterial of ringMaterialCache.values()) {
+    if (cachedMaterial === ring.mesh.material) {
+      isCached = true;
+      break;
+    }
+  }
+  if (!isCached) {
+    ring.mesh.material.dispose();
+  }
+}
+
+/**
  * Remove all rings from scene
  */
 function clearAllRings() {
-  rings.forEach(r => {
-    scene.remove(r.mesh);
-    // Don't dispose geometry/materials - they're cached and reused!
-    // Only dispose if not using cache (fallback case)
-    if (r.mesh.geometry !== ringGeometryCache) {
-      r.mesh.geometry.dispose();
-    }
-    // Check if material is cached by comparing against cached materials
-    let isCached = false;
-    for (const cachedMaterial of ringMaterialCache.values()) {
-      if (cachedMaterial === r.mesh.material) {
-        isCached = true;
-        break;
-      }
-    }
-    if (!isCached) {
-      r.mesh.material.dispose();
-    }
-  });
+  rings.forEach(r => disposeRing(r));
   rings = [];
 }
 
@@ -1971,9 +1989,8 @@ export function updateRingModeRendering(dt) {
           // Audio feedback - play miss sound
           Audio.playRingMissSound();
         }
-        scene.remove(ring.mesh);
-        ring.mesh.geometry.dispose();
-        ring.mesh.material.dispose();
+        // Properly dispose ring resources (including lights)
+        disposeRing(ring);
         rings.splice(i, 1);
       }
     }

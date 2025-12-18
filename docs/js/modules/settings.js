@@ -88,8 +88,26 @@ export function loadSettings() {
           return { ..._settings };
         }
 
-        // Merge saved settings with defaults
-        _settings = { ..._settings, ...parsed };
+        // SECURITY: Validate each property before merging to prevent prototype pollution
+        // Filter out dangerous keys like __proto__, constructor, prototype
+        const validatedSettings = {};
+        for (const [key, value] of Object.entries(parsed)) {
+          // Block prototype pollution attempts
+          if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+            console.warn(`Blocked prototype pollution attempt: ${key}`);
+            continue;
+          }
+
+          // Validate the setting using existing validation logic
+          if (validateSetting(key, value)) {
+            validatedSettings[key] = value;
+          } else {
+            console.warn(`Invalid setting from localStorage ignored: ${key} = ${value}`);
+          }
+        }
+
+        // Merge only validated settings with defaults
+        _settings = { ..._settings, ...validatedSettings };
         return { ..._settings }; // Return copy to prevent external mutation
       } catch (e) {
         console.error('Failed to parse saved settings:', e);

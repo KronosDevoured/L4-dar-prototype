@@ -15,6 +15,7 @@ let gameMusicEnabled = true;
 // Boost rumble
 let boostRumbleOscillator = null;
 let boostRumbleGain = null;
+let boostRumbleStopping = false; // Flag to prevent rapid restart during cleanup
 
 // Background music file playback
 let musicAudioElement = null;
@@ -109,6 +110,7 @@ export function playRingMissSound() {
 export function startBoostRumble() {
   if (!gameSoundsEnabled) return;
   if (boostRumbleOscillator) return; // Already playing
+  if (boostRumbleStopping) return; // Currently stopping, wait for completion
 
   let oscillator = null;
   let gain = null;
@@ -154,6 +156,10 @@ export function startBoostRumble() {
  */
 export function stopBoostRumble() {
   if (!boostRumbleOscillator || !audioContext) return;
+  if (boostRumbleStopping) return; // Already stopping
+
+  // Set stopping flag to prevent restart during ramp-down
+  boostRumbleStopping = true;
 
   const oscillator = boostRumbleOscillator;
   const gain = boostRumbleGain;
@@ -167,9 +173,13 @@ export function stopBoostRumble() {
     if (audioContext.state === 'running' && gain) {
       gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.05);
       oscillator.stop(audioContext.currentTime + 0.05);
+
+      // Clear stopping flag after ramp completes
+      setTimeout(() => { boostRumbleStopping = false; }, 60);
     } else {
       // Audio context not running, just stop immediately
       oscillator.stop();
+      boostRumbleStopping = false;
     }
 
     // Disconnect nodes to free resources
@@ -177,6 +187,7 @@ export function stopBoostRumble() {
     if (gain) gain.disconnect();
   } catch (e) {
     console.warn('Stop boost rumble failed:', e);
+    boostRumbleStopping = false; // Clear flag on error
     // Ensure cleanup even if error occurs
     try {
       oscillator.disconnect();
