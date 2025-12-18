@@ -659,19 +659,28 @@ export function init() {
 
   // Button repositioning on window resize
   // Ensures buttons stay in correct positions when screen is resized
+  // Fixes issue where buttons get stuck after DevTools open/close
   function repositionButtons() {
     // Get all fixed-position buttons
-    const fullscreenBtn = document.getElementById('fullscreenBtn');
-    const themeBtn = document.getElementById('themeBtn');
-    const menuBtn = document.getElementById('menuBtn');
-    const ringModeBtn = document.getElementById('ringModeBtn');
+    const buttons = [
+      document.getElementById('fullscreenBtn'),
+      document.getElementById('themeBtn'),
+      document.getElementById('menuBtn'),
+      document.getElementById('ringModeBtn')
+    ].filter(Boolean); // Remove null entries
 
-    // Force reflow by reading computed styles
-    // This ensures CSS positioning is recalculated
-    if (fullscreenBtn) window.getComputedStyle(fullscreenBtn).position;
-    if (themeBtn) window.getComputedStyle(themeBtn).position;
-    if (menuBtn) window.getComputedStyle(menuBtn).position;
-    if (ringModeBtn) window.getComputedStyle(ringModeBtn).position;
+    // Force browser to recalculate layout by toggling a layout-affecting property
+    // This fixes the DevTools resize bug where buttons get stuck
+    buttons.forEach(btn => {
+      // Reading offsetHeight forces layout recalculation
+      const _ = btn.offsetHeight;
+
+      // Alternative: temporarily toggle display to force reflow
+      const display = btn.style.display;
+      btn.style.display = 'none';
+      btn.offsetHeight; // Force reflow
+      btn.style.display = display || '';
+    });
   }
 
   // Reposition on window resize with debouncing
