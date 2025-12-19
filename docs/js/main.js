@@ -124,7 +124,7 @@ function setupEditableTags() {
 // Wrapper for initSettingsSliders that uses UIManager
 function initSettingsSliders() {
   uiManager.initSettingsSliders(settings, {
-    applyZoom: () => cameraController.applyZoom(),
+    applyZoom: () => cameraController.setZoom(settings.zoom),
     applyTheme: (dark) => themeManager.applyTheme(dark),
     syncTags,
     saveSettings,

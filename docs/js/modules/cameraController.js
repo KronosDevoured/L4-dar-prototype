@@ -26,12 +26,17 @@ export class CameraController {
 
   /**
    * Apply zoom to camera position
+   * Works in both static and orbit modes
    */
   applyZoom() {
     const f = Math.max(0.7, Math.min(1.6, this.zoom || 1));
     const dist = CONST.CAM_BASE.z / f;
     const h = CONST.CAM_BASE.y / f;
-    if (!this.orbitOn) {
+    if (this.orbitOn) {
+      // Update orbit camera immediately to reflect new zoom
+      this.orbitStep(this.orbitPhase);
+    } else {
+      // Update static camera position
       this.camera.position.set(0, h, dist);
       const carY = this.carRef.car ? this.carRef.car.position.y : 0;
       this.camera.lookAt(0, carY, 0);
