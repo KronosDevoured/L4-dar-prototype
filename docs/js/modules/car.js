@@ -92,6 +92,7 @@ const gltfLoader = new GLTFLoader();
  */
 export function loadCarModel(presetName, scene) {
   const url = `models/${presetName}.glb`;
+  console.log(`Attempting to load: ${url}`);
 
   gltfLoader.load(
     url,
@@ -245,8 +246,8 @@ export function buildCar(boxDims, presetName = "placeholder", scene) {
     addEdge(vFL, vBL, CONST.COL_RIGHT);
   }
 
-  // GLB for octane/dominus (no hitbox body, no edges)
-  if (presetName === "octane" || presetName === "dominus") {
+  // GLB for octane/fennec/dominus (no hitbox body, no edges)
+  if (presetName === "octane" || presetName === "fennec" || presetName === "dominus") {
     loadCarModel(presetName, scene);
   }
 
