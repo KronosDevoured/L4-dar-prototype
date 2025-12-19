@@ -111,7 +111,13 @@ export function loadCarModel(presetName, scene) {
       let yOffset = -BOX.hy; // Vertical offset (baseline: bottom of hitbox)
       let zOffset = 0; // Left/right offset
 
-      if (presetName === 'dominus') {
+      if (presetName === 'octane') {
+        // Octane: Shift model BACKWARD so rotation happens around forward-biased COM
+        // RLBot measurement shows COM is ~4.85 uu forward of geometric center
+        xOffset = -4.85; // Negative moves model backward, making rotation point forward
+        yOffset = -BOX.hy; // Keep at hitbox bottom (no vertical COM offset)
+        zOffset = 0; // Centered laterally (symmetric car)
+      } else if (presetName === 'dominus') {
         // Dominus: Shift model BACKWARD so rotation happens around a forward-biased point
         // Research shows Dominus center of mass is ~13-14 units forward of geometric center
         xOffset = -14; // Negative moves model backward, making rotation point forward
