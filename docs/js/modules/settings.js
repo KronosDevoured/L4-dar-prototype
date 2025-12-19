@@ -167,7 +167,7 @@ function validateSetting(key, value) {
 
   // String enum validation
   if (key === 'selectedCarBody') {
-    return typeof value === 'string' && ['octane', 'dominus', 'placeholder'].includes(value);
+    return typeof value === 'string' && ['octane', 'fennec', 'dominus', 'placeholder'].includes(value);
   }
 
   if (key === 'gpPreset') {
