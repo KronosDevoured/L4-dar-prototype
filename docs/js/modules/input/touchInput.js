@@ -107,9 +107,15 @@ function inDAR(x, y) {
 }
 
 function clampDARCenter() {
+  // Reposition DAR button to maintain bottom-right corner position (80px from right, 130px from bottom)
+  // This ensures buttons return to correct position after window resize (e.g., DevTools open/close)
+  const targetX = innerWidth - 80;
+  const targetY = innerHeight - 130;
+
+  // Clamp to screen bounds with margin
   const m = DAR_R + 20;
-  DAR_CENTER.x = Math.max(m, Math.min(innerWidth - m, DAR_CENTER.x));
-  DAR_CENTER.y = Math.max(m, Math.min(innerHeight - m, DAR_CENTER.y));
+  DAR_CENTER.x = Math.max(m, Math.min(innerWidth - m, targetX));
+  DAR_CENTER.y = Math.max(m, Math.min(innerHeight - m, targetY));
 }
 
 function inBoost(x, y) {
@@ -119,9 +125,15 @@ function inBoost(x, y) {
 }
 
 function clampBoostCenter() {
+  // Reposition Boost button to maintain bottom-right corner position (80px from right, 250px from bottom)
+  // This ensures buttons return to correct position after window resize (e.g., DevTools open/close)
+  const targetX = innerWidth - 80;
+  const targetY = innerHeight - 250;
+
+  // Clamp to screen bounds with margin
   const m = BOOST_R + 20;
-  BOOST_CENTER.x = Math.max(m, Math.min(innerWidth - m, BOOST_CENTER.x));
-  BOOST_CENTER.y = Math.max(m, Math.min(innerHeight - m, BOOST_CENTER.y));
+  BOOST_CENTER.x = Math.max(m, Math.min(innerWidth - m, targetX));
+  BOOST_CENTER.y = Math.max(m, Math.min(innerHeight - m, targetY));
 }
 
 function inRetryButton(x, y) {
