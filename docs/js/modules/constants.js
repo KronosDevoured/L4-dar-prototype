@@ -107,9 +107,9 @@ export const PHYSICS_DEFAULTS = {
   dampDAR: 4.35,
   brake: 0.0,
   wmax: 5.5,
-  wmaxPitch: 24.0,
-  wmaxYaw: 24.0,
-  wmaxRoll: 24.0
+  wmaxPitch: 5.5,
+  wmaxYaw: 5.5,
+  wmaxRoll: 5.5
 };
 
 // ============================================================================
