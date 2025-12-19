@@ -373,6 +373,8 @@ function handleGamepadStick(stick) {
   const joyActive = TouchInput.getJoyActive();
 
   if (!joyActive) {
+    // Gamepad stick values are already -1.0 to +1.0, so just multiply by base radius
+    // to convert to pixel space that matches touch input
     TouchInput.setJoyVec(stick.x * JOY_BASE_R, stick.y * JOY_BASE_R);
   }
 }

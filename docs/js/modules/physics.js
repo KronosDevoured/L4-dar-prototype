@@ -288,11 +288,6 @@ function softClampAngularVelocity(w, max) {
  * @param {Object} settings - Visualization settings
  */
 function updateVisualizations(ux, uy, eff, settings) {
-  // ONE TIME DEBUG
-  if (!updateVisualizations._logged) {
-    updateVisualizations._logged = true;
-  }
-
   const {
     showArrow,
     showCircle,
@@ -351,6 +346,7 @@ function updateVisualizations(ux, uy, eff, settings) {
  * - showArrow, showCircle: Visualization toggles
  * - arrowScale, circleScale, circleTiltAngle, circleTiltModifier: Visualization parameters
  * - inputPow: Input curve exponent (1.0 = linear)
+ * - stickRange: Stick range multiplier (1.0 = full range, 0.5 = half range)
  * - damp, dampDAR: Damping coefficients for normal/DAR mode
  * - brakeOnRelease: Extra damping when stick is released (non-DAR only)
  * - maxAccelPitch, maxAccelYaw, maxAccelRoll: Max angular accelerations (deg/s²)
@@ -378,6 +374,7 @@ export function updatePhysics(dt, settings, chromeShown) {
     circleTiltAngle,
     circleTiltModifier,
     inputPow,
+    stickRange,
     damp,
     dampDAR,
     brakeOnRelease,
@@ -392,20 +389,26 @@ export function updatePhysics(dt, settings, chromeShown) {
 
   // --- 1. Get smoothed joystick position from Input module ---
   const joyVec = Input.getJoyVec();
-  const jx = joyVec.x / Input.getJoyBaseR();
-  const jy = -joyVec.y / Input.getJoyBaseR(); // up is positive
+  const baseR = Input.getJoyBaseR();
+  const jx = joyVec.x / baseR;
+  const jy = -joyVec.y / baseR; // up is positive
   let mag = Math.hypot(jx, jy);
 
   let eff = 0;
   let ux = 0, uy = 0;
 
   if (mag > Input.STICK_DEADZONE) {
-    const m2 = (mag - Input.STICK_DEADZONE) / (1 - Input.STICK_DEADZONE);
-    const shaped = Math.pow(Math.max(0, m2), inputPow || 1.0); // 0..1
-    eff = shaped;
+    // Clamp mag to max 1.0, then apply shaping
+    const clampedMag = Math.min(mag, 1.0);
+    const m2 = (clampedMag - Input.STICK_DEADZONE) / (1 - Input.STICK_DEADZONE);
+    const shaped = Math.pow(Math.max(0, m2), inputPow || 1.0);
 
-    ux = -jx; // right = +ux (raw stick value, no normalization)
-    uy = jy;  // up = +uy (raw stick value, no normalization)
+    // Apply stick range multiplier (1.0 = normal, 0.5 = half range, etc.)
+    eff = shaped * (stickRange || 1.0);
+
+    // Direct 1:1 mapping - stick position = input value
+    ux = -jx; // right = +ux
+    uy = jy;  // up = +uy
   }
 
   // === RING MODE: Calculate movement forces (normal rotation physics will run below) ===
@@ -446,6 +449,9 @@ export function updatePhysics(dt, settings, chromeShown) {
   }
 
   // --- 4. Desired angular velocities (rate control) ---
+  // During tornado spins (DAR + stick input), RL achieves much lower pitch/yaw than the global cap
+  // From yaw_dar_test.csv: wx≈5.13, wy≈-0.73, wz≈1.84 during steady tornado spin
+  // So we need to limit the desired speeds during tornado spins, not use the slider max (24 rad/s)
   let maxPitchSpeed = wMaxPitch;  // rad/s, slider already in "ω"
   let maxYawSpeed   = wMaxYaw;    // rad/s
   let targetRollSpeed = 0;        // rad/s
@@ -456,14 +462,13 @@ export function updatePhysics(dt, settings, chromeShown) {
   // Check if using directional air roll (Left/Right)
   const isDirectionalAirRoll = (Input.getAirRoll() === -1 || Input.getAirRoll() === 1);
 
-  // Directional air roll tornado spin (measured from Rocket League)
+  // Directional air roll tornado spin
   // This activates when:
   // 1. Air Roll Left/Right buttons are pressed (Square/Circle on gamepad, Q/E on keyboard)
   // 2. DAR button is active with a selected direction in the menu
   if ((isDirectionalAirRoll || Input.getDarOn()) && !isAirRollFree) {
-    // RL tornado spin: 0.74 seconds per rotation
-    const RL_TORNADO_PERIOD = 0.74;  // seconds
-    targetRollSpeed = Input.getAirRoll() * (2 * Math.PI) / RL_TORNADO_PERIOD;  // Input.getAirRoll() = ±1 for Left/Right
+    // DAR roll speed: 5.5 rad/s (one full roll every ~1.14 seconds)
+    targetRollSpeed = Input.getAirRoll() * 5.5;  // rad/s
   }
 
   // stick → desired spin rates
@@ -475,10 +480,13 @@ export function updatePhysics(dt, settings, chromeShown) {
     wy_des = 0;                         // no yaw
     wz_des = wMaxRoll * eff * (-ux);   // roll (left stick = roll left, right stick = roll right)
   } else {
-    // Normal or Air Roll Left/Right: standard controls
-    wx_des = maxPitchSpeed * eff * uy; // pitch
-    wy_des = maxYawSpeed   * eff * ux; // yaw
-    wz_des = targetRollSpeed;          // roll from DAR
+    // Normal or tornado spin controls: use slider maxes for normal, special handling for tornado
+    // When DAR is active, reduce pitch/yaw to 55% to match RL tornado radius
+    const darActive = (isDirectionalAirRoll || Input.getDarOn());
+    const darMultiplier = darActive ? 0.55 : 1.0;
+    wx_des = maxPitchSpeed * eff * uy * darMultiplier; // pitch
+    wy_des = maxYawSpeed   * eff * ux * darMultiplier; // yaw
+    wz_des = targetRollSpeed;                          // roll from DAR
   }
 
   // --- Update tornado circle visualizer ---
@@ -813,17 +821,25 @@ export function updatePhysics(dt, settings, chromeShown) {
     w.multiplyScalar(scale);
   }
 
-  // --- 8. Per-axis caps + global cap ---
+  // --- 8. Per-axis caps + Global magnitude cap ---
+  // Apply per-axis caps first
   if (Math.abs(w.x) > wMaxPitch) w.x = Math.sign(w.x) * wMaxPitch;
   if (Math.abs(w.y) > wMaxYaw)   w.y = Math.sign(w.y) * wMaxYaw;
+  if (Math.abs(w.z) > wMaxRoll) w.z = Math.sign(w.z) * wMaxRoll;
 
-  const wMag = w.length();
-  if (wMag > wMax) {
-    w.multiplyScalar(wMax / wMag);
+  // Global magnitude cap (5.5 rad/s) - only apply to pitch/yaw (stick axes)
+  // Roll is kept separate and doesn't count toward the cap
+  const pitchYawMag = Math.sqrt(w.x * w.x + w.y * w.y);
+  if (pitchYawMag > wMax) {
+    const scale = wMax / pitchYawMag;
+    w.x *= scale;
+    w.y *= scale;
+    // w.z unchanged - roll doesn't get scaled by global cap
   }
 
   // --- 9. Quaternion integration ---
   const wx = w.x, wy = w.y, wz = w.z, halfdt = 0.5 * dt;
+
   const q = Car.car.quaternion;
   const rw = -q.x * wx - q.y * wy - q.z * wz;
   const rx =  q.w * wx + q.y * wz - q.z * wy;
@@ -894,21 +910,8 @@ export function measureMaxAxis() {
  * Print the measured axis data for hardcoding
  */
 export function printAxisData() {
-  if (AXIS_MIN_DATA && AXIS_MAX_DATA) {
-    console.log('Copy these into physics.js:');
-    console.log(`let AXIS_MIN_DATA = {
-  centerLocal: new THREE.Vector3(${AXIS_MIN_DATA.centerLocal.x}, ${AXIS_MIN_DATA.centerLocal.y}, ${AXIS_MIN_DATA.centerLocal.z}),
-  axisLocal: new THREE.Vector3(${AXIS_MIN_DATA.axisLocal.x}, ${AXIS_MIN_DATA.axisLocal.y}, ${AXIS_MIN_DATA.axisLocal.z}),
-  radius: ${AXIS_MIN_DATA.radius}
-};`);
-    console.log(`let AXIS_MAX_DATA = {
-  centerLocal: new THREE.Vector3(${AXIS_MAX_DATA.centerLocal.x}, ${AXIS_MAX_DATA.centerLocal.y}, ${AXIS_MAX_DATA.centerLocal.z}),
-  axisLocal: new THREE.Vector3(${AXIS_MAX_DATA.axisLocal.x}, ${AXIS_MAX_DATA.axisLocal.y}, ${AXIS_MAX_DATA.axisLocal.z}),
-  radius: ${AXIS_MAX_DATA.radius}
-};`);
-  } else {
-    console.log('No axis data measured yet. Call measureMinAxis() and measureMaxAxis()');
-  }
+  // Axis data is automatically saved to localStorage
+  // No console output needed
 }
 
 // ============================================================================

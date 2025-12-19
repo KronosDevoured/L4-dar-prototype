@@ -102,6 +102,7 @@ export const PHYSICS_DEFAULTS = {
   accelYaw: 521,
   accelRoll: 2153,
   curve: 1.0,
+  stickRange: 1.0,
   damp: 2.96,
   dampDAR: 4.35,
   brake: 0.0,

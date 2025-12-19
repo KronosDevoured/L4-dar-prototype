@@ -20,6 +20,7 @@ let _settings = {
   maxAccelYaw: PHYSICS_DEFAULTS.accelYaw,
   maxAccelRoll: PHYSICS_DEFAULTS.accelRoll,
   inputPow: PHYSICS_DEFAULTS.curve,
+  stickRange: PHYSICS_DEFAULTS.stickRange,
   damp: PHYSICS_DEFAULTS.damp,
   dampDAR: PHYSICS_DEFAULTS.dampDAR,
   brakeOnRelease: PHYSICS_DEFAULTS.brake,
@@ -134,7 +135,7 @@ function validateSetting(key, value) {
 
   // Numeric settings validation
   const numericSettings = [
-    'maxAccelPitch', 'maxAccelYaw', 'maxAccelRoll', 'inputPow',
+    'maxAccelPitch', 'maxAccelYaw', 'maxAccelRoll', 'inputPow', 'stickRange',
     'damp', 'dampDAR', 'brakeOnRelease', 'wMax', 'wMaxPitch', 'wMaxYaw', 'wMaxRoll',
     'circleTiltAngle', 'circleTiltModifier', 'circleScale', 'zoom', 'arrowScale',
     'brightnessDark', 'brightnessLight', 'airRoll', 'lastActiveAirRoll',
@@ -280,6 +281,7 @@ export function resetPhysicsDefaults() {
   _settings.maxAccelYaw = PHYSICS_DEFAULTS.accelYaw;
   _settings.maxAccelRoll = PHYSICS_DEFAULTS.accelRoll;
   _settings.inputPow = PHYSICS_DEFAULTS.curve;
+  _settings.stickRange = PHYSICS_DEFAULTS.stickRange;
   _settings.damp = PHYSICS_DEFAULTS.damp;
   _settings.dampDAR = PHYSICS_DEFAULTS.dampDAR;
   _settings.brakeOnRelease = PHYSICS_DEFAULTS.brake;

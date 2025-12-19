@@ -121,6 +121,7 @@ export class UIManager {
     const accelYawTag = document.getElementById('accelYawTag');
     const accelRollTag = document.getElementById('accelRollTag');
     const curveTag = document.getElementById('curveTag');
+    const stickRangeTag = document.getElementById('stickRangeTag');
     const dampTag = document.getElementById('dampTag');
     const dampDARTag = document.getElementById('dampDARTag');
     const brakeTag = document.getElementById('brakeTag');
@@ -136,6 +137,7 @@ export class UIManager {
     accelYawTag.textContent = settings.maxAccelYaw.toFixed(0);
     accelRollTag.textContent = settings.maxAccelRoll.toFixed(0);
     curveTag.textContent = settings.inputPow.toFixed(2);
+    stickRangeTag.textContent = settings.stickRange.toFixed(2);
     dampTag.textContent = settings.damp.toFixed(2);
     dampDARTag.textContent = settings.dampDAR.toFixed(2);
     brakeTag.textContent = settings.brakeOnRelease.toFixed(1);
@@ -161,6 +163,7 @@ export class UIManager {
     const accelYaw = document.getElementById('accelYaw');
     const accelRoll = document.getElementById('accelRoll');
     const curveRange = document.getElementById('curveRange');
+    const stickRangeSlider = document.getElementById('stickRangeSlider');
     const dampRange = document.getElementById('dampRange');
     const dampDARRange = document.getElementById('dampDARRange');
     const brakeRange = document.getElementById('brakeRange');
@@ -175,6 +178,7 @@ export class UIManager {
     const accelYawTag = document.getElementById('accelYawTag');
     const accelRollTag = document.getElementById('accelRollTag');
     const curveTag = document.getElementById('curveTag');
+    const stickRangeTag = document.getElementById('stickRangeTag');
     const dampTag = document.getElementById('dampTag');
     const dampDARTag = document.getElementById('dampDARTag');
     const brakeTag = document.getElementById('brakeTag');
@@ -189,7 +193,8 @@ export class UIManager {
       {tag: accelPitchTag, slider: accelPitch, setter: (v) => settings.maxAccelPitch = Math.max(0, Math.min(1200, parseFloat(v) || 400))},
       {tag: accelYawTag, slider: accelYaw, setter: (v) => settings.maxAccelYaw = Math.max(0, Math.min(1200, parseFloat(v) || 400))},
       {tag: accelRollTag, slider: accelRoll, setter: (v) => settings.maxAccelRoll = Math.max(0, Math.min(1200, parseFloat(v) || 400))},
-      {tag: curveTag, slider: curveRange, setter: (v) => settings.inputPow = Math.max(1, Math.min(4, parseFloat(v) || 1.0))},
+      {tag: curveTag, slider: curveRange, setter: (v) => settings.inputPow = Math.max(0.01, Math.min(4, parseFloat(v) || 1.0))},
+      {tag: stickRangeTag, slider: stickRangeSlider, setter: (v) => settings.stickRange = Math.max(0.01, Math.min(1.0, parseFloat(v) || 1.0))},
       {tag: dampTag, slider: dampRange, setter: (v) => settings.damp = Math.max(0, Math.min(6, parseFloat(v) || 2.96))},
       {tag: dampDARTag, slider: dampDARRange, setter: (v) => settings.dampDAR = Math.max(0, Math.min(6, parseFloat(v) || 4.35))},
       {tag: brakeTag, slider: brakeRange, setter: (v) => settings.brakeOnRelease = Math.max(0, Math.min(6, parseFloat(v) || 0))},
@@ -250,6 +255,7 @@ export class UIManager {
     const accelYaw = document.getElementById('accelYaw');
     const accelRoll = document.getElementById('accelRoll');
     const curveRange = document.getElementById('curveRange');
+    const stickRangeSlider = document.getElementById('stickRangeSlider');
     const dampRange = document.getElementById('dampRange');
     const dampDARRange = document.getElementById('dampDARRange');
     const brakeRange = document.getElementById('brakeRange');
@@ -266,6 +272,7 @@ export class UIManager {
     accelYaw.addEventListener('input', () => { settings.maxAccelYaw = parseFloat(accelYaw.value) || 400; syncTags(); saveSettings(); });
     accelRoll.addEventListener('input', () => { settings.maxAccelRoll = parseFloat(accelRoll.value) || 400; syncTags(); saveSettings(); });
     curveRange.addEventListener('input', () => { settings.inputPow = parseFloat(curveRange.value) || 1.0; syncTags(); saveSettings(); });
+    stickRangeSlider.addEventListener('input', () => { settings.stickRange = parseFloat(stickRangeSlider.value) || 1.0; syncTags(); saveSettings(); });
     dampRange.addEventListener('input', () => { settings.damp = parseFloat(dampRange.value) || 2.96; syncTags(); saveSettings(); });
     dampDARRange.addEventListener('input', () => { settings.dampDAR = parseFloat(dampDARRange.value) || 4.35; syncTags(); saveSettings(); });
     brakeRange.addEventListener('input', () => { settings.brakeOnRelease = parseFloat(brakeRange.value) || 0.0; syncTags(); saveSettings(); });

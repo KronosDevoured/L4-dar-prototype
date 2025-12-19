@@ -177,6 +177,7 @@ function integrate(dt) {
 
     // Input shaping
     inputPow: settings.inputPow,
+    stickRange: settings.stickRange,
 
     // Damping
     damp: settings.damp,
@@ -383,6 +384,7 @@ export function init() {
   const accelYaw = document.getElementById('accelYaw');
   const accelRoll = document.getElementById('accelRoll');
   const curveRange = document.getElementById('curveRange');
+  const stickRangeSlider = document.getElementById('stickRangeSlider');
   const dampRange = document.getElementById('dampRange');
   const dampDARRange = document.getElementById('dampDARRange');
   const brakeRange = document.getElementById('brakeRange');
@@ -397,6 +399,7 @@ export function init() {
   accelYaw.value = settings.maxAccelYaw;
   accelRoll.value = settings.maxAccelRoll;
   curveRange.value = settings.inputPow;
+  stickRangeSlider.value = settings.stickRange;
   dampRange.value = settings.damp;
   dampDARRange.value = settings.dampDAR;
   brakeRange.value = settings.brakeOnRelease;

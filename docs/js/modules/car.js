@@ -100,7 +100,14 @@ export function loadCarModel(presetName, scene) {
       const model = gltf.scene;
 
       console.log(`Loaded ${presetName} model:`, model);
-      console.log('Model bounding box:', model.children.length, 'children');
+      console.log('Model children:', model.children.length);
+
+      // Calculate bounding box to check model size
+      const box = new THREE.Box3().setFromObject(model);
+      const size = new THREE.Vector3();
+      box.getSize(size);
+      console.log('Model size (before scale):', size);
+      console.log('Model position:', model.position);
 
       model.traverse((o) => {
         if (o.isMesh) {
@@ -124,8 +131,10 @@ export function loadCarModel(presetName, scene) {
       } else if (presetName === 'fennec') {
         // Fennec: Uses Octane hitbox with nearly identical COM
         // RLBot measurement shows COM is ~4.93 uu forward (vs Octane's 4.85)
-        xOffset = -4.93; // Negative moves model backward, making rotation point forward
-        yOffset = -BOX.hy + 1.23; // Raise model slightly (COM is 1.23 uu above geometric center)
+        // NOTE: Fennec model uses scale 160 vs 1.6, so offsets need adjustment
+        // These values are scaled down by factor of 100 to match model's internal units
+        xOffset = -4.93 / 100; // Forward bias (scaled for Fennec model)
+        yOffset = (-BOX.hy + 1.23) / 100; // Vertical offset (scaled for Fennec model)
         zOffset = 0; // Centered laterally (symmetric car)
       } else if (presetName === 'dominus') {
         // Dominus: Shift model BACKWARD so rotation happens around forward-biased COM
@@ -138,8 +147,15 @@ export function loadCarModel(presetName, scene) {
       // Apply position with offsets
       model.position.set(xOffset, yOffset, zOffset);
 
-      // Scale the GLB
-      const CAR_SCALE = 1.6;
+      // Scale the GLB - Fennec model needs different scale due to different internal units
+      let CAR_SCALE = 1.6; // Default for Octane/Dominus
+      if (presetName === 'fennec') {
+        // Fennec model is internally ~100x smaller, needs larger scale
+        // Target: Octane hitbox is 171.3 x 73.6 x 240 uu
+        // Fennec model size: 1.4 x 0.51 x 0.71 units
+        // Scale needed: ~170 / 1.4 ≈ 121, but we want final size to match 1.6 scale
+        CAR_SCALE = 160; // Approximation to match Octane size
+      }
       model.scale.set(CAR_SCALE, CAR_SCALE, CAR_SCALE);
 
       // Rotate so nose points along +Z (toward camera)
