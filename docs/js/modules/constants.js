@@ -76,6 +76,7 @@ export const THEMES = {
 export const CAR_PRESETS = {
   placeholder: { hx: 70, hy: 28, hz: 120 },
   octane: { hx: 85.65, hy: 36.8, hz: 120 },
+  fennec: { hx: 85.65, hy: 36.8, hz: 120 }, // Same hitbox as Octane
   dominus: { hx: 77.9, hy: 29.3, hz: 120 }
 };
 

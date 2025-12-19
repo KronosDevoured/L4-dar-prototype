@@ -117,6 +117,12 @@ export function loadCarModel(presetName, scene) {
         xOffset = -4.85; // Negative moves model backward, making rotation point forward
         yOffset = -BOX.hy; // Keep at hitbox bottom (no vertical COM offset)
         zOffset = 0; // Centered laterally (symmetric car)
+      } else if (presetName === 'fennec') {
+        // Fennec: Uses Octane hitbox with nearly identical COM
+        // RLBot measurement shows COM is ~4.93 uu forward (vs Octane's 4.85)
+        xOffset = -4.93; // Negative moves model backward, making rotation point forward
+        yOffset = -BOX.hy + 1.23; // Raise model slightly (COM is 1.23 uu above geometric center)
+        zOffset = 0; // Centered laterally (symmetric car)
       } else if (presetName === 'dominus') {
         // Dominus: Shift model BACKWARD so rotation happens around forward-biased COM
         // RLBot measurement shows COM is ~5.34 uu forward of geometric center
