@@ -98,6 +98,9 @@ export function loadCarModel(presetName, scene) {
     (gltf) => {
       const model = gltf.scene;
 
+      console.log(`Loaded ${presetName} model:`, model);
+      console.log('Model bounding box:', model.children.length, 'children');
+
       model.traverse((o) => {
         if (o.isMesh) {
           o.castShadow = false;

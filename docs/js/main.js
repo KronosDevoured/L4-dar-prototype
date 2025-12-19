@@ -129,6 +129,7 @@ function initSettingsSliders() {
     syncTags,
     saveSettings,
     buildCar: (name) => {
+      console.log(`Building car: ${name}`, CONST.CAR_PRESETS[name]);
       Car.buildCar(CONST.CAR_PRESETS[name], name, sceneManager.getScene());
       Car.car.quaternion.identity();
       Car.car.rotation.set(Math.PI * 1.5, 0, Math.PI);
