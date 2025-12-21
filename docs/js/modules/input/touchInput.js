@@ -438,16 +438,26 @@ export function handleTouchResize() {
 
 let hudElement = null;
 let savedCallbacks = {};
+let pointerDownHandler = null;
+let pointerMoveHandler = null;
+let pointerUpHandler = null;
+let pointerCancelHandler = null;
 
 export function initTouch(hud, callbacks = {}) {
   hudElement = hud;
   savedCallbacks = callbacks;
 
+  // Create handlers so we can remove them later
+  pointerDownHandler = (e) => onPointerDown(e, callbacks);
+  pointerMoveHandler = (e) => onPointerMove(e, callbacks);
+  pointerUpHandler = (e) => endPtr(e.pointerId, callbacks);
+  pointerCancelHandler = (e) => endPtr(e.pointerId, callbacks);
+
   // Set up touch event listeners
-  hud.addEventListener('pointerdown', (e) => onPointerDown(e, callbacks), { passive: false });
-  hud.addEventListener('pointermove', (e) => onPointerMove(e, callbacks), { passive: false });
-  hud.addEventListener('pointerup', (e) => endPtr(e.pointerId, callbacks), { passive: false });
-  hud.addEventListener('pointercancel', (e) => endPtr(e.pointerId, callbacks), { passive: false });
+  hud.addEventListener('pointerdown', pointerDownHandler, { passive: false });
+  hud.addEventListener('pointermove', pointerMoveHandler, { passive: false });
+  hud.addEventListener('pointerup', pointerUpHandler, { passive: false });
+  hud.addEventListener('pointercancel', pointerCancelHandler, { passive: false });
 
   // Ensure all button positions are correct for current window size
   handleTouchResize();
@@ -515,6 +525,15 @@ export function getShowBoostButton() {
  * Call this when shutting down the application to prevent memory leaks
  */
 export function cleanup() {
+  // Remove event listeners
+  if (hudElement && pointerDownHandler) {
+    hudElement.removeEventListener('pointerdown', pointerDownHandler, { passive: false });
+    hudElement.removeEventListener('pointermove', pointerMoveHandler, { passive: false });
+    hudElement.removeEventListener('pointerup', pointerUpHandler, { passive: false });
+    hudElement.removeEventListener('pointercancel', pointerCancelHandler, { passive: false });
+    hudElement = null;
+  }
+
   // Clear timers
   if (holdTimer) {
     clearTimeout(holdTimer);
@@ -545,4 +564,12 @@ export function cleanup() {
   boostPressT = 0;
   showBoostButton = false;
   boostButtonEverShown = false;
+  
+  // Clear pointers and handlers
+  activePointers.clear();
+  savedCallbacks = {};
+  pointerDownHandler = null;
+  pointerMoveHandler = null;
+  pointerUpHandler = null;
+  pointerCancelHandler = null;
 }

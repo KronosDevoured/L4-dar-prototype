@@ -1028,17 +1028,47 @@ export function printAxisData() {
 // AXIS LOCK FUNCTIONS
 // ============================================================================
 
+/**
+ * Toggle pitch lock with validation
+ * Prevents locking during high rotation to avoid physics jitter
+ * @returns {boolean} - New lock state
+ */
 export function togglePitchLock() {
+  const angularVelMagnitude = w.length();
+  if (angularVelMagnitude > 2.0) {
+    console.warn('Cannot toggle pitch lock during high rotation (rate:', angularVelMagnitude.toFixed(2), 'rad/s)');
+    return pitchLocked;
+  }
   pitchLocked = !pitchLocked;
   return pitchLocked;
 }
 
+/**
+ * Toggle yaw lock with validation
+ * Prevents locking during high rotation to avoid physics jitter
+ * @returns {boolean} - New lock state
+ */
 export function toggleYawLock() {
+  const angularVelMagnitude = w.length();
+  if (angularVelMagnitude > 2.0) {
+    console.warn('Cannot toggle yaw lock during high rotation (rate:', angularVelMagnitude.toFixed(2), 'rad/s)');
+    return yawLocked;
+  }
   yawLocked = !yawLocked;
   return yawLocked;
 }
 
+/**
+ * Toggle roll lock with validation
+ * Prevents locking during high rotation to avoid physics jitter
+ * @returns {boolean} - New lock state
+ */
 export function toggleRollLock() {
+  const angularVelMagnitude = w.length();
+  if (angularVelMagnitude > 2.0) {
+    console.warn('Cannot toggle roll lock during high rotation (rate:', angularVelMagnitude.toFixed(2), 'rad/s)');
+    return rollLocked;
+  }
   rollLocked = !rollLocked;
   return rollLocked;
 }

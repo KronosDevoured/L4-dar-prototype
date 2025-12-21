@@ -498,6 +498,16 @@ export function initInput(hud, callbacks = {}) {
 }
 
 /**
+ * Cleanup input module resources
+ * Call this when shutting down the application to prevent memory leaks
+ */
+export function cleanupInput() {
+  TouchInput.cleanup();
+  KeyboardInput.cleanupKeyboard();
+  GamepadInput.cleanupGamepad();
+}
+
+/**
  * Handle keyboard air roll in hold mode
  */
 function handleKeyboardAirRoll(airRollKeys) {
