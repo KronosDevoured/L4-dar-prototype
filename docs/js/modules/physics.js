@@ -729,10 +729,13 @@ export function updatePhysics(dt, settings, chromeShown) {
       Car.yellowTornadoLine.quaternion.copy(lineQuat);
     } else {
       // Not enough history yet, use simple stick-based rotation
+      // Fix: for Air Roll Right, invert stickY so up/down are not swapped when rotation is locked
       const airRoll = Input.getAirRoll();
       const invertForAirRollLeft = (airRoll === -1);
+      const invertStickYForAirRollRight = (airRoll === 1);
+
       const stickX = invertForAirRollLeft ? ux : -ux;
-      const stickY = uy;
+      const stickY = invertStickYForAirRollRight ? -uy : uy;
       const lineDirectionX = -stickY;
       const lineDirectionY = stickX;
       const tiltAmount = 0.5;
