@@ -12,6 +12,7 @@ import * as KeyboardInput from './input/keyboardInput.js';
 import * as GamepadInput from './input/gamepadInput.js';
 import * as AirRollController from './input/airRollController.js';
 import * as RingMode from './ringMode.js';
+import { MenuNavigator } from './menuNavigator.js';
 
 /* ===========================
  * DEVICE DETECTION
@@ -29,11 +30,9 @@ const isDesktop = !isMobile;
 // Menu state (controlled externally but needed for input blocking)
 let chromeShown = false;
 
-// Menu navigation
-let menuFocusIndex = 0;
-let menuFocusableElements = [];
-let menuNavigationCooldown = 0;
-const MENU_NAV_COOLDOWN = 200; // ms between navigation inputs
+// Menu navigation - using MenuNavigator class
+const menuNavigator = new MenuNavigator();
+menuNavigator.setCooldownDuration(200);
 
 function updateMenuFocusableElements() {
   // Get all interactive elements in the menu, including card headers
