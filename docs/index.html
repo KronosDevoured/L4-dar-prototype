@@ -175,16 +175,16 @@
   <canvas id="hud"></canvas>
 
   <!-- HAMBURGER -->
-  <button id="menuBtn" type="button" title="Open Menu"><span class="bar"></span><span class="bar"></span><span class="bar"></span></button>
+  <button id="menuBtn" type="button" title="Open Menu" aria-label="Open settings menu"><span class="bar"></span><span class="bar"></span><span class="bar"></span></button>
 
   <!-- FULLSCREEN TOGGLE -->
-  <button id="fullscreenBtn" type="button" title="Toggle Fullscreen">⛶</button>
+  <button id="fullscreenBtn" type="button" title="Toggle Fullscreen" aria-label="Toggle fullscreen mode">⛶</button>
 
   <!-- THEME TOGGLE (Sun/Moon) -->
-  <button id="themeBtn" type="button" title="Toggle Day/Night Mode">🌙</button>
+  <button id="themeBtn" type="button" title="Toggle Day/Night Mode" aria-label="Toggle between light and dark theme">🌙</button>
 
   <!-- RING MODE BUTTON -->
-  <button id="ringModeBtn" type="button" title="Open Ring Mode Menu">RING MODE</button>
+  <button id="ringModeBtn" type="button" title="Open Ring Mode Menu" aria-label="Open Ring Mode game menu">RING MODE</button>
 
   <!-- RING MODE MENU OVERLAY -->
   <div id="ringModeOverlay" style="display:none">
@@ -346,73 +346,73 @@
 
   <div class="row sl">
     <label for="accelPitch">Max Pitch Accel (°/s²)</label>
-    <input id="accelPitch" type="range" min="120" max="1200" step="5" value="714"/>
-    <span class="tag" id="accelPitchTag">714</span>
+    <input id="accelPitch" type="range" min="0" max="2400" step="0.01" value="733"/>
+    <span class="tag" id="accelPitchTag">733</span>
   </div>
 
   <div class="row sl">
     <label for="accelYaw">Max Yaw Accel (°/s²)</label>
-    <input id="accelYaw" type="range" min="120" max="1200" step="5" value="521"/>
-    <span class="tag" id="accelYawTag">521</span>
+    <input id="accelYaw" type="range" min="0" max="2400" step="0.01" value="528"/>
+    <span class="tag" id="accelYawTag">528</span>
   </div>
 
   <div class="row sl">
     <label for="accelRoll">Max Roll Accel (°/s²)</label>
-    <input id="accelRoll" type="range" min="120" max="2400" step="5" value="2153"/>
-    <span class="tag" id="accelRollTag">2153</span>
+    <input id="accelRoll" type="range" min="0" max="2400" step="0.01" value="898"/>
+    <span class="tag" id="accelRollTag">898</span>
   </div>
 
   <div class="row sl">
     <label for="curveRange">Input Curve</label>
-    <input id="curveRange" type="range" min="0.01" max="4.0" step="0.01" value="1.0"/>
+    <input id="curveRange" type="range" min="0" max="5.0" step="0.01" value="1.0"/>
     <span class="tag" id="curveTag">1.00</span>
   </div>
 
   <div class="row sl">
     <label for="stickRangeSlider">Stick Range</label>
-    <input id="stickRangeSlider" type="range" min="0.01" max="1.0" step="0.01" value="1.0"/>
+    <input id="stickRangeSlider" type="range" min="0" max="1.0" step="0.01" value="1.0"/>
     <span class="tag" id="stickRangeTag">1.00</span>
   </div>
 
   <div class="row sl">
     <label for="dampRange">Damp (No-DAR)</label>
-    <input id="dampRange" type="range" min="0.0" max="6.0" step="0.05" value="2.96"/>
+    <input id="dampRange" type="range" min="0" max="20.0" step="0.01" value="2.96"/>
     <span class="tag" id="dampTag">2.96</span>
   </div>
 
   <div class="row sl">
     <label for="dampDARRange">Damp (DAR)</label>
-    <input id="dampDARRange" type="range" min="0.0" max="6.0" step="0.05" value="4.35"/>
+    <input id="dampDARRange" type="range" min="0" max="20.0" step="0.01" value="4.35"/>
     <span class="tag" id="dampDARTag">4.35</span>
   </div>
 
   <div class="row sl">
     <label for="brakeRange">Release Brake</label>
-    <input id="brakeRange" type="range" min="0.0" max="6.0" step="0.1" value="0.0"/>
+    <input id="brakeRange" type="range" min="0" max="20.0" step="0.1" value="0.0"/>
     <span class="tag" id="brakeTag">0.0</span>
   </div>
 
   <div class="row sl">
     <label for="wmaxRange">Max ω (global)</label>
-    <input id="wmaxRange" type="range" min="4.0" max="24.0" step="0.1" value="5.5"/>
+    <input id="wmaxRange" type="range" min="0" max="50.0" step="0.1" value="5.5"/>
     <span class="tag" id="wmaxTag">5.5</span>
   </div>
 
   <div class="row sl">
     <label for="wmaxPitch">Max Pitch ω</label>
-    <input id="wmaxPitch" type="range" min="4.0" max="24.0" step="0.5" value="24.0"/>
+    <input id="wmaxPitch" type="range" min="0" max="50.0" step="0.01" value="24.0"/>
     <span class="tag" id="wmaxPitchTag">24.0</span>
   </div>
 
   <div class="row sl">
     <label for="wmaxYaw">Max Yaw ω</label>
-    <input id="wmaxYaw" type="range" min="4.0" max="24.0" step="0.5" value="24.0"/>
+    <input id="wmaxYaw" type="range" min="0" max="50.0" step="0.01" value="24.0"/>
     <span class="tag" id="wmaxYawTag">24.0</span>
   </div>
 
   <div class="row sl">
     <label for="wmaxRoll">Max Roll ω</label>
-    <input id="wmaxRoll" type="range" min="4.0" max="24.0" step="0.5" value="24.0"/>
+    <input id="wmaxRoll" type="range" min="0" max="50.0" step="0.01" value="24.0"/>
     <span class="tag" id="wmaxRollTag">24.0</span>
   </div>
 </div>

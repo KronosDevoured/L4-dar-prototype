@@ -245,24 +245,32 @@ function renderHUD(){
 
 let lastT = performance.now()/1000;
 function tick(){
-  const t = performance.now()/1000;
+  const frameStart = performance.now();
+  const t = frameStart / 1000;
   const dt = Math.min(0.033, Math.max(0.001, t - lastT));
   lastT = t;
 
-  // Update camera orbit
+  // Performance profiling
+  let profileStart = performance.now();
   cameraController.update(dt);
+  const cameraTime = performance.now() - profileStart;
 
-  // Update input state from Input module
+  profileStart = performance.now();
   Input.updateInput(dt);
+  const inputTime = performance.now() - profileStart;
 
+  profileStart = performance.now();
   integrate(dt);
+  const physicsTime = performance.now() - profileStart;
 
-  // Update rhythm mode
+  profileStart = performance.now();
   RhythmMode.updateRhythmMode(dt);
   RhythmModeUI.updateRhythmModeUI();
+  const rhythmTime = performance.now() - profileStart;
 
-  // Update tornado circle visualization in world space
+  profileStart = performance.now();
   updateTornadoCircle();
+  const tornadoTime = performance.now() - profileStart;
 
   const renderer = sceneManager.getRenderer();
   const scene = sceneManager.getScene();
@@ -289,6 +297,14 @@ function tick(){
   }
 
   renderHUD();
+
+  // Performance monitoring disabled for normal builds (kept for manual perf profiling)
+  // const frameTime = performance.now() - frameStart;
+  // if (frameTime > 16.67) { // Slower than 60 FPS
+  //   console.warn(`Slow frame: ${frameTime.toFixed(2)}ms`);
+  //   console.warn(`Profile - Camera: ${cameraTime.toFixed(2)}ms, Input: ${inputTime.toFixed(2)}ms, Physics: ${physicsTime.toFixed(2)}ms, Rhythm: ${rhythmTime.toFixed(2)}ms, Tornado: ${tornadoTime.toFixed(2)}ms`);
+  // }
+
   requestAnimationFrame(tick);
 }
 
@@ -922,5 +938,55 @@ export function init() {
   window.measureMaxAxis = Physics.measureMaxAxis;
   window.printAxisData = Physics.printAxisData;
 
+  // Expose cleanup function for proper shutdown
+  window.cleanup = cleanup;
+
   // Measurement state
+}
+
+// ============================================================================
+// CLEANUP AND MEMORY MANAGEMENT
+// ============================================================================
+
+/**
+ * Cleanup all application resources
+ * Call this when shutting down the application to prevent memory leaks
+ */
+function cleanup() {
+  try {
+    // Stop game loop (if running)
+    if (window.requestAnimationFrame) {
+      // Note: Cannot cancel requestAnimationFrame easily, but cleanup will prevent further execution
+    }
+
+    // Cleanup all modules
+    Physics.cleanup();
+    RingMode.cleanup();
+    Input.cleanup();
+    RhythmMode.cleanup();
+
+    // Cleanup managers
+    if (sceneManager) {
+      sceneManager.cleanup();
+    }
+    if (uiManager) {
+      uiManager.cleanup();
+    }
+    if (themeManager) {
+      themeManager.cleanup();
+    }
+    if (cameraController) {
+      cameraController.cleanup();
+    }
+
+    // Clear global references
+    sceneManager = null;
+    uiManager = null;
+    themeManager = null;
+    cameraController = null;
+
+    console.log('[Main] Application cleanup completed');
+  } catch (error) {
+    console.error('[Main] Error during cleanup:', error);
+  }
 }

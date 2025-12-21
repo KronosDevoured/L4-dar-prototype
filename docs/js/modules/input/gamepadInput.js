@@ -437,3 +437,21 @@ export function isGamepadPressingAirRoll() {
          isPressedForBinding(gpBindings.rollRight, pad) ||
          isPressedForBinding(gpBindings.rollFree, pad);
 }
+
+// ============================================================================
+// CLEANUP AND MEMORY MANAGEMENT
+// ============================================================================
+
+/**
+ * Cleanup gamepad input resources
+ * Call this when shutting down the application to prevent memory leaks
+ */
+export function cleanup() {
+  // Reset all state
+  gpEnabled = true;
+  gpBindings = null;
+  gpIndex = -1;
+  gpRemapping = false;
+  gpRemapReady = false;
+  gpPrevActionPressed = {};
+}

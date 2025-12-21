@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>L4 DAR Prototype - Test Suite</title>
+    <style>
+        body {
+            font-family: monospace;
+            background: #000;
+            color: #0f0;
+            padding: 20px;
+            margin: 0;
+        }
+        .test-output {
+            white-space: pre-wrap;
+            line-height: 1.4;
+        }
+        .summary {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #0f0;
+            background: rgba(0, 255, 0, 0.1);
+        }
+        .error {
+            color: #f00;
+        }
+        .success {
+            color: #0f0;
+        }
+    </style>
+</head>
+<body>
+    <h1>L4 DAR Prototype - Test Suite</h1>
+    <div id="test-output" class="test-output">Loading tests...</div>
+    <div id="summary" class="summary" style="display: none;"></div>
+
+    <!-- Load Three.js for tests that need it -->
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.164.0/build/three.module.js",
+        "three/examples/jsm/utils/BufferGeometryUtils.js": "https://unpkg.com/three@0.164.0/examples/jsm/utils/BufferGeometryUtils.js"
+      }
+    }
+    </script>
+
+    <!-- Load test runner -->
+    <script src="test-runner.js"></script>
+</body>
+</html>

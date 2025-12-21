@@ -63,12 +63,12 @@ export function init(canvasElement) {
   canvas.addEventListener('mouseleave', handleMouseUp);
 
   // Scroll wheel to scroll horizontally
-  canvas.addEventListener('wheel', handleWheel);
+  canvas.addEventListener('wheel', handleWheel, { passive: false });
 
   // Touch events for mobile pinch-to-zoom
-  canvas.addEventListener('touchstart', handleTouchStart);
-  canvas.addEventListener('touchmove', handleTouchMove);
-  canvas.addEventListener('touchend', handleTouchEnd);
+  canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+  canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+  canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
 
   // Initial render
   render();

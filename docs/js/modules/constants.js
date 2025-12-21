@@ -94,13 +94,21 @@ export const RELOCATE_HOLD_MS = 250;
 export const STICK_MIN = 0.02;
 
 // ============================================================================
+// PHYSICS CONSTANTS
+// ============================================================================
+
+export const DAR_ROLL_SPEED = 5.5; // rad/s - DAR tornado spin speed (one full roll every ~1.14 seconds)
+export const INPUT_HISTORY_SIZE = 3; // Number of frames to smooth input
+export const ANGULAR_VELOCITY_HISTORY_LENGTH = 30; // Frames to track for wobble minimization
+
+// ============================================================================
 // PHYSICS DEFAULT VALUES
 // ============================================================================
 
 export const PHYSICS_DEFAULTS = {
-  accelPitch: 714,
-  accelYaw: 521,
-  accelRoll: 2153,
+  accelPitch: 733,
+  accelYaw: 528,
+  accelRoll: 898,
   curve: 1.0,
   stickRange: 1.0,
   damp: 2.96,
@@ -117,9 +125,9 @@ export const PHYSICS_DEFAULTS = {
 // ============================================================================
 
 // Physics
-export const RING_MAX_SPEED = 1400; // Max speed cap (~60 mph equivalent)
-export const RING_BOOST_ACCEL = 1200; // Boost acceleration
-export const RING_GRAVITY = -600; // Constant downward gravity
+export const RING_MAX_SPEED = 2300; // Max speed cap (supersonic, matches RL)
+export const RING_BOOST_ACCEL = 991.667; // Boost acceleration (matches RL: 1.526x gravity)
+export const RING_GRAVITY = -650; // Constant downward gravity (matches RL)
 export const RING_GRID_BOUNDS = 1500; // Movement boundary
 export const RING_DAMPING = 2.96; // Deceleration damping (matches RL No-DAR damping)
 

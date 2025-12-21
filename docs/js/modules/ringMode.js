@@ -671,6 +671,16 @@ export function stopRingMode() {
     landingIndicator = null;
   }
 
+  // Return car to default spawn/orientation for main mode
+  if (Car.car) {
+    Car.car.quaternion.identity();
+    Car.car.rotation.set(0, 0, 0);
+    Car.car.position.set(0, 0, 0);
+  }
+
+  // Clear any carried angular velocity from ring mode
+  gameState.resetAngularVelocity();
+
   // Stop background music
   Audio.stopBackgroundMusic();
 }
@@ -1620,14 +1630,15 @@ function clearBoostFlames() {
  * @param {THREE.Quaternion} carQuaternion - Car's quaternion for forward direction
  */
 export function updateRingModePhysics(dt, inputState, carQuaternion) {
-  // Allow rhythm mode to use ring mode physics
-  const isRhythmMode = gameState && gameState.getRhythmModeActive();
+  try {
+    // Allow rhythm mode to use ring mode physics
+    const isRhythmMode = gameState && gameState.getRhythmModeActive();
 
-  if (!isRhythmMode && (!ringModeActive || ringModePaused || ringModeLives <= 0)) {
-    // Stop boost sound when game is over or paused
-    Audio.stopBoostRumble();
-    return;
-  }
+    if (!isRhythmMode && (!ringModeActive || ringModePaused || ringModeLives <= 0)) {
+      // Stop boost sound when game is over or paused
+      Audio.stopBoostRumble();
+      return;
+    }
 
   // Get car's forward direction from quaternion
   const forward = new THREE.Vector3(0, 0, 1); // Car's local forward (flipped from -1 to 1)
@@ -1722,6 +1733,11 @@ export function updateRingModePhysics(dt, inputState, carQuaternion) {
     ignoreBoostUntilRelease = true; // Ignore boost until player releases it
     ringModeLives--; // Lose a life
   }
+  } catch (error) {
+    console.error('[RingMode] Error in updateRingModePhysics:', error);
+    // Stop boost sound on error to prevent stuck audio
+    Audio.stopBoostRumble();
+  }
 }
 
 // ============================================================================
@@ -1734,12 +1750,13 @@ export function updateRingModePhysics(dt, inputState, carQuaternion) {
  * @param {number} dt - Delta time
  */
 export function updateRingModeRendering(dt) {
-  // Check if rhythm mode is active
-  const isRhythmMode = gameState && gameState.getRhythmModeActive();
+  try {
+    // Check if rhythm mode is active
+    const isRhythmMode = gameState && gameState.getRhythmModeActive();
 
-  if (!ringModeActive && !isRhythmMode) {
-    return;
-  }
+    if (!ringModeActive && !isRhythmMode) {
+      return;
+    }
 
   // Override car position to stay on grid
   if (Car.car) {
@@ -2054,4 +2071,56 @@ export function updateRingModeRendering(dt) {
 
   // Update the 3D dashed circle landing indicator on the grid
   updateLandingIndicator();
+  } catch (error) {
+    console.error('[RingMode] Error in updateRingModeRendering:', error);
+    // Reset to safe state on rendering error
+    if (Car.car) {
+      Car.car.position.set(0, 0, 0);
+    }
+  }
+}
+
+// ============================================================================
+// CLEANUP AND MEMORY MANAGEMENT
+// ============================================================================
+
+/**
+ * Cleanup Ring Mode resources
+ * Call this when shutting down the application to prevent memory leaks
+ */
+export function cleanup() {
+  // Stop all audio
+  Audio.stopBoostRumble();
+  Audio.stopBackgroundMusic();
+
+  // Reset all ring mode state
+  ringModeActive = false;
+  ringModePaused = false;
+  ringModeStarted = false;
+  ringModeLives = 3;
+  ringModeScore = 0;
+  ringModeHighScore = 0;
+  ringModeRingCount = 0;
+
+  // Clear ring arrays and dispose resources
+  for (let i = rings.length - 1; i >= 0; i--) {
+    disposeRing(rings[i]);
+  }
+  rings = [];
+
+  // Reset positions and velocities
+  ringModePosition.set(0, 0);
+  ringModeVelocity.set(0, 0);
+
+  // Reset timers
+  ringSpawnTimer = 0;
+
+  // Reset game state reference
+  gameState = null;
+
+  // Clear landing indicator
+  if (landingIndicator) {
+    scene.remove(landingIndicator);
+    landingIndicator = null;
+  }
 }

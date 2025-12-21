@@ -80,3 +80,18 @@ export function getSelectedAirRoll() {
 export function getAirRollIsToggle() {
   return airRollIsToggle;
 }
+
+// ============================================================================
+// CLEANUP AND MEMORY MANAGEMENT
+// ============================================================================
+
+/**
+ * Cleanup air roll controller resources
+ * Call this when shutting down the application to prevent memory leaks
+ */
+export function cleanup() {
+  // Reset all state to defaults
+  airRoll = 0;
+  selectedAirRoll = -1;
+  airRollIsToggle = false;
+}

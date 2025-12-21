@@ -92,22 +92,20 @@ const gltfLoader = new GLTFLoader();
  */
 export function loadCarModel(presetName, scene) {
   const url = `models/${presetName}.glb`;
-  console.log(`Attempting to load: ${url}`);
+  // Model load attempts are silent in normal builds
 
   gltfLoader.load(
     url,
     (gltf) => {
       const model = gltf.scene;
 
-      console.log(`Loaded ${presetName} model:`, model);
-      console.log('Model children:', model.children.length);
+      // Suppress verbose model load logs in normal builds
 
       // Calculate bounding box to check model size
       const box = new THREE.Box3().setFromObject(model);
       const size = new THREE.Vector3();
       box.getSize(size);
-      console.log('Model size (before scale):', size);
-      console.log('Model position:', model.position);
+      // Suppress model size/position logs in normal builds
 
       model.traverse((o) => {
         if (o.isMesh) {

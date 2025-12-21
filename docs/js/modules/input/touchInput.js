@@ -228,10 +228,11 @@ export function onPointerDown(e, callbacks) {
   // Check Retry button (only when Ring Mode is active and game over)
   else {
     const ringModeActive = callbacks?.getRingModeActive?.() || false;
-    const ringModeLives = callbacks?.getRingModeLives?.() || 0;
+    const ringModeLives = typeof callbacks?.getRingModeLives === 'function' ? callbacks.getRingModeLives() : 0;
+    const chromeShown = typeof callbacks?.getChromeShown === 'function' ? callbacks.getChromeShown() : false;
 
-    // Only handle retry button if it's visible AND touch is in button area
-    if (ringModeActive && ringModeLives <= 0 && inRetryButton(x, y)) {
+    // Only handle retry button if it's visible on-screen and no modal overlays are open
+    if (ringModeActive && ringModeLives <= 0 && !chromeShown && inRetryButton(x, y)) {
       callbacks?.onRetryPress?.();
     }
   }
@@ -503,4 +504,45 @@ export function getBoostR() {
 
 export function getShowBoostButton() {
   return showBoostButton;
+}
+
+// ============================================================================
+// CLEANUP AND MEMORY MANAGEMENT
+// ============================================================================
+
+/**
+ * Cleanup touch input resources
+ * Call this when shutting down the application to prevent memory leaks
+ */
+export function cleanup() {
+  // Clear timers
+  if (holdTimer) {
+    clearTimeout(holdTimer);
+    holdTimer = null;
+  }
+  if (darHoldTimer) {
+    clearTimeout(darHoldTimer);
+    darHoldTimer = null;
+  }
+  if (boostHoldTimer) {
+    clearTimeout(boostHoldTimer);
+    boostHoldTimer = null;
+  }
+
+  // Reset all state
+  joyActive = false;
+  joyVec.set(0, 0);
+  smJoy.set(0, 0);
+  relocating = false;
+  joyPressStartPos.set(0, 0);
+
+  darOn = false;
+  darRelocating = false;
+  darPressT = 0;
+  darPressStartPos.set(0, 0);
+
+  boostRelocating = false;
+  boostPressT = 0;
+  showBoostButton = false;
+  boostButtonEverShown = false;
 }

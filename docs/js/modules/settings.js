@@ -129,9 +129,9 @@ export function loadSettings() {
  * @param {*} value - Value to validate
  * @returns {boolean} true if valid
  */
-function validateSetting(key, value) {
-  // Type validation
-  if (value === undefined || value === null) return false;
+export function validateSetting(key, value) {
+  // Type validation - allow null for gpBindings specifically
+  if (value === undefined || (value === null && key !== 'gpBindings')) return false;
 
   // Numeric settings validation
   const numericSettings = [

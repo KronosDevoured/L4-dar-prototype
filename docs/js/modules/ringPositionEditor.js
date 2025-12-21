@@ -48,9 +48,9 @@ export function init(canvasElement) {
   canvas.addEventListener('mouseleave', handleMouseLeave);
 
   // Touch events for mobile
-  canvas.addEventListener('touchstart', handleTouchStart);
-  canvas.addEventListener('touchmove', handleTouchMoveEvent);
-  canvas.addEventListener('touchend', handleTouchEnd);
+  canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+  canvas.addEventListener('touchmove', handleTouchMoveEvent, { passive: false });
+  canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
 
   // Initial render
   render();

@@ -119,3 +119,20 @@ function updatePrevState() {
     keyPrevState.set(key, value);
   });
 }
+
+// ============================================================================
+// CLEANUP AND MEMORY MANAGEMENT
+// ============================================================================
+
+/**
+ * Cleanup keyboard input resources
+ * Call this when shutting down the application to prevent memory leaks
+ */
+export function cleanup() {
+  // Remove event listeners
+  cleanupKeyboard();
+
+  // Clear key state maps
+  keyState.clear();
+  keyPrevState.clear();
+}

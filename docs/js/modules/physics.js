@@ -10,6 +10,9 @@ import * as Car from './car.js';
 import * as Input from './input.js';
 import * as Settings from './settings.js';
 
+// Debug logging flag - set to true for development
+const DEBUG = false;
+
 // ============================================================================
 // MODULE-SCOPED PHYSICS STATE
 // ============================================================================
@@ -25,7 +28,7 @@ let w = new THREE.Vector3(0, 0, 0);
 
 // Input history for smoothing
 let inputHistory = { x: [], y: [] };
-const INPUT_HISTORY_SIZE = 3;
+const INPUT_HISTORY_SIZE = CONST.INPUT_HISTORY_SIZE;
 
 // Previous angular acceleration (for derivative term)
 let prevAlpha = new THREE.Vector3(0, 0, 0);
@@ -40,9 +43,12 @@ let AXIS_MIN_DATA = null; // { centerLocal: Vector3, axisLocal: Vector3, radius:
 let AXIS_MAX_DATA = null; // { centerLocal: Vector3, axisLocal: Vector3, radius: number }
 
 // Angular velocity tracking for wobble minimization
-const HISTORY_LENGTH = 30; // Number of frames to track
+const HISTORY_LENGTH = CONST.ANGULAR_VELOCITY_HISTORY_LENGTH; // Number of frames to track
 let angularVelocityHistory = [];
 let previousCarQuaternion = null;
+
+// Frame counter to skip expensive operations on first few frames
+let frameCounter = 0;
 
 // Load axis data from localStorage
 function loadAxisDataFromStorage() {
@@ -119,9 +125,13 @@ const KP_ROLL = 3.2, KD_ROLL = 0.25;
 // PD control gains for pitch/yaw/roll
 // Kp increased to 200.0 to allow car to reach 5.5 rad/s velocity cap
 // Kd set to 0.0 - deceleration ONLY from exponential damping when stick released (matches RL physics)
+// DAR mode uses higher gains for snappier response
 const KpPitch = 200.0, KdPitch = 0.0;
 const KpYaw   = 200.0, KdYaw   = 0.0;
 const KpRoll  = 200.0, KdRoll  = 0.0;
+const KpPitchDAR = 1.0, KdPitchDAR = 0.0;   // Lower gains for DAR (softer response)
+const KpYawDAR   = 1.0, KdYawDAR   = 0.0;
+const KpRollDAR  = 400.0, KdRollDAR  = 0.0;
 
 // ============================================================================
 // INITIALIZATION
@@ -353,17 +363,23 @@ function updateVisualizations(ux, uy, eff, settings) {
  * - wMax, wMaxPitch, wMaxYaw, wMaxRoll: Max angular velocities (rad/s)
  */
 export function updatePhysics(dt, settings, chromeShown) {
-  // Skip physics when menu is open OR when Ring Mode is paused
-  // EXCEPT during automated measurement mode
-  const allowMeasurement = window.measurementState && window.measurementState.active;
-  if (!allowMeasurement && (chromeShown || gameState.isRingModePaused())) {
-    return;
-  }
+  try {
+    frameCounter++;
 
-  // Skip physics if car hasn't been built yet
-  if (!Car.car) {
-    return;
-  }
+    // Skip physics when menu is open OR when Ring Mode is paused
+    // EXCEPT during automated measurement mode
+    const allowMeasurement = window.measurementState && window.measurementState.active;
+    if (!allowMeasurement && (chromeShown || gameState.isRingModePaused())) {
+      return;
+    }
+
+    // Skip physics if car hasn't been built yet
+    if (!Car.car) {
+      return;
+    }
+
+    // Skip expensive operations for first 10 frames to allow system to stabilize
+    const skipExpensiveOps = frameCounter < 10;
 
   // Destructure settings for easier access
   const {
@@ -409,6 +425,17 @@ export function updatePhysics(dt, settings, chromeShown) {
     // Direct 1:1 mapping - stick position = input value
     ux = -jx; // right = +ux
     uy = jy;  // up = +uy
+
+    // DEBUG: Log stick input values - only when magnitude changes significantly
+    if (DEBUG && mag > 0.02) {
+      const airRoll = Input.getAirRoll();
+      const isDARActive = (airRoll === -1 || airRoll === 1) || Input.getDarOn();
+      // Only log when values change by >0.01 to reduce spam
+      if (!window.lastLoggedStick || Math.abs(ux - window.lastLoggedStick.ux) > 0.01 || Math.abs(uy - window.lastLoggedStick.uy) > 0.01) {
+        console.log(`[STICK] ux: ${ux.toFixed(3)} | uy: ${uy.toFixed(3)} | angle: ${(Math.atan2(uy, ux) * 180 / Math.PI).toFixed(1)}° | mag: ${mag.toFixed(3)}`);
+        window.lastLoggedStick = {ux, uy};
+      }
+    }
   }
 
   // === RING MODE: Calculate movement forces (normal rotation physics will run below) ===
@@ -441,13 +468,6 @@ export function updatePhysics(dt, settings, chromeShown) {
   let maxAccelYawRad   = (maxAccelYaw   * Math.PI) / 180;
   let maxAccelRollRad  = (maxAccelRoll  * Math.PI) / 180;
 
-  // --- 3.5. DAR acceleration multipliers (from RL measurements) ---
-  if (Input.getDarOn()) {
-    maxAccelPitchRad *= 0.997;  // DAR: 714→712 deg/s²
-    maxAccelYawRad *= 1.00;      // DAR: 521→522 deg/s² (no change)
-    maxAccelRollRad *= 0.98;     // DAR: 2153→2110 deg/s²
-  }
-
   // --- 4. Desired angular velocities (rate control) ---
   // During tornado spins (DAR + stick input), RL achieves much lower pitch/yaw than the global cap
   // From yaw_dar_test.csv: wx≈5.13, wy≈-0.73, wz≈1.84 during steady tornado spin
@@ -462,13 +482,26 @@ export function updatePhysics(dt, settings, chromeShown) {
   // Check if using directional air roll (Left/Right)
   const isDirectionalAirRoll = (Input.getAirRoll() === -1 || Input.getAirRoll() === 1);
 
+  // --- 3.5. DAR acceleration multipliers (from RL measurements) ---
+  // DISABLED FOR TORNADO SPINS: These multipliers make controls too aggressive
+  // The 2-3x acceleration boost causes cardinals to dominate over diagonals
+  // when the global 5.5 rad/s cap is active
+  // TODO: Research if these multipliers apply to tornado spins in actual RL
+  /*
+  if (isDirectionalAirRoll || Input.getDarOn()) {
+    maxAccelPitchRad *= 2.33;   // DAR: 733→1711 deg/s² (2.33x multiplier)
+    maxAccelYawRad *= 2.96;      // DAR: 528→1562 deg/s² (2.96x multiplier)
+    maxAccelRollRad *= 1.60;     // DAR: 898→1437 deg/s² (1.60x multiplier)
+  }
+  */
+
   // Directional air roll tornado spin
   // This activates when:
   // 1. Air Roll Left/Right buttons are pressed (Square/Circle on gamepad, Q/E on keyboard)
   // 2. DAR button is active with a selected direction in the menu
   if ((isDirectionalAirRoll || Input.getDarOn()) && !isAirRollFree) {
     // DAR roll speed: 5.5 rad/s (one full roll every ~1.14 seconds)
-    targetRollSpeed = Input.getAirRoll() * 5.5;  // rad/s
+    targetRollSpeed = Input.getAirRoll() * CONST.DAR_ROLL_SPEED;  // rad/s
   }
 
   // stick → desired spin rates
@@ -480,20 +513,53 @@ export function updatePhysics(dt, settings, chromeShown) {
     wy_des = 0;                         // no yaw
     wz_des = wMaxRoll * eff * (-ux);   // roll (left stick = roll left, right stick = roll right)
   } else {
-    // Normal or tornado spin controls: use slider maxes for normal, special handling for tornado
-    // When DAR is active, reduce pitch/yaw to 55% to match RL tornado radius
-    const darActive = (isDirectionalAirRoll || Input.getDarOn());
-    const darMultiplier = darActive ? 0.55 : 1.0;
-    wx_des = maxPitchSpeed * eff * uy * darMultiplier; // pitch
-    wy_des = maxYawSpeed   * eff * ux * darMultiplier; // yaw
-    wz_des = targetRollSpeed;                          // roll from DAR
+    // Directional Air Roll (tornado spin) vs Normal flight
+    if (isDirectionalAirRoll || Input.getDarOn()) {
+      // DAR tornado spin: share a fixed angular velocity budget so axes don't stack
+      // Use stick direction AND magnitude for pitch/yaw; roll stays at DAR speed
+      const darPitchYawCap = wMax * 0.50; // ~2.75 rad/s when wMax=5.5 (matches RL budget share)
+      const maxPitchSpeedDar = Math.min(maxPitchSpeed, darPitchYawCap);
+      const maxYawSpeedDar   = Math.min(maxYawSpeed,   darPitchYawCap);
+
+      const wx_raw = maxPitchSpeedDar * eff * uy;  // pitch
+      const wy_raw = maxYawSpeedDar   * eff * ux;  // yaw
+      const wz_raw = targetRollSpeed;     // roll
+
+      // Normalize full vector to the global cap so pitch/yaw trade off smoothly
+      const rawMag = Math.sqrt(wx_raw * wx_raw + wy_raw * wy_raw + wz_raw * wz_raw);
+      if (rawMag > 1e-6) {
+        const scale = Math.min(1, wMax / rawMag);
+        wx_des = wx_raw * scale;
+        wy_des = wy_raw * scale;
+        wz_des = wz_raw * scale;
+      } else {
+        wx_des = 0;
+        wy_des = 0;
+        wz_des = 0;
+      }
+    } else {
+      // Normal flight (no DAR): independent pitch/yaw control
+      wx_des = maxPitchSpeed * eff * uy; // pitch
+      wy_des = maxYawSpeed * eff * ux;   // yaw
+      wz_des = 0; // no roll command
+    }
+  }
+
+  // DEBUG: Log desired angular velocities during DAR
+  if (DEBUG && isDirectionalAirRoll && eff > 0.02) {
+    if (!window.lastLoggedDesiredW ||
+        Math.abs(wx_des - window.lastLoggedDesiredW.wx) > 0.1 ||
+        Math.abs(wy_des - window.lastLoggedDesiredW.wy) > 0.1) {
+      console.log(`[DESIRED W] wx_des: ${wx_des.toFixed(3)} | wy_des: ${wy_des.toFixed(3)} | wz_des: ${wz_des.toFixed(3)} | eff: ${eff.toFixed(3)}`);
+      window.lastLoggedDesiredW = {wx: wx_des, wy: wy_des};
+    }
   }
 
   // --- Update tornado circle visualizer ---
   const stickMag = Math.sqrt(ux * ux + uy * uy);
 
   // MEASUREMENT MODE: Track nose position through 179°-181° roll rotation
-  if (tornadoMeasurement.measuring && stickMag > 0.01) {
+  if (tornadoMeasurement.measuring && stickMag > 0.01 && !skipExpensiveOps) {
     const carQuat = Car.car.quaternion.clone();
     const carPos = Car.car.position.clone();
     const noseLocal = new THREE.Vector3(0, 0, Car.BOX.hz);
@@ -570,9 +636,8 @@ export function updatePhysics(dt, settings, chromeShown) {
   // Only active when using air roll left or right (DAR), not air roll free
   // Also respects the showCircle setting (Don't Show Ring hides the tornado spin indicator)
   const airRoll = Input.getAirRoll();
-  const isDARActive = (airRoll === -1 || airRoll === 1);
 
-  if (stickMag > 0.01 && isDARActive && showCircle) {
+  if (stickMag > 0.01 && ((airRoll === -1 || airRoll === 1) || Input.getDarOn()) && showCircle && !skipExpensiveOps) {
     Car.yellowTornadoLine.visible = true; // Must be visible for children to show
 
     // Make the yellow line itself invisible by setting opacity to 0
@@ -610,7 +675,7 @@ export function updatePhysics(dt, settings, chromeShown) {
     }
 
     // Calculate angular velocity from quaternion change
-    if (previousCarQuaternion) {
+    if (previousCarQuaternion && !skipExpensiveOps) {
       // Get current rotation delta
       const currentQuat = Car.car.quaternion.clone();
       const deltaQuat = new THREE.Quaternion();
@@ -778,25 +843,42 @@ export function updatePhysics(dt, settings, chromeShown) {
   }
 
   // --- 5. PD control → angular acceleration per axis ---
-  // CRITICAL: Only apply PD control when stick is active OR directional air roll is active!
-  // When stick is released (eff < 0.02) AND no air roll command, PD control would aggressively
-  // drive velocity to zero, causing the car to stop in ~0.25s instead of coasting naturally over ~1.5s.
-  // Rocket League uses ONLY exponential damping when inputs are released (no PD control).
+  // CRITICAL: Control logic depends on mode!
+  // Normal mode: PD control with acceleration
+  // DAR mode: Direct velocity assignment for ZERO inertia (instant direction changes)
   const hasStickInput = eff >= 0.02;
   const hasRollCommand = Math.abs(targetRollSpeed) > 0.01; // Air Roll Left/Right or DAR active
-  const noInput = !hasStickInput && !hasRollCommand;
+  const isDARActive = isDirectionalAirRoll || Input.getDarOn();
+  const noInput = !hasStickInput && !hasRollCommand && !isDARActive; // DAR keeps PD active
 
   let ax = 0, ay = 0, az = 0;
-
+  
   if (!noInput) {
-    // Input is active (stick or air roll) - apply PD control to reach desired velocities
-    const ax_des = KpPitch * (wx_des - w.x) - KdPitch * w.x;
-    const ay_des = KpYaw   * (wy_des - w.y) - KdYaw   * w.y;
-    const az_des = KpRoll  * (wz_des - w.z) - KdRoll  * w.z;
+    // PD control with acceleration (applies to DAR too; global cap will clamp magnitude)
+    const kpPitch = KpPitch;
+    const kpYaw   = KpYaw;
+    const kpRoll  = KpRoll;
+    const kdPitch = KdPitch;
+    const kdYaw   = KdYaw;
+    const kdRoll  = KdRoll;
+
+    const ax_des = kpPitch * (wx_des - w.x) - kdPitch * w.x;
+    const ay_des = kpYaw   * (wy_des - w.y) - kdYaw   * w.y;
+    const az_des = kpRoll  * (wz_des - w.z) - kdRoll  * w.z;
 
     ax = THREE.MathUtils.clamp(ax_des, -maxAccelPitchRad, maxAccelPitchRad);
     ay = THREE.MathUtils.clamp(ay_des, -maxAccelYawRad,   maxAccelYawRad);
     az = THREE.MathUtils.clamp(az_des, -maxAccelRollRad,  maxAccelRollRad);
+
+    // DEBUG: Log angular accelerations during DAR
+    if (DEBUG && isDirectionalAirRoll && eff > 0.02) {
+      if (!window.lastLoggedAccel ||
+          Math.abs(ax - window.lastLoggedAccel.ax) > 0.5 ||
+          Math.abs(ay - window.lastLoggedAccel.ay) > 0.5) {
+        console.log(`[ACCEL] ax: ${ax.toFixed(2)} | ay: ${ay.toFixed(2)} | az: ${az.toFixed(2)} | current w: (${w.x.toFixed(2)}, ${w.y.toFixed(2)}, ${w.z.toFixed(2)})`);
+        window.lastLoggedAccel = {ax, ay};
+      }
+    }
   }
   // else: All inputs released - no PD control, only damping will apply later
 
@@ -811,30 +893,48 @@ export function updatePhysics(dt, settings, chromeShown) {
   if (rollLocked) w.z = 0;
 
   // --- 7. Damping + release brake ---
-  // CRITICAL: Damping only applies when ALL inputs are released!
+  // CRITICAL: Damping behavior depends on mode!
+  // Normal mode: Only damp when ALL inputs released (matches RL)
+  // DAR mode: No damping needed - velocity is set directly
   if (noInput) {
-    // Check if DAR is active from ANY source (gamepad or touch)
-    const isDARActive = isDirectionalAirRoll || Input.getDarOn();
+    // All inputs released - apply normal damping
     const baseDamp = isDARActive ? dampDAR : damp;
     const dampEff = (baseDamp || 0) + ((!isDARActive) ? (brakeOnRelease || 0) : 0);
     const scale = Math.exp(-dampEff * dt);
     w.multiplyScalar(scale);
   }
+  // DAR with active input: No damping - velocity is set directly for zero inertia
 
   // --- 8. Per-axis caps + Global magnitude cap ---
-  // Apply per-axis caps first
-  if (Math.abs(w.x) > wMaxPitch) w.x = Math.sign(w.x) * wMaxPitch;
-  if (Math.abs(w.y) > wMaxYaw)   w.y = Math.sign(w.y) * wMaxYaw;
-  if (Math.abs(w.z) > wMaxRoll) w.z = Math.sign(w.z) * wMaxRoll;
+  // Apply per-axis caps first (DAR uses tighter pitch/yaw cap to match RL budget)
+  const wMaxPitchCap = isDARActive ? Math.min(wMaxPitch, wMax * 0.50) : wMaxPitch;
+  const wMaxYawCap   = isDARActive ? Math.min(wMaxYaw,   wMax * 0.50) : wMaxYaw;
 
-  // Global magnitude cap (5.5 rad/s) - only apply to pitch/yaw (stick axes)
-  // Roll is kept separate and doesn't count toward the cap
-  const pitchYawMag = Math.sqrt(w.x * w.x + w.y * w.y);
-  if (pitchYawMag > wMax) {
-    const scale = wMax / pitchYawMag;
-    w.x *= scale;
-    w.y *= scale;
-    // w.z unchanged - roll doesn't get scaled by global cap
+  if (Math.abs(w.x) > wMaxPitchCap) w.x = Math.sign(w.x) * wMaxPitchCap;
+  if (Math.abs(w.y) > wMaxYawCap)   w.y = Math.sign(w.y) * wMaxYawCap;
+  if (Math.abs(w.z) > wMaxRoll)     w.z = Math.sign(w.z) * wMaxRoll;
+
+  // Global magnitude cap (5.5 rad/s) - only applies during DAR mode
+  // Air Roll (Free) and normal flight allow independent per-axis control
+  if (isDARActive) {
+    const totalMag = Math.sqrt(w.x * w.x + w.y * w.y + w.z * w.z);
+    if (totalMag > wMax) {
+      const scale = wMax / totalMag;
+      w.x *= scale;
+      w.y *= scale;
+      w.z *= scale;
+    }
+  }
+
+  // DEBUG: Log final angular velocity after all processing
+  if (DEBUG && isDirectionalAirRoll && eff > 0.02) {
+    if (!window.lastLoggedFinalW ||
+        Math.abs(w.x - window.lastLoggedFinalW.wx) > 0.1 ||
+        Math.abs(w.y - window.lastLoggedFinalW.wy) > 0.1) {
+      const finalMag = Math.sqrt(w.x * w.x + w.y * w.y + w.z * w.z);
+      console.log(`[FINAL W] wx: ${w.x.toFixed(3)} | wy: ${w.y.toFixed(3)} | wz: ${w.z.toFixed(3)} | mag: ${finalMag.toFixed(3)}`);
+      window.lastLoggedFinalW = {wx: w.x, wy: w.y};
+    }
   }
 
   // --- 9. Quaternion integration ---
@@ -856,6 +956,13 @@ export function updatePhysics(dt, settings, chromeShown) {
 
   // === RING MODE: Override car position and update rings ===
   RingMode.updateRingModeRendering(dt);
+  } catch (error) {
+    console.error('[Physics] Error in updatePhysics:', error);
+    // Reset angular velocity on physics error to prevent unstable state
+    if (gameState) {
+      gameState.resetAngularVelocity();
+    }
+  }
 }
 
 // ============================================================================
@@ -931,6 +1038,38 @@ export function toggleYawLock() {
 export function toggleRollLock() {
   rollLocked = !rollLocked;
   return rollLocked;
+}
+
+// ============================================================================
+// CLEANUP AND MEMORY MANAGEMENT
+// ============================================================================
+
+/**
+ * Cleanup physics module resources
+ * Call this when shutting down the application to prevent memory leaks
+ */
+export function cleanup() {
+  // Reset all physics state
+  w.set(0, 0, 0);
+  prevAlpha.set(0, 0, 0);
+  pitchLocked = false;
+  yawLocked = false;
+  rollLocked = false;
+
+  // Clear input history
+  inputHistory.x = [];
+  inputHistory.y = [];
+
+  // Clear axis data
+  AXIS_MIN_DATA = null;
+  AXIS_MAX_DATA = null;
+
+  // Clear angular velocity history
+  angularVelocityHistory = [];
+  previousCarQuaternion = null;
+
+  // Reset game state reference
+  gameState = null;
 }
 
 // ============================================================================

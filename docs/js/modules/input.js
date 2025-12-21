@@ -454,6 +454,8 @@ export function initInput(hud, callbacks = {}) {
         retryCallback();
       }
     },
+    // Visibility/state helpers used by touch layer
+    getRingModeLives: () => getRingModeLives(),
     showJoyHint: () => {}, // No-op for now
     showDARHint: () => {}, // No-op for now
     showBoostHint: () => {}, // No-op for now
@@ -462,6 +464,7 @@ export function initInput(hud, callbacks = {}) {
       // This allows boost button relocation only when NOT in Ring Mode
       return ringModeActiveState;
     },
+    getChromeShown: () => chromeShown,
     positionHints: () => {} // Handled internally by TouchInput
   };
 
@@ -625,12 +628,6 @@ export function positionHints() {
   // No-op here as hints are positioned on init and resize
 }
 
-export function cleanup() {
-  KeyboardInput.cleanupKeyboard();
-  GamepadInput.cleanupGamepad();
-  // Touch cleanup is handled when HUD is removed
-}
-
 /* ===========================
  * MENU CONTROL FUNCTIONS
  * =========================== */
@@ -775,3 +772,22 @@ export function getChromeShown() {
 
 // Constants
 export const STICK_DEADZONE = TouchInput.STICK_DEADZONE;
+
+// ============================================================================
+// CLEANUP AND MEMORY MANAGEMENT
+// ============================================================================
+
+/**
+ * Cleanup input module resources
+ * Call this when shutting down the application to prevent memory leaks
+ */
+export function cleanup() {
+  // Reset all input state
+  chromeShown = false;
+
+  // Cleanup sub-modules
+  TouchInput.cleanup();
+  KeyboardInput.cleanup();
+  GamepadInput.cleanup();
+  AirRollController.cleanup();
+}

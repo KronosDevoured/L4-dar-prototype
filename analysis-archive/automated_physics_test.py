@@ -302,6 +302,51 @@ def main():
         output_dir / "L4_roll_dar_test.csv"
     )
 
+    # Test 7: Diagonal Pitch+Yaw (45° up-right) with DAR
+    def diagonal_45_dar_input(t):
+        if t < 5.0:
+            # 45° diagonal: up-right (pitch + yaw equally)
+            return (0.707, 0.707, 0, True)  # 45° diagonal with DAR
+        else:
+            return (0.0, 0.0, 0, True)  # Release
+
+    run_test(
+        "Diagonal 45° Pitch+Yaw DAR (5s accel + 3s release)",
+        8.0,
+        diagonal_45_dar_input,
+        output_dir / "L4_diagonal_45_dar_test.csv"
+    )
+
+    # Test 8: Diagonal Pitch+Yaw (67.5° up-right) with DAR
+    def diagonal_67_dar_input(t):
+        if t < 5.0:
+            # 67.5° diagonal: mostly pitch, some yaw
+            return (0.924, 0.383, 0, True)  # 67.5° diagonal with DAR
+        else:
+            return (0.0, 0.0, 0, True)  # Release
+
+    run_test(
+        "Diagonal 67.5° Pitch+Yaw DAR (5s accel + 3s release)",
+        8.0,
+        diagonal_67_dar_input,
+        output_dir / "L4_diagonal_67_dar_test.csv"
+    )
+
+    # Test 9: Diagonal Pitch+Yaw (22.5° up-right) with DAR
+    def diagonal_22_dar_input(t):
+        if t < 5.0:
+            # 22.5° diagonal: mostly yaw, some pitch
+            return (0.383, 0.924, 0, True)  # 22.5° diagonal with DAR
+        else:
+            return (0.0, 0.0, 0, True)  # Release
+
+    run_test(
+        "Diagonal 22.5° Pitch+Yaw DAR (5s accel + 3s release)",
+        8.0,
+        diagonal_22_dar_input,
+        output_dir / "L4_diagonal_22_dar_test.csv"
+    )
+
     print("\n" + "="*70)
     print("All tests complete!")
     print(f"Results saved to: {output_dir}")

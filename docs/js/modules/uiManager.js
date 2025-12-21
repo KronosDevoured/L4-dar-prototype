@@ -133,18 +133,18 @@ export class UIManager {
     const zoomVal = document.getElementById('zoomVal');
     const arrowVal = document.getElementById('arrowVal');
 
-    accelPitchTag.textContent = settings.maxAccelPitch.toFixed(0);
-    accelYawTag.textContent = settings.maxAccelYaw.toFixed(0);
-    accelRollTag.textContent = settings.maxAccelRoll.toFixed(0);
+    accelPitchTag.textContent = settings.maxAccelPitch.toFixed(2);
+    accelYawTag.textContent = settings.maxAccelYaw.toFixed(2);
+    accelRollTag.textContent = settings.maxAccelRoll.toFixed(2);
     curveTag.textContent = settings.inputPow.toFixed(2);
     stickRangeTag.textContent = settings.stickRange.toFixed(2);
     dampTag.textContent = settings.damp.toFixed(2);
     dampDARTag.textContent = settings.dampDAR.toFixed(2);
-    brakeTag.textContent = settings.brakeOnRelease.toFixed(1);
-    wmaxTag.textContent = settings.wMax.toFixed(1);
-    wmaxPitchTag.textContent = settings.wMaxPitch.toFixed(1);
-    wmaxYawTag.textContent = settings.wMaxYaw.toFixed(1);
-    wmaxRollTag.textContent = settings.wMaxRoll.toFixed(1);
+    brakeTag.textContent = settings.brakeOnRelease.toFixed(2);
+    wmaxTag.textContent = settings.wMax.toFixed(2);
+    wmaxPitchTag.textContent = settings.wMaxPitch.toFixed(2);
+    wmaxYawTag.textContent = settings.wMaxYaw.toFixed(2);
+    wmaxRollTag.textContent = settings.wMaxRoll.toFixed(2);
     stickVal.textContent = String(Math.round(getters.getJoyBaseR()));
     zoomVal.textContent = `${(settings.zoom || 1).toFixed(2)}×`;
     arrowVal.textContent = `${(settings.arrowScale || 1).toFixed(2)}×`;
@@ -190,18 +190,18 @@ export class UIManager {
     const arrowVal = document.getElementById('arrowVal');
 
     const tagMappings = [
-      {tag: accelPitchTag, slider: accelPitch, setter: (v) => settings.maxAccelPitch = Math.max(0, Math.min(1200, parseFloat(v) || 400))},
-      {tag: accelYawTag, slider: accelYaw, setter: (v) => settings.maxAccelYaw = Math.max(0, Math.min(1200, parseFloat(v) || 400))},
-      {tag: accelRollTag, slider: accelRoll, setter: (v) => settings.maxAccelRoll = Math.max(0, Math.min(1200, parseFloat(v) || 400))},
-      {tag: curveTag, slider: curveRange, setter: (v) => settings.inputPow = Math.max(0.01, Math.min(4, parseFloat(v) || 1.0))},
-      {tag: stickRangeTag, slider: stickRangeSlider, setter: (v) => settings.stickRange = Math.max(0.01, Math.min(1.0, parseFloat(v) || 1.0))},
-      {tag: dampTag, slider: dampRange, setter: (v) => settings.damp = Math.max(0, Math.min(6, parseFloat(v) || 2.96))},
-      {tag: dampDARTag, slider: dampDARRange, setter: (v) => settings.dampDAR = Math.max(0, Math.min(6, parseFloat(v) || 4.35))},
-      {tag: brakeTag, slider: brakeRange, setter: (v) => settings.brakeOnRelease = Math.max(0, Math.min(6, parseFloat(v) || 0))},
-      {tag: wmaxTag, slider: wmaxRange, setter: (v) => settings.wMax = Math.max(6, Math.min(24, parseFloat(v) || 6))},
-      {tag: wmaxPitchTag, slider: wmaxPitchRange, setter: (v) => settings.wMaxPitch = Math.max(6, Math.min(24, parseFloat(v) || 8.5))},
-      {tag: wmaxYawTag, slider: wmaxYawRange, setter: (v) => settings.wMaxYaw = Math.max(6, Math.min(24, parseFloat(v) || 9))},
-      {tag: wmaxRollTag, slider: wmaxRollRange, setter: (v) => settings.wMaxRoll = Math.max(4, Math.min(24, parseFloat(v) || 6))},
+      {tag: accelPitchTag, slider: accelPitch, setter: (v) => settings.maxAccelPitch = Math.max(0, Math.min(2400, parseFloat(v) || 400))},
+      {tag: accelYawTag, slider: accelYaw, setter: (v) => settings.maxAccelYaw = Math.max(0, Math.min(2400, parseFloat(v) || 400))},
+      {tag: accelRollTag, slider: accelRoll, setter: (v) => settings.maxAccelRoll = Math.max(0, Math.min(2400, parseFloat(v) || 400))},
+      {tag: curveTag, slider: curveRange, setter: (v) => settings.inputPow = Math.max(0, Math.min(5, parseFloat(v) || 1.0))},
+      {tag: stickRangeTag, slider: stickRangeSlider, setter: (v) => settings.stickRange = Math.max(0, Math.min(1.0, parseFloat(v) || 1.0))},
+      {tag: dampTag, slider: dampRange, setter: (v) => settings.damp = Math.max(0, Math.min(20, parseFloat(v) || 2.96))},
+      {tag: dampDARTag, slider: dampDARRange, setter: (v) => settings.dampDAR = Math.max(0, Math.min(20, parseFloat(v) || 4.35))},
+      {tag: brakeTag, slider: brakeRange, setter: (v) => settings.brakeOnRelease = Math.max(0, Math.min(20, parseFloat(v) || 0))},
+      {tag: wmaxTag, slider: wmaxRange, setter: (v) => settings.wMax = Math.max(0, Math.min(50, parseFloat(v) || 6))},
+      {tag: wmaxPitchTag, slider: wmaxPitchRange, setter: (v) => settings.wMaxPitch = Math.max(0, Math.min(50, parseFloat(v) || 8.5))},
+      {tag: wmaxYawTag, slider: wmaxYawRange, setter: (v) => settings.wMaxYaw = Math.max(0, Math.min(50, parseFloat(v) || 9))},
+      {tag: wmaxRollTag, slider: wmaxRollRange, setter: (v) => settings.wMaxRoll = Math.max(0, Math.min(50, parseFloat(v) || 6))},
       {tag: zoomVal, slider: zoomSlider, setter: (v) => { settings.zoom = Math.max(0.2, Math.min(4.0, parseFloat(v) || 1)); applyZoom(); }},
       {tag: arrowVal, slider: arrowSlider, setter: (v) => settings.arrowScale = Math.max(0.6, Math.min(4, parseFloat(v) || 4))}
     ];
