@@ -30,9 +30,11 @@ const isDesktop = !isMobile;
 // Menu state (controlled externally but needed for input blocking)
 let chromeShown = false;
 
-// Menu navigation - using MenuNavigator class
-const menuNavigator = new MenuNavigator();
-menuNavigator.setCooldownDuration(200);
+// Menu navigation
+let menuFocusIndex = 0;
+let menuFocusableElements = [];
+let menuNavigationCooldown = 0;
+const MENU_NAV_COOLDOWN = 200; // ms between navigation inputs
 
 function updateMenuFocusableElements() {
   // Get all interactive elements in the menu, including card headers
@@ -203,6 +205,47 @@ function focusMenuElement(index) {
       behavior: 'smooth'
     });
   }, 10);
+}
+
+function handleMenuNavigation(direction, ignoreReduced = false) {
+  updateMenuFocusableElements();
+
+  // Check cooldown
+  const now = performance.now();
+  if (!ignoreReduced && menuNavigationCooldown > now) return false;
+
+  const newIndex = findClosestElementInDirection(direction);
+  if (newIndex !== menuFocusIndex) {
+    focusMenuElement(newIndex);
+    menuNavigationCooldown = now + MENU_NAV_COOLDOWN;
+    return true;
+  }
+  return false;
+}
+
+function handleMenuSelect() {
+  const el = menuFocusableElements[menuFocusIndex];
+  if (el) {
+    if (el.tagName === 'H3') {
+      el.click(); // Toggle card
+    } else {
+      el.click();
+    }
+  }
+}
+
+function handleMenuEscape() {
+  closeMenuCallback?.();
+}
+
+function handleMenuOpen() {
+  updateMenuFocusableElements();
+  // Focus first card header
+  const el = menuFocusableElements[menuFocusIndex];
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    el.focus();
+  }
 }
 
 function activateMenuElement() {
