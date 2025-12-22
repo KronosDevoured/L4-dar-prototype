@@ -4,6 +4,9 @@
  * Shows side view of playable area with ring positioning
  */
 
+import * as RhythmMode from './rhythmMode.js';
+import * as CONST from './constants.js';
+
 // ============================================================================
 // STATE
 // ============================================================================
@@ -20,8 +23,8 @@ let animationFrameId = null;
 
 // Grid configuration (matches ring mode boundaries)
 const GRID_SIZE = 20; // Grid cell size in world units
-const PLAY_AREA_WIDTH = 200; // World units
-const PLAY_AREA_HEIGHT = 200; // World units
+const PLAY_AREA_WIDTH = 3000; // World units (±1500 from center = RING_GRID_BOUNDS)
+const PLAY_AREA_HEIGHT = 3000; // World units (±1500 from center = RING_GRID_BOUNDS)
 
 // Drag state
 let isDragging = false;
@@ -606,6 +609,302 @@ function drawInfoOverlay() {
 }
 
 // ============================================================================
+// AUTO-GENERATE PATTERNS
+// ============================================================================
+
+/**
+ * Calculate minimum time to reach a ring position (from ringMode.js physics)
+ * @param {number} targetX - Target X position
+ * @param {number} targetY - Target Y position
+ * @param {number} currentX - Current X position
+ * @param {number} currentY - Current Y position
+ * @param {number} currentVelX - Current X velocity
+ * @param {number} currentVelY - Current Y velocity
+ * @param {number} ringCount - Current ring index for skill scaling
+ * @param {string} difficulty - Difficulty level (normal, hard, expert)
+ * @returns {number} Minimum time in seconds to reach the ring
+ */
+function calculateMinimumTimeToReach(targetX, targetY, currentX, currentY, currentVelX, currentVelY, ringCount, difficulty) {
+  const REACTION_TIME = CONST.RING_PLAYER_REACTION_TIME;
+  const ORIENTATION_TIME = CONST.RING_PLAYER_ORIENTATION_TIME;
+  const STABILIZATION_TIME = CONST.RING_PLAYER_STABILIZATION_TIME;
+
+  const dx = targetX - currentX;
+  const dy = targetY - currentY;
+  const distance = Math.sqrt(dx * dx + dy * dy);
+
+  if (distance < CONST.RING_CLOSE_DISTANCE_THRESHOLD) {
+    return REACTION_TIME + ORIENTATION_TIME + CONST.RING_CLOSE_RING_SIMPLIFIED_TIME + STABILIZATION_TIME;
+  }
+
+  const BOOST_ACCEL = CONST.RING_BOOST_ACCEL;
+  const GRAVITY = Math.abs(CONST.RING_GRAVITY);
+
+  // Skill scaling based on difficulty
+  const SKILL_START_RING = CONST.RING_SKILL_START_COUNT;
+  const SKILL_END_RING = CONST.RING_SKILL_END_COUNT;
+  let skillFactor = CONST.RING_SKILL_HUMAN_EFFICIENCY;
+
+  if (difficulty === 'expert') {
+    if (ringCount >= SKILL_END_RING) {
+      skillFactor = CONST.RING_SKILL_EXPERT_MAX_EFFICIENCY;
+    } else {
+      const progress = Math.min(ringCount / SKILL_END_RING, 1.0);
+      const efficiencyRange = CONST.RING_SKILL_EXPERT_MAX_EFFICIENCY - CONST.RING_SKILL_EXPERT_START_EFFICIENCY;
+      skillFactor = CONST.RING_SKILL_EXPERT_START_EFFICIENCY + (progress * efficiencyRange);
+    }
+  } else {
+    if (ringCount >= SKILL_END_RING) {
+      skillFactor = CONST.RING_SKILL_SKILLED_EFFICIENCY;
+    } else if (ringCount > SKILL_START_RING) {
+      const progress = (ringCount - SKILL_START_RING) / (SKILL_END_RING - SKILL_START_RING);
+      const efficiencyRange = CONST.RING_SKILL_SKILLED_EFFICIENCY - CONST.RING_SKILL_HUMAN_EFFICIENCY;
+      skillFactor = CONST.RING_SKILL_HUMAN_EFFICIENCY + (progress * efficiencyRange);
+    }
+  }
+
+  // Calculate X axis time
+  const absX = Math.abs(dx);
+  let timeX = 0;
+  if (absX > 10) {
+    const accelX = Math.max(100, BOOST_ACCEL * skillFactor);
+    const velTowardX = dx > 0 ? currentVelX : -currentVelX;
+
+    if (velTowardX < 0) {
+      const timeToStop = Math.abs(velTowardX) / accelX;
+      const distanceWhileStopping = 0.5 * accelX * timeToStop * timeToStop;
+      const remainingX = absX + distanceWhileStopping;
+      const timeAfterStop = Math.sqrt(2 * remainingX / accelX);
+      timeX = timeToStop + timeAfterStop;
+    } else {
+      const a = 0.5 * accelX;
+      const b = velTowardX;
+      const c = -absX;
+      const discriminant = b * b - 4 * a * c;
+      timeX = (-b + Math.sqrt(Math.max(0, discriminant))) / (2 * a);
+    }
+  }
+
+  // Calculate Y axis time (with gravity)
+  const absY = Math.abs(dy);
+  let timeY = 0;
+  if (absY > 10) {
+    const isGoingUp = dy > 0;
+    const effectiveAccelY = isGoingUp
+      ? (BOOST_ACCEL - GRAVITY) * skillFactor
+      : (BOOST_ACCEL + GRAVITY) * skillFactor;
+
+    const velTowardY = dy > 0 ? currentVelY : -currentVelY;
+
+    if (velTowardY < 0) {
+      const decelY = isGoingUp ? (BOOST_ACCEL + GRAVITY) : (BOOST_ACCEL - GRAVITY);
+      const timeToStop = Math.abs(velTowardY) / Math.max(100, decelY);
+      const distanceWhileStopping = 0.5 * decelY * timeToStop * timeToStop;
+      const remainingY = absY + distanceWhileStopping;
+      const timeAfterStop = Math.sqrt(2 * remainingY / Math.max(100, effectiveAccelY));
+      timeY = timeToStop + timeAfterStop;
+    } else {
+      const a = 0.5 * Math.max(100, effectiveAccelY);
+      const b = velTowardY;
+      const c = -absY;
+      const discriminant = b * b - 4 * a * c;
+      timeY = (-b + Math.sqrt(Math.max(0, discriminant))) / (2 * a);
+    }
+
+    if (isGoingUp) {
+      timeY *= 1.25;
+    }
+  }
+
+  // Progressive buffer scaling
+  let bufferMultiplier = 1.5;
+  if (ringCount >= SKILL_END_RING) {
+    bufferMultiplier = 1.2;
+  } else if (ringCount > SKILL_START_RING) {
+    const progress = (ringCount - SKILL_START_RING) / (SKILL_END_RING - SKILL_START_RING);
+    bufferMultiplier = 1.5 - (progress * 0.3);
+  }
+  const travelTime = Math.max(timeX, timeY) * bufferMultiplier;
+
+  return REACTION_TIME + ORIENTATION_TIME + travelTime + STABILIZATION_TIME;
+}
+
+/**
+ * Auto-generate ring positions based on difficulty using ring mode physics
+ * @param {string} difficulty - Difficulty level (normal, hard, expert)
+ * @param {object} beatmap - Beatmap object with bpm property (optional)
+ */
+export function autoGeneratePositions(difficulty = 'normal', beatmap = null) {
+  if (beatPositions.length === 0) return;
+
+  // Get difficulty settings from constants
+  const difficultySettings = CONST.DIFFICULTY_SETTINGS[difficulty];
+  const maxRadius = CONST.RING_GRID_BOUNDS;
+  const patternAmplitudeMultiplier = difficultySettings.patternAmplitudeMultiplier || 1.0;
+
+  // Flight path state - continuous movement
+  let posX = 0;
+  let posY = 0;
+  let velX = 0;
+  let velY = 0;
+  
+  // Target velocity for smooth flight (not stopping)
+  const TARGET_FLIGHT_SPEED = 800; // Units/s - maintain momentum
+  const BOOST_ACCEL = CONST.RING_BOOST_ACCEL; // 1200 units/s²
+  const BOOST_DECEL = BOOST_ACCEL * 0.6; // Can reduce speed if needed
+
+  // Get BPM from beatmap or use default
+  const bpm = (beatmap && beatmap.bpm) ? beatmap.bpm : 120;
+
+  // Pattern parameters for flowing path
+  let pathAngle = Math.random() * Math.PI * 2; // Initial direction
+  const patternType = Math.floor(Math.random() * 4); // Choose one pattern type for whole sequence
+  
+  // Generate random parameters for this pattern
+  const pathParams = generatePathParameters(patternType, maxRadius, patternAmplitudeMultiplier);
+
+  beatPositions.forEach((beat, i) => {
+    // Calculate time delta to this beat
+    let timeDelta;
+    if (i === 0) {
+      timeDelta = beat.time;
+    } else {
+      timeDelta = beat.time - beatPositions[i - 1].time;
+    }
+
+    // Apply difficulty multiplier
+    const effectiveTime = timeDelta * difficultySettings.spawnIntervalMultiplier;
+
+    // Calculate where the player will be if maintaining current trajectory
+    // d = v*t for constant velocity flight
+    const projectedX = posX + velX * effectiveTime;
+    const projectedY = posY + velY * effectiveTime;
+
+    // Generate target position based on flowing pattern around play area
+    let targetX, targetY;
+
+    switch (patternType) {
+      case 0: // Circular orbit with parametric variation
+        pathAngle += pathParams.rotationSpeed + (Math.random() - 0.5) * pathParams.wobble;
+        const orbitRadius = pathParams.baseRadius * (0.8 + Math.random() * pathParams.radiusVariation);
+        targetX = Math.cos(pathAngle) * orbitRadius;
+        targetY = Math.sin(pathAngle) * orbitRadius;
+        break;
+
+      case 1: // Figure-8 / infinity pattern with parametric variation
+        const t = (i / beatPositions.length) * Math.PI * pathParams.loopCount;
+        targetX = Math.sin(t) * pathParams.sizeX * (1 + Math.random() * pathParams.asymmetry);
+        targetY = Math.sin(t * pathParams.asymmetryFactor) * pathParams.sizeY;
+        break;
+
+      case 2: // Spiral with parametric variation
+        const spiralProgress = i / beatPositions.length;
+        pathAngle += pathParams.rotationSpeed;
+        const spiralRadius = Math.sin(spiralProgress * Math.PI) * pathParams.maxSpiralRadius * (1 + Math.sin(spiralProgress * Math.PI * pathParams.tightness) * 0.3);
+        targetX = Math.cos(pathAngle) * spiralRadius;
+        targetY = Math.sin(pathAngle) * spiralRadius;
+        break;
+
+      case 3: // Weaving pattern with parametric variation
+        pathAngle += pathParams.forwardSpeed + (Math.random() - 0.5) * pathParams.driftAmount;
+        const waveRadius = pathParams.baseWaveRadius * (0.6 + Math.sin(i * pathParams.waveFrequency) * pathParams.waveAmplitude);
+        targetX = Math.cos(pathAngle) * waveRadius;
+        targetY = Math.sin(pathAngle) * waveRadius;
+        break;
+    }
+
+    // Clamp to play area boundaries
+    const halfWidth = PLAY_AREA_WIDTH / 2 - 30;
+    const halfHeight = PLAY_AREA_HEIGHT / 2 - 30;
+    targetX = Math.max(-halfWidth, Math.min(halfWidth, targetX));
+    targetY = Math.max(-halfHeight, Math.min(halfHeight, targetY));
+
+    // Calculate velocity needed to reach target from current position
+    const dx = targetX - posX;
+    const dy = targetY - posY;
+    const distanceToTarget = Math.sqrt(dx * dx + dy * dy);
+
+    if (distanceToTarget > 10) {
+      // Calculate required average velocity to reach target
+      const requiredVelX = dx / effectiveTime;
+      const requiredVelY = dy / effectiveTime;
+      const requiredSpeed = Math.sqrt(requiredVelX * requiredVelX + requiredVelY * requiredVelY);
+
+      // Check if acceleration is physically possible
+      const currentSpeed = Math.sqrt(velX * velX + velY * velY);
+      const speedDiff = requiredSpeed - currentSpeed;
+      const maxSpeedChange = BOOST_ACCEL * effectiveTime;
+
+      if (Math.abs(speedDiff) > maxSpeedChange) {
+        // Target is unreachable with current physics - adjust it
+        // Scale target position to be reachable
+        const reachableFactor = maxSpeedChange / Math.abs(speedDiff) * 0.9; // 90% safety
+        targetX = posX + dx * reachableFactor;
+        targetY = posY + dy * reachableFactor;
+      }
+
+      // Update velocity to aim toward target (smooth steering)
+      velX = (targetX - posX) / effectiveTime;
+      velY = (targetY - posY) / effectiveTime;
+    }
+
+    // Apply position
+    beat.x = targetX;
+    beat.y = targetY;
+
+    // Update position (player flies through this ring)
+    posX = targetX;
+    posY = targetY;
+  });
+
+  render();
+}
+
+/**
+ * Generate random parameters for the selected pattern type
+ * @param {number} patternType - Type of pattern (0-3)
+ * @param {number} maxRadius - Maximum radius (RING_GRID_BOUNDS)
+ * @param {number} amplitudeMultiplier - Difficulty amplitude modifier
+ * @returns {object} Random parameters for the pattern
+ */
+function generatePathParameters(patternType, maxRadius, amplitudeMultiplier) {
+  const params = {};
+
+  switch (patternType) {
+    case 0: // Circular orbit
+      params.baseRadius = maxRadius * (0.5 + Math.random() * 0.4) * amplitudeMultiplier;
+      params.rotationSpeed = (Math.random() - 0.5) * 0.8; // ±0.4 per beat
+      params.wobble = 0.2 + Math.random() * 0.4; // 0.2-0.6 wobble
+      params.radiusVariation = 0.1 + Math.random() * 0.4; // 0.1-0.5 variation
+      break;
+
+    case 1: // Figure-8
+      params.sizeX = maxRadius * (0.5 + Math.random() * 0.4) * amplitudeMultiplier;
+      params.sizeY = maxRadius * (0.4 + Math.random() * 0.5) * amplitudeMultiplier;
+      params.loopCount = 2 + Math.random() * 3; // 2-5 loops across sequence
+      params.asymmetry = 0.1 + Math.random() * 0.3; // Slight asymmetry
+      params.asymmetryFactor = 1.5 + Math.random() * 1.5; // 1.5-3x for Y multiplier
+      break;
+
+    case 2: // Spiral
+      params.maxSpiralRadius = maxRadius * (0.6 + Math.random() * 0.3) * amplitudeMultiplier;
+      params.rotationSpeed = (0.2 + Math.random() * 0.3); // Consistent forward rotation
+      params.tightness = 1 + Math.random() * 2; // 1-3 tightness factor
+      break;
+
+    case 3: // Weaving
+      params.baseWaveRadius = maxRadius * (0.5 + Math.random() * 0.35) * amplitudeMultiplier;
+      params.forwardSpeed = 0.1 + Math.random() * 0.3; // Consistent forward progress
+      params.driftAmount = 0.2 + Math.random() * 0.6; // 0.2-0.8 drift per beat
+      params.waveFrequency = 0.3 + Math.random() * 0.4; // 0.3-0.7 wave frequency
+      params.waveAmplitude = 0.3 + Math.random() * 0.4; // 0.3-0.7 amplitude
+      break;
+  }
+
+  return params;
+}
+
+// ============================================================================
 // EXPORTS
 // ============================================================================
 
@@ -625,5 +924,6 @@ export default {
   forceRender,
   startPreview,
   stopPreview,
-  isPreviewActive
+  isPreviewActive,
+  autoGeneratePositions
 };

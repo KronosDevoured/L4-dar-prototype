@@ -546,8 +546,9 @@ export function init() {
     Audio.setGameMusicEnabled(settings.gameMusicEnabled);
 
     // Start music if enabled and Ring Mode is active
-    if (settings.gameMusicEnabled && RingMode.getRingModeActive() && RingMode.getRingModeStarted()) {
-      Audio.startBackgroundMusic();
+    if (settings.gameMusicEnabled && RingMode.getRingModeActive()) {
+      // Start immediately when enabling during an active Ring Mode session
+      Audio.forceStartBackgroundMusic();
     }
 
     saveSettings();
@@ -720,10 +721,7 @@ export function init() {
       Audio.stopBackgroundMusic();
       Audio.stopBoostRumble();
     } else {
-      // Page is visible again - restart music if Ring Mode is active
-      if (RingMode.getRingModeActive() && RingMode.getRingModeStarted() && settings.gameMusicEnabled) {
-        Audio.startBackgroundMusic();
-      }
+      // Do not auto-restart here to avoid autoplay prompts; player will press Start
     }
   });
 
@@ -826,7 +824,6 @@ export function init() {
             RhythmMode.stopRhythmMode();
             document.getElementById('rhythmStats').style.display = 'none';
             document.getElementById('rhythmBoostToStart').style.display = 'none';
-            document.getElementById('rhythmCountdown').style.display = 'none';
             document.getElementById('rhythmStart').disabled = false;
             document.getElementById('rhythmStop').disabled = true;
           } else {

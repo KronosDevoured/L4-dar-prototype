@@ -56,7 +56,7 @@
 
   /* Ring Mode button */
   #ringModeBtn{
-    position:fixed;bottom:.6rem;left:50%;transform:translateX(-50%);z-index:3;
+    position:fixed;top:1rem;left:50%;transform:translateX(-50%);z-index:3;
     border:2px solid #ff5c5c;background:rgba(255,92,92,0.15);
     font-size:1rem;font-weight:700;cursor:pointer;border-radius:12px;
     display:grid;place-items:center;padding:.6rem 1.2rem;
@@ -684,6 +684,16 @@
                 </label>
               </div>
 
+              <!-- Auto-Generate Controls -->
+              <div style="display:flex; gap:.8rem; margin-bottom:1rem;">
+                <button id="positionAutoGenerate" style="flex:1; padding:.9rem; background:#4c8dff; border:2px solid #5c9dff; color:#fff; border-radius:8px; cursor:pointer; font-weight:700; font-size:1rem; box-shadow:0 2px 8px rgba(76,141,255,0.3);">✨ Auto-Generate Positions</button>
+                <select id="positionPatternType" style="flex:1; padding:.5rem; background:#181a20; border:1px solid #3a3d45; color:#e8e8ea; border-radius:8px; cursor:pointer; font-size:.9rem;">
+                  <option value="normal">Normal Difficulty</option>
+                  <option value="hard">Hard Difficulty</option>
+                  <option value="expert">Expert Difficulty</option>
+                </select>
+              </div>
+
               <div style="background:#181a20; padding:.8rem; border-radius:6px; font-size:.85rem; opacity:.7;">
                 <b>Drag ring:</b> Reposition on grid<br>
                 <b>Navigation:</b> Use Previous/Next to move between beats<br>
@@ -721,10 +731,6 @@
   <!-- Boost to Start Message (outside modal so it stays visible) -->
   <div id="rhythmBoostToStart" style="position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background:rgba(76,141,255,0.95); color:#fff; padding:1.5rem 2.5rem; border-radius:16px; font-size:1.5rem; font-weight:700; box-shadow:0 8px 32px rgba(76,141,255,.6); z-index:9999; display:none; text-align:center; letter-spacing:0.5px; pointer-events:none;">
     🚀 Press BOOST to Start
-  </div>
-
-  <!-- Countdown Display (shows after boost, before music starts) -->
-  <div id="rhythmCountdown" style="position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background:rgba(76,141,255,0.95); color:#fff; padding:2rem 3rem; border-radius:16px; font-size:3rem; font-weight:700; box-shadow:0 8px 32px rgba(76,141,255,.6); z-index:9999; display:none; text-align:center; pointer-events:none;">
   </div>
 
 <script>

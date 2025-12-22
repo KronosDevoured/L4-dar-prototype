@@ -199,7 +199,8 @@ export function drawRingModeHUD(state) {
     ringModePaused,
     ringModePosition,
     rings,
-    isMobile
+    isMobile,
+    currentDifficulty
   } = state;
 
   const ctx = hctx;
@@ -212,11 +213,13 @@ export function drawRingModeHUD(state) {
   ctx.font = `bold ${Math.floor(32 * textScale)}px system-ui`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
-  ctx.fillText(`High Score: ${ringModeHighScore}`, innerWidth / 2, 20);
+  const difficultyLabel = currentDifficulty ? `${currentDifficulty.charAt(0).toUpperCase()}${currentDifficulty.slice(1)}` : 'Normal';
+  const hudTop = 72 * textScale; // leave room for top buttons
+  ctx.fillText(`${difficultyLabel}: High Score: ${ringModeHighScore}`, innerWidth / 2, hudTop);
 
   // Ring count - below high score
   ctx.font = `bold ${Math.floor(24 * textScale)}px system-ui`;
-  ctx.fillText(`Rings: ${ringModeRingCount}`, innerWidth / 2, 20 + (40 * textScale));
+  ctx.fillText(`Rings: ${ringModeRingCount}`, innerWidth / 2, hudTop + (38 * textScale));
 
   // Lives - top left with heart symbols (below fullscreen button)
   // Fullscreen button is 44px tall + 10px margin from top = ~54px total
@@ -224,7 +227,7 @@ export function drawRingModeHUD(state) {
   ctx.textAlign = 'left';
   ctx.font = `bold ${Math.floor(28 * textScale)}px system-ui`;
   const heartSpacing = 35 * textScale;
-  const heartStartY = 65 * textScale; // Start below fullscreen button
+  const heartStartY = 88 * textScale; // Start well below fullscreen button
   for (let i = 0; i < Math.min(ringModeLives, 10); i++) {
     ctx.fillStyle = '#ff5c5c';
     ctx.fillText('♥', 20, heartStartY + i * heartSpacing);
@@ -478,7 +481,8 @@ export function renderHUD(state) {
       ringModePaused: state.ringModePaused,
       ringModePosition: state.ringModePosition,
       rings: state.rings,
-      isMobile: state.isMobile
+      isMobile: state.isMobile,
+      currentDifficulty: state.currentDifficulty
     });
   }
 }

@@ -65,8 +65,8 @@ export function initRhythmModeUI(sceneRef, cameraRef, uiManagerRef) {
 
   rhythmModeClose.addEventListener('click', () => {
     rhythmModeModal.style.display = 'none';
-    // Stop any playing audio
-    RhythmMode.stopAudio();
+    // Stop rhythm mode (hides boost, stops audio, clears state)
+    RhythmMode.stopRhythmMode();
   });
 
   // Track active tab
@@ -776,6 +776,17 @@ export function initRhythmModeUI(sceneRef, cameraRef, uiManagerRef) {
     RingPositionEditor.setSnapToGrid(e.target.checked);
   });
 
+  // Auto-generate positions
+  const autoGenerateBtn = document.getElementById('positionAutoGenerate');
+  const patternSelect = document.getElementById('positionPatternType');
+  if (autoGenerateBtn && patternSelect) {
+    autoGenerateBtn.addEventListener('click', () => {
+      const difficulty = patternSelect.value; // Now selects difficulty level (normal/hard/expert)
+      RingPositionEditor.autoGeneratePositions(difficulty, currentBeatMap);
+      updatePositionBeatInfo();
+    });
+  }
+
   // Play Preview button
   const playPreviewBtn = document.getElementById('positionPlayPreview');
   if (playPreviewBtn) {
@@ -924,26 +935,8 @@ export function updateRhythmModeUI() {
     document.getElementById('rhythmPerfectDisplay').textContent = RhythmMode.getRhythmModePerfectHits();
     document.getElementById('rhythmGoodDisplay').textContent = RhythmMode.getRhythmModeGoodHits();
     document.getElementById('rhythmMissDisplay').textContent = RhythmMode.getRhythmModeMisses();
-
-    // Handle countdown display
-    const countdownDelay = RhythmMode.getAudioStartDelay();
-    const countdownEl = document.getElementById('rhythmCountdown');
-    const boostPrompt = document.getElementById('rhythmBoostToStart');
-
-    if (countdownDelay > 0) {
-      // Hide boost prompt, show countdown
-      if (boostPrompt) boostPrompt.style.display = 'none';
-      if (countdownEl) {
-        countdownEl.style.display = 'block';
-        const countdownNum = Math.ceil(countdownDelay);
-        countdownEl.textContent = countdownNum.toString();
-      }
-    } else {
-      // Hide countdown once audio starts
-      if (countdownEl) countdownEl.style.display = 'none';
-    }
-
     // Hide "Boost to Start" message once player has boosted
+    const boostPrompt = document.getElementById('rhythmBoostToStart');
     if (RingMode.getRingModeStarted()) {
       if (boostPrompt) {
         boostPrompt.style.display = 'none';

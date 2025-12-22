@@ -249,6 +249,11 @@ export const RING_BONUS_THRESHOLD_EXPERT = 0.96; // Distance ratio for bonus rin
 export const RING_BONUS_THRESHOLD_NORMAL = 0.85; // Distance ratio for bonus rings (normal: 85%)
 
 // ============================================================================
+// RHYTHM MODE CONSTANTS
+// ============================================================================
+// Countdown/lead-time removed; rings spawn immediately with audio
+
+// ============================================================================
 // RING MODE PATTERNS
 // ============================================================================
 

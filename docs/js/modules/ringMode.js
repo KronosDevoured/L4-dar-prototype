@@ -515,6 +515,18 @@ export function resetRingModePhysicsOnly() {
   ringModePosition.set(0, 0);
   ringModeStarted = false;
   ignoreBoostUntilRelease = true;
+  
+  // Also reset car to match ring mode starting position/rotation
+  if (Car.car) {
+    Car.car.quaternion.identity();
+    Car.car.rotation.set(Math.PI * 1.5, 0, Math.PI);
+    Car.car.position.set(0, 0, 0);
+  }
+  
+  // Reset external physics state
+  if (gameState) {
+    gameState.resetAngularVelocity();
+  }
 }
 
 export function resetRingMode() {

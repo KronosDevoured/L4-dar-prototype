@@ -21,11 +21,8 @@ let boostRumbleStopping = false; // Flag to prevent rapid restart during cleanup
 let musicAudioElement = null;
 let musicSourceNode = null;
 let musicGain = null;
-
-// ============================================================================
-// AUDIO INITIALIZATION
-// ============================================================================
-
+let musicStopTimeout = null; // Pending stop timer when fading out
+let pendingMusicStart = false; // True when autoplay blocked; waits for user gesture
 /**
  * Initialize audio context (call on first user interaction)
  */
@@ -34,6 +31,39 @@ function initAudioContext() {
     audioContext = new (window.AudioContext || window.webkitAudioContext)();
   }
   return audioContext;
+}
+
+/**
+ * Ensure audio context resumes on next user gesture if suspended
+ */
+function resumeContextOnGesture() {
+  if (!audioContext || audioContext.state === 'running') return;
+  const resume = async () => {
+    try {
+      await audioContext.resume();
+    } catch (e) {
+      // ignore
+    }
+  };
+  window.addEventListener('pointerdown', resume, { once: true });
+  window.addEventListener('keydown', resume, { once: true });
+}
+
+/**
+ * Schedule music start on next user gesture (autoplay fallback)
+ */
+function requestMusicStartOnGesture() {
+  if (pendingMusicStart) return;
+  pendingMusicStart = true;
+
+  const trigger = () => {
+    if (!pendingMusicStart) return;
+    pendingMusicStart = false;
+    startBackgroundMusic();
+  };
+
+  window.addEventListener('pointerdown', trigger, { once: true });
+  window.addEventListener('keydown', trigger, { once: true });
 }
 
 // ============================================================================
@@ -205,9 +235,49 @@ export function stopBoostRumble() {
 /**
  * Start background music from file
  */
-export function startBackgroundMusic() {
+export async function startBackgroundMusic() {
   if (!gameMusicEnabled) return;
-  if (musicAudioElement) return; // Already playing
+  // Cancel any pending stop so we can restart cleanly
+  if (musicStopTimeout) {
+    clearTimeout(musicStopTimeout);
+    musicStopTimeout = null;
+  }
+
+  // Ensure audio context exists and is running (within user gesture if possible)
+  initAudioContext();
+  if (audioContext && audioContext.state === 'suspended') {
+    try {
+      await audioContext.resume();
+    } catch (e) {
+      // If resume is blocked, fallback will trigger on next gesture
+    }
+  }
+
+  // If the element already exists, force a restart from the beginning
+  if (musicAudioElement) {
+    try {
+      musicAudioElement.loop = true;
+      musicAudioElement.pause();
+      musicAudioElement.currentTime = 0;
+      if (musicGain) {
+        try { musicGain.gain.cancelScheduledValues(0); } catch {}
+        if (audioContext && audioContext.state === 'running') {
+          musicGain.gain.setValueAtTime(1.0, audioContext.currentTime);
+        } else {
+          try { musicGain.gain.value = 1.0; } catch {}
+        }
+      }
+      try {
+        await musicAudioElement.play();
+      } catch (err) {
+        console.warn('Music restart prevented (user interaction required):', err);
+        requestMusicStartOnGesture();
+      }
+    } catch (e) {
+      console.warn('Music restart failed:', e);
+    }
+    return;
+  }
 
   try {
     initAudioContext();
@@ -230,11 +300,59 @@ export function startBackgroundMusic() {
     if (playPromise !== undefined) {
       playPromise.catch(err => {
         console.warn('Music autoplay prevented (user interaction required):', err);
-        // Music will start on first user interaction via initAudioContext
+        requestMusicStartOnGesture();
       });
     }
   } catch (e) {
     console.warn('Music playback failed:', e);
+  }
+}
+
+/**
+ * Force start background music synchronously in a user gesture handler.
+ */
+export function forceStartBackgroundMusic() {
+  if (!gameMusicEnabled) return;
+  if (musicStopTimeout) {
+    clearTimeout(musicStopTimeout);
+    musicStopTimeout = null;
+  }
+  initAudioContext();
+  try { if (audioContext && audioContext.state === 'suspended') audioContext.resume(); } catch {}
+  try {
+    if (!musicAudioElement) {
+      musicAudioElement = new Audio('songs/Video%20Game%20Synthwave%20Rock%20Full%20Version.wav');
+      musicAudioElement.loop = true;
+      musicAudioElement.volume = 0.3;
+      musicSourceNode = audioContext.createMediaElementSource(musicAudioElement);
+      musicGain = audioContext.createGain();
+      musicGain.gain.setValueAtTime(1.0, audioContext.currentTime);
+      musicSourceNode.connect(musicGain);
+      musicGain.connect(audioContext.destination);
+    } else {
+      // Ensure gain is audible immediately, cancel any fade-out
+      if (!musicGain) {
+        // Recreate gain chain if it was cleaned up
+        musicSourceNode = audioContext.createMediaElementSource(musicAudioElement);
+        musicGain = audioContext.createGain();
+        musicGain.gain.setValueAtTime(1.0, audioContext.currentTime);
+        musicSourceNode.connect(musicGain);
+        musicGain.connect(audioContext.destination);
+      } else {
+        try { musicGain.gain.cancelScheduledValues(0); } catch {}
+        musicGain.gain.setValueAtTime(1.0, audioContext.currentTime);
+      }
+    }
+    musicAudioElement.pause();
+    musicAudioElement.currentTime = 0;
+    const playPromise = musicAudioElement.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(err => {
+        console.warn('Music play prevented (user interaction required):', err);
+      });
+    }
+  } catch (e) {
+    console.warn('Force start music failed:', e);
   }
 }
 
@@ -282,7 +400,7 @@ export function stopBackgroundMusic() {
     }
 
     // Stop and clean up after fade
-    setTimeout(() => {
+    musicStopTimeout = setTimeout(() => {
       if (musicAudioElement) {
         musicAudioElement.pause();
         musicAudioElement.currentTime = 0;
@@ -293,6 +411,7 @@ export function stopBackgroundMusic() {
         musicSourceNode = null;
       }
       musicGain = null;
+      musicStopTimeout = null;
     }, 300);
   } catch (e) {
     console.warn('Stop music failed:', e);
@@ -319,7 +438,8 @@ export function setGameSoundsEnabled(enabled) {
 export function setGameMusicEnabled(enabled) {
   gameMusicEnabled = enabled;
   if (!enabled) {
-    stopBackgroundMusic();
+    // For toggle-off, just pause so re-enabling is fast and avoids reloading
+    pauseBackgroundMusic();
   }
 }
 
@@ -335,4 +455,9 @@ export function isGameSoundsEnabled() {
  */
 export function isGameMusicEnabled() {
   return gameMusicEnabled;
+}
+
+// Internal: expose audio context for gesture-based resume in UI handlers
+export function __getAudioContext() {
+  return audioContext;
 }

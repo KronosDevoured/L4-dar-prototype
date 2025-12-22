@@ -7,6 +7,7 @@
 import * as THREE from 'three';
 import * as CONST from './constants.js';
 import * as Car from './car.js';
+import * as Input from './input.js';
 import * as Audio from './audio.js';
 import * as RingMode from './ringMode.js';
 import { getSetting, saveSettings } from './settings.js';
@@ -41,8 +42,7 @@ let audioAnalyser = null;
 let audioData = null;
 let currentPlaybackRate = 1.0; // Playback speed (1.0 = normal, 0.5 = half speed, 2.0 = double speed)
 let isAudioPlaying = false;
-let audioStartDelay = 0; // Time to wait before starting audio (for ring travel time)
-let audioDelayTimer = null;
+// Countdown before audio start removed; audio starts immediately upon boost
 
 // Beat map data
 let currentBeatMap = null; // { bpm: 120, beats: [{time: 1.5, lane: 'center'}, ...] }
@@ -117,7 +117,7 @@ export function getRhythmModePerfectHits() { return rhythmModePerfectHits; }
 export function getRhythmModeGoodHits() { return rhythmModeGoodHits; }
 export function getRhythmModeMisses() { return rhythmModeMisses; }
 export function getEditorMode() { return editorMode; }
-export function getAudioStartDelay() { return audioStartDelay; }
+// Countdown delay removed; no getter
 
 // ============================================================================
 // AUDIO LOADING AND PLAYBACK
@@ -680,8 +680,12 @@ function updateRings(dt) {
 
       // If this beat is ready to spawn
       if (timeUntilBeat <= spawnLeadTime && timeUntilBeat > 0) {
-        const x = beat.x !== undefined ? beat.x : 0;
-        const y = beat.y !== undefined ? beat.y : 0;
+        // Clamp positions to grid bounds to avoid invalid spawns
+        const max = CONST.RING_GRID_BOUNDS;
+        const xRaw = beat.x !== undefined ? beat.x : 0;
+        const yRaw = beat.y !== undefined ? beat.y : 0;
+        const x = Math.max(-max, Math.min(max, xRaw));
+        const y = Math.max(-max, Math.min(max, yRaw));
         spawnRing(beat.time, x, y, beat.lane);
         ringSpawnIndex++;
       } else if (timeUntilBeat <= 0) {
@@ -769,13 +773,19 @@ export function startRhythmMode(sceneRef, cameraRef) {
     console.warn('[Rhythm Mode] gameState is null!');
   }
 
-  // Initialize ring mode physics state for rhythm mode
-  // This resets position, velocity, and allows boost to work
+  // Ensure base ring mode is fully stopped first (resets any leftover state)
+  RingMode.stopRingMode();
+
+  // Now initialize ring mode physics state for rhythm mode
+  // This resets position, velocity, and car orientation to match ring mode
   // Use physics-only reset to avoid starting ring mode music/game
   RingMode.resetRingModePhysicsOnly();
 
-  // Make absolutely sure ring mode is NOT active
-  RingMode.stopRingMode();
+  // Show boost button and update layout (mirror ring mode behavior)
+  if (Input) {
+    Input.setRingModeActive(true);
+    Input.handleResize();
+  }
 
   // DON'T start audio yet - wait for player to boost
   // Audio will start in updateRhythmMode when RingMode.getRingModeStarted() becomes true
@@ -788,6 +798,12 @@ export function startRhythmMode(sceneRef, cameraRef) {
 export function stopRhythmMode() {
   rhythmModeActive = false;
 
+  // Hide boost button when exiting rhythm mode
+  if (Input) {
+    Input.setRingModeActive(false);
+    Input.handleResize();
+  }
+
   // Update game state
   if (gameState) {
     gameState.setRhythmModeActive(false);
@@ -796,15 +812,15 @@ export function stopRhythmMode() {
   // Stop audio
   stopAudio();
 
-  // Clear countdown timer if active
-  if (audioDelayTimer) {
-    clearInterval(audioDelayTimer);
-    audioDelayTimer = null;
-    audioStartDelay = 0;
-  }
+  // Countdown removed; no timer to clear
 
-  // Clear rings
-  rings.forEach(ring => scene.remove(ring));
+  // Clear rings and dispose cloned materials
+  rings.forEach(ring => {
+    if (ring.material && ring.material.dispose) {
+      try { ring.material.dispose(); } catch {}
+    }
+    scene.remove(ring);
+  });
   rings = [];
 
   // Update high score
@@ -828,23 +844,11 @@ export function updateRhythmMode(dt) {
   // - X and Y position controlled by ring mode physics (player flies around grid)
   // - Ring positions and speeds are based on music beat timing
 
-  // Start audio countdown when player first boosts (only once)
-  if (RingMode.getRingModeStarted() && !isAudioPlaying && audioBuffer && !audioSource && !audioDelayTimer) {
-    // Set countdown delay - use spawn lead time so rings have time to reach correct positions
-    audioStartDelay = 3.0; // 3 second countdown
-
-    audioDelayTimer = setInterval(() => {
-      audioStartDelay -= 0.016; // ~60fps countdown
-
-      if (audioStartDelay <= 0) {
-        clearInterval(audioDelayTimer);
-        audioDelayTimer = null;
-        playAudio().then(() => {
-        }).catch(err => {
-          console.error('[Rhythm Mode] Error starting audio:', err);
-        });
-      }
-    }, 16);
+  // Start audio immediately when player first boosts (only once)
+  if (RingMode.getRingModeStarted() && !isAudioPlaying && audioBuffer && !audioSource) {
+    playAudio().catch(err => {
+      console.error('[Rhythm Mode] Error starting audio:', err);
+    });
   }
 
   // Check if song has ended
