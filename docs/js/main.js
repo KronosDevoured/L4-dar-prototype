@@ -849,6 +849,16 @@ export function init() {
             if (Car.faceTip) Car.faceTip.visible = false;
           }
           break;
+        case 'retry':
+          // Retry - only works when Ring Mode is active and game is over
+          if (RingMode.getRingModeActive()) {
+            const lives = RingMode.getRingModeLives();
+            if (lives <= 0) {
+              // Game over - reset Ring Mode
+              RingMode.resetRingMode();
+            }
+          }
+          break;
         case 'orbitCW':
           cameraController.toggleOrbitCW();
           break;
