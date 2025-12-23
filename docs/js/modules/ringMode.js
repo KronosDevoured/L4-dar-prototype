@@ -39,6 +39,7 @@ let ringModePosition = new THREE.Vector2(0, 0); // Car position in 2D plane
 let ringModeStarted = false; // Track if player has started (boosted at least once)
 let ringModePaused = false; // Track pause state
 let ignoreBoostUntilRelease = false; // Ignore boost input after respawn until released
+let lastRingModeActive = false; // Track transitions to run cleanup when exiting
 
 // Boost flame effects
 let boostFlames = [];
@@ -1767,8 +1768,25 @@ export function updateRingModeRendering(dt) {
     const isRhythmMode = gameState && gameState.getRhythmModeActive();
 
     if (!ringModeActive && !isRhythmMode) {
+      // If we just exited ring mode, snap the car back to the grid center
+      if (lastRingModeActive) {
+        if (Car.car) {
+          Car.car.quaternion.identity();
+          Car.car.rotation.set(Math.PI * 1.5, 0, Math.PI); // Match Ring Mode start orientation
+          Car.car.position.set(0, 0, 0);
+        }
+        ringModePosition.set(0, 0);
+        ringModeVelocity.set(0, 0);
+        if (gameState) {
+          gameState.resetAngularVelocity();
+        }
+      }
+
+      lastRingModeActive = false;
       return;
     }
+
+    lastRingModeActive = ringModeActive;
 
   // Override car position to stay on grid
   if (Car.car) {

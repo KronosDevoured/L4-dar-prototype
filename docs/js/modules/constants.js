@@ -126,7 +126,7 @@ export const PHYSICS_DEFAULTS = {
 
 // Physics
 export const RING_MAX_SPEED = 2300; // Max speed cap (supersonic, matches RL)
-export const RING_BOOST_ACCEL = 991.667; // Boost acceleration (matches RL: 1.526x gravity)
+export const RING_BOOST_ACCEL = 1300; // Boost acceleration (2.0x gravity for snappier Ring Mode feel)
 export const RING_GRAVITY = -650; // Constant downward gravity (matches RL)
 export const RING_GRID_BOUNDS = 1500; // Movement boundary
 export const RING_DAMPING = 2.96; // Deceleration damping (matches RL No-DAR damping)

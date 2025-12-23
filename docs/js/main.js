@@ -557,11 +557,12 @@ export function init() {
   // NOTE: Ring Mode settings consolidated into Ring Mode menu only
   // Main menu Ring Mode card has been removed - all settings now in ringModePanel
 
-  // Restart button
-  document.getElementById('restart').addEventListener('click',()=>{
+  // Centralized reset used by both restart button and end-game flow
+  const resetToDefaultState = () => {
     if (Car.car) {
       Car.car.quaternion.identity();
       Car.car.rotation.set(Math.PI * 1.5, 0, Math.PI); // X: +270°, Y: 0°, Z: +180°
+      Car.car.position.set(0, 0, 0);
     }
     Physics.resetAngularVelocity();
     cameraController.resetCamera();
@@ -569,6 +570,11 @@ export function init() {
     document.getElementById('orbitCCW').classList.remove('active');
     if (Car.faceArrow) Car.faceArrow.visible = false;
     if (Car.faceTip)   Car.faceTip.visible   = false;
+  };
+
+  // Restart button
+  document.getElementById('restart').addEventListener('click',()=>{
+    resetToDefaultState();
 
     // Reset Ring Mode if active
     if(RingMode.getRingModeActive()){
@@ -664,6 +670,9 @@ export function init() {
       startBtn.textContent = 'START GAME';
       const btn = document.getElementById('ringModeBtn');
       btn.classList.remove('active');
+
+      // Snap back to default camera/car state (same as restart)
+      resetToDefaultState();
     } else {
       // Start Ring Mode
       RingMode.toggleRingMode();

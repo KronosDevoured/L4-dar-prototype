@@ -208,18 +208,13 @@ export function drawRingModeHUD(state) {
   // Scale text down on mobile/tablet for less distraction
   const textScale = isMobile ? 0.65 : 1.0;
 
-  // High Score - top center
+  // Ring count - top center (just the number, no label)
   ctx.fillStyle = '#ffffff';
   ctx.font = `bold ${Math.floor(32 * textScale)}px system-ui`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
-  const difficultyLabel = currentDifficulty ? `${currentDifficulty.charAt(0).toUpperCase()}${currentDifficulty.slice(1)}` : 'Normal';
   const hudTop = 72 * textScale; // leave room for top buttons
-  ctx.fillText(`${difficultyLabel}: High Score: ${ringModeHighScore}`, innerWidth / 2, hudTop);
-
-  // Ring count - below high score
-  ctx.font = `bold ${Math.floor(24 * textScale)}px system-ui`;
-  ctx.fillText(`Rings: ${ringModeRingCount}`, innerWidth / 2, hudTop + (38 * textScale));
+  ctx.fillText(`${ringModeRingCount}`, innerWidth / 2, hudTop);
 
   // Lives - top left with heart symbols (below fullscreen button)
   // Fullscreen button is 44px tall + 10px margin from top = ~54px total
@@ -389,14 +384,15 @@ export function drawRingModeHUD(state) {
   // Game over or paused text
   if (ringModeLives <= 0) {
     ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-    ctx.fillRect(0, innerHeight / 2 - 100, innerWidth, 200);
+    ctx.fillRect(0, innerHeight / 2 - 140, innerWidth, 160);
     ctx.fillStyle = '#ff5c5c';
     ctx.font = 'bold 48px system-ui';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('GAME OVER', innerWidth / 2, innerHeight / 2 - 50);
+    ctx.fillText('GAME OVER', innerWidth / 2, innerHeight / 2 - 80);
     ctx.font = 'bold 24px system-ui';
-    ctx.fillText(`Final Score: ${ringModeScore}`, innerWidth / 2, innerHeight / 2 - 5);
+    ctx.fillText(`Final Score: ${ringModeScore}`, innerWidth / 2, innerHeight / 2 - 30);
+    ctx.fillText(`High Score: ${ringModeHighScore}`, innerWidth / 2, innerHeight / 2);
 
     // Draw retry button
     const retryButtonWidth = 200;
