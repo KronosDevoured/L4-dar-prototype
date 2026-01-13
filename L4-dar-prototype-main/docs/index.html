@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+    <script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.164.0/build/three.module.js",
+    "three/examples/jsm/utils/BufferGeometryUtils.js": "https://unpkg.com/three@0.164.0/examples/jsm/utils/BufferGeometryUtils.js"
+  }
+}
+</script>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>L4 Aerial Car Control Tool</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg" />
+<style>
+  /* === CSS BASE START === */
+  html,body{margin:0;padding:0;height:100%;background:#ffffff;color:#0e0f12;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;overscroll-behavior:none}
+  body{background:linear-gradient(180deg,#f6f7fb 0%,#eef1f6 45%,#e9edf3 100%);}
+  *, *::before, *::after{box-sizing:border-box}
+  *{-webkit-user-select:none;-ms-user-select:none;user-select:none;-webkit-touch-callout:none}
+  #gl{position:fixed;inset:0;z-index:0;display:block}
+  #hud{position:fixed;inset:0;z-index:1;display:block;touch-action:none}
+  /* === CSS BASE END === */
+
+  /* === HAMBURGER === */
+  #menuBtn{
+    position:fixed;top:.6rem;right:.6rem;z-index:3;width:44px;height:44px;
+    border-radius:12px;border:1px solid #3a3d45;background:#181a20;display:grid;place-items:center;
+    box-shadow:0 2px 10px rgba(0,0,0,.25)
+  }
+  #menuBtn .bar{display:block;width:20px;height:2px;background:#e8e8ea;margin:3px 0}
+  #menuBtn.active{background:#0066ff;border-color:#4c8dff}
+
+  /* === THEME BUTTON (Sun/Moon) === */
+  #themeBtn{
+    position:fixed;top:.6rem;right:3.5rem;z-index:3;width:44px;height:44px;
+    border:none;background:transparent;font-size:1.8rem;cursor:pointer;
+    display:grid;place-items:center;padding:0;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,.3));
+  }
+  #themeBtn:hover{transform:scale(1.1)}
+  #themeBtn:active{transform:scale(0.95)}
+
+  /* Fullscreen button */
+  #fullscreenBtn{
+    position:fixed;top:.6rem;left:.6rem;z-index:3;width:44px;height:44px;
+    border:2px solid #4c8dff;background:rgba(76,141,255,0.15);
+    font-size:2rem;cursor:pointer;border-radius:8px;
+    display:grid;place-items:center;padding:0;
+    filter: drop-shadow(0 2px 8px rgba(76,141,255,.4));
+    color:#4c8dff;
+  }
+  #fullscreenBtn:hover{transform:scale(1.1);background:rgba(76,141,255,0.25);}
+  #fullscreenBtn:active{transform:scale(0.95)}
+
+  /* Ring Mode button */
+  #ringModeBtn{
+    position:fixed;top:1rem;left:50%;transform:translateX(-50%);z-index:3;
+    border:2px solid #ff5c5c;background:rgba(255,92,92,0.15);
+    font-size:1rem;font-weight:700;cursor:pointer;border-radius:12px;
+    display:grid;place-items:center;padding:.6rem 1.2rem;
+    filter: drop-shadow(0 2px 8px rgba(255,92,92,.4));
+    color:#ff5c5c;letter-spacing:0.5px;
+  }
+  #ringModeBtn:hover{transform:translateX(-50%) scale(1.05);background:rgba(255,92,92,0.25);}
+  #ringModeBtn:active{transform:translateX(-50%) scale(0.95)}
+  #ringModeBtn.active{background:#ff5c5c;color:#0e0f12;border-color:#ff5c5c}
+
+  /* === RING MODE OVERLAY === */
+  #ringModeOverlay{
+    position:fixed; inset:0; z-index:4; display:none;
+    background:rgba(10,12,16,0.45); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+    overflow-x:hidden;
+  }
+  #ringModePanel{
+    position:absolute; left:50%; top:20vh; transform:translateX(-50%);
+    width:min(600px, calc(100vw - 2rem)); max-height:60vh; overflow:auto;
+    background:rgba(24,26,32,.96); color:#e8e8ea; border:1px solid #3a3d45; border-radius:14px;
+    box-shadow:0 20px 60px rgba(0,0,0,.35);
+    overflow-x:hidden;
+  }
+
+  /* === OVERLAY MENU PANEL === */
+  #menuOverlay{
+    position:fixed; inset:0; z-index:4; display:none;
+    background:rgba(10,12,16,0.45); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+    overflow-x:hidden;
+  }
+  #menuPanel{
+    position:absolute; left:50%; top:12vh; transform:translateX(-50%);
+    width:min(960px, calc(100vw - 2rem)); max-height:76vh; overflow:auto;
+    background:rgba(24,26,32,.96); color:#e8e8ea; border:1px solid #3a3d45; border-radius:14px;
+    box-shadow:0 20px 60px rgba(0,0,0,.35);
+    overflow-x:hidden;
+  }
+  .mp-header{
+    position:sticky; top:0; background:rgba(24,26,32,.98); z-index:1;
+    padding:.9rem clamp(.8rem, 2vw, 1rem); border-bottom:1px solid #33373f; display:flex; align-items:center; justify-content:space-between;
+  }
+  .mp-title{font-weight:700;letter-spacing:.2px}
+  .mp-close{border:1px solid #3a3d45;background:#181a20;color:#e8e8ea;border-radius:10px;padding:.35rem .6rem;font-weight:600}
+  .mp-body{
+    padding:clamp(.6rem,2vw,1rem);
+    display:grid; grid-template-columns: 1fr; gap:14px;
+  }
+
+  .card{
+    background:#15171d; border:1px solid #33373f; border-radius:12px; padding:.9rem;
+  }
+  .card h3{
+    margin:.1rem 0 .7rem; font-size:1rem; opacity:.95; cursor:pointer; user-select:none;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .card h3:hover{opacity:1; color:#4c8dff;}
+  .card h3::after{
+    content:'▼'; font-size:.8rem; transition: transform 0.2s;
+  }
+  .card.collapsed h3::after{
+    transform: rotate(-90deg);
+  }
+  .card-content{
+    overflow:hidden; transition: max-height 0.3s ease, opacity 0.2s ease;
+  }
+  .card.collapsed .card-content{
+    max-height:0 !important; opacity:0;
+  }
+  .row{display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; margin:.45rem 0; width:100%;}
+  .tip{
+    font-size:.86rem; opacity:.85; line-height:1.5; margin:.5rem 0;
+    padding:.5rem .7rem; background:rgba(255,255,255,.03);
+    border-left:3px solid #4c8dff; border-radius:4px;
+  }
+  .btn{border:1px solid #3a3d45;padding:.45rem .7rem;border-radius:999px;background:#181a20;color:#e8e8ea;font-weight:600;letter-spacing:.2px;cursor:pointer}
+  .btn.active{background:#0066ff;border-color:#4c8dff}
+  .tag{
+    background:#181a20;border:1px solid #3a3d45;padding:.25rem .5rem;
+    border-radius:999px;font-size:.82rem;white-space:nowrap;
+    cursor:default;user-select:none;
+  }
+  .tag:hover{border-color:#4c8dff}
+  .tag:focus{outline:2px solid #4c8dff;background:#1f2229}
+
+  .sl{
+    display:flex; align-items:center; gap:.6rem; flex-wrap:nowrap;
+    width:100%; min-width:0;
+  }
+  .sl label{
+    font-size:.88rem; opacity:.92; flex:0 0 150px; min-width:120px; max-width:220px;
+  }
+  .sl input[type=range]{
+    accent-color:#4c8dff;
+    flex:1 1 auto; min-width:0; max-width:100%; width:100%;
+  }
+  .sl .tag{flex:0 0 auto}
+
+  @media (max-width:520px){
+    .sl{flex-wrap:wrap}
+    .sl label{flex:1 0 100%}
+    .sl input[type=range]{flex:1 0 100%}
+    .sl .tag{margin-left:auto}
+  }
+
+  select{background:#181a20;color:#e8e8ea;border:1px solid #3a3d45;border-radius:10px;padding:.35rem .5rem;max-width:100%}
+
+  /* Hints (stick/DAR) */
+  #joyHint,#darHint{position:fixed; z-index:2; pointer-events:none;background:rgba(24,26,32,.92); border:1px solid #3a3d45; color:#cfd3dc;
+    padding:.35rem .55rem; border-radius:10px; font-size:.85rem; white-space:nowrap; transform:translate(-50%,-50%); opacity:0; transition:opacity .25s ease;}
+  #joyHint.show,#darHint.show{opacity:1;}
+</style>
+</head>
+<body>
+  <!-- CANVASES -->
+  <canvas id="gl"></canvas>
+  <canvas id="hud"></canvas>
+
+  <!-- HAMBURGER -->
+  <button id="menuBtn" type="button" title="Open Menu" aria-label="Open settings menu"><span class="bar"></span><span class="bar"></span><span class="bar"></span></button>
+
+  <!-- FULLSCREEN TOGGLE -->
+  <button id="fullscreenBtn" type="button" title="Toggle Fullscreen" aria-label="Toggle fullscreen mode">⛶</button>
+
+  <!-- THEME TOGGLE (Sun/Moon) -->
+  <button id="themeBtn" type="button" title="Toggle Day/Night Mode" aria-label="Toggle between light and dark theme">🌙</button>
+
+  <!-- RING MODE BUTTON -->
+  <button id="ringModeBtn" type="button" title="Open Ring Mode Menu" aria-label="Open Ring Mode game menu">RING MODE</button>
+
+  <!-- RING MODE MENU OVERLAY -->
+  <div id="ringModeOverlay" style="display:none">
+    <div id="ringModePanel">
+      <div class="mp-header">
+        <div class="mp-title">Ring Mode</div>
+        <button class="mp-close" id="ringModeCloseBtn" type="button">Close</button>
+      </div>
+      <div class="mp-body">
+
+        <!-- Start Game Button -->
+        <div class="card" style="border: 2px solid #ff5c5c; background: rgba(255,92,92,0.1);">
+          <div style="text-align: center; padding: 0.5rem;">
+            <button id="startRingModeBtn" class="btn" style="
+              background: #ff5c5c;
+              border-color: #ff5c5c;
+              color: #0e0f12;
+              font-size: 1.2rem;
+              padding: 0.8rem 2rem;
+              font-weight: 700;
+              letter-spacing: 1px;
+              box-shadow: 0 4px 16px rgba(255,92,92,0.4);
+            " type="button">START GAME</button>
+          </div>
+        </div>
+
+        <!-- Ring Mode Settings Card -->
+        <div class="card">
+          <h3>Settings</h3>
+          <div class="card-content">
+
+            <div class="row">
+              <label for="ringDifficultyMenu">Difficulty</label>
+              <select id="ringDifficultyMenu">
+                <option value="easy">Easy</option>
+                <option value="normal" selected>Normal</option>
+                <option value="hard">Hard</option>
+                <option value="expert">Expert</option>
+              </select>
+            </div>
+
+            <div class="row sl">
+              <label for="ringCameraSpeedMenu">Camera Transition Speed</label>
+              <input id="ringCameraSpeedMenu" type="range" min="0.01" max="0.5" step="0.01" value="0.02" />
+              <span class="tag" id="ringCameraSpeedMenuVal">0.02</span>
+            </div>
+
+            <div class="row">
+              <button id="toggleSoundsMenu" class="btn active" type="button">Game Sounds</button>
+              <span class="tag" id="soundsStatusMenu">Enabled</span>
+            </div>
+
+            <div class="row">
+              <button id="toggleMusicMenu" class="btn active" type="button">Background Music</button>
+              <span class="tag" id="musicStatusMenu">Enabled</span>
+            </div>
+
+            <div class="tip">
+              <b>Ring Mode:</b> Navigate through rings using boost. Lower camera speed = slower, smoother transitions to next ring.
+              <br><br>
+              <b>Difficulty:</b><br>
+              • Easy: Large rings, slower speed, simple patterns<br>
+              • Normal: Balanced challenge<br>
+              • Hard: Smaller rings, faster speed, complex patterns<br>
+              • Expert: Smallest rings, expert-level play required
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- OVERLAY MENU -->
+  <div id="menuOverlay">
+    <div id="menuPanel">
+      <div class="mp-header">
+        <div class="mp-title">L4 Controls & Settings</div>
+        <button class="mp-close" id="menuCloseBtn" type="button">Close</button>
+      </div>
+      <div class="mp-body">
+
+        <!-- Rotation -->
+        <div class="card">
+          <h3>Rotation</h3>
+          <div class="row">
+            <button id="rollL" class="btn" type="button">Air Roll Left</button>
+            <button id="rollR" class="btn active" type="button">Air Roll Right</button>
+            <button id="rollFree" class="btn" type="button">Air Roll (Free)</button>
+            <button id="restart" class="btn" type="button">Restart</button>
+            <button id="orbitCW" class="btn" type="button">Orbit CW</button>
+            <button id="orbitCCW" class="btn" type="button">Orbit CCW</button>
+          </div>
+
+          <div class="row">
+            <label>Air Roll Mode:</label>
+            <button id="toggleMode" class="btn active" type="button">Toggle</button>
+          </div>
+
+          <div class="row">
+            <label>Lock Axes:</label>
+            <button id="lockPitch" class="btn" type="button">Lock Pitch</button>
+            <button id="lockYaw" class="btn" type="button">Lock Yaw</button>
+            <button id="lockRoll" class="btn" type="button">Lock Roll</button>
+          </div>
+
+          <div class="tip">
+            <b>Tip:</b> With Air Roll Right, rotate the stick clockwise. With Air Roll Left, rotate the stick counter-clockwise.
+          </div>
+        </div>
+
+        <!-- Gamepad -->
+        <div class="card">
+          <h3>Gamepad</h3>
+          <div class="row">
+            <button id="gpEnable" class="btn active" type="button">Enable</button>
+            <span class="tag" id="gpStatus">Enabled (waiting for gamepad)</span>
+          </div>
+          <div class="row sl">
+            <label for="gpPreset">Preset</label>
+            <select id="gpPreset">
+              <option value="ps5" selected>PS5 / DualSense</option>
+              <option value="xinput">Generic XInput</option>
+            </select>
+          </div>
+          <div class="row">
+            <button id="gpRemap" class="btn" type="button">Remap Action…</button>
+            <select id="gpAction" aria-label="Select action to remap">
+              <option value="toggleDAR">Toggle DAR</option>
+              <option value="rollLeft">Air Roll Left</option>
+              <option value="rollRight">Air Roll Right</option>
+              <option value="rollFree">Air Roll (Free)</option>
+              <option value="boost">Boost (Ring Mode)</option>
+              <option value="pause">Pause (Ring Mode)</option>
+              <option value="restart">Restart</option>
+              <option value="retry">Retry</option>
+              <option value="orbitCW">Orbit Clockwise</option>
+              <option value="orbitCCW">Orbit Counter-Clockwise</option>
+              <option value="toggleTheme">Toggle Day/Night Mode</option>
+              <option value="openMenu">Open/Close Menu</option>
+            </select>
+            <span class="tag" id="gpBindLabel">—</span>
+          </div>
+          <div class="row">
+            <button id="gpResetDefaults" class="btn" type="button">Reset to Defaults</button>
+          </div>
+          <div class="tip">
+            <b>Tip:</b> Left stick moves the on-screen stick. Remap any action, then press a button or push an axis to bind.
+          </div>
+        </div>
+
+<!-- Dynamics (Hidden by default - Developer mode) -->
+<div class="card" id="dynamicsCard" style="display:none">
+  <h3>Dynamics</h3>
+
+  <div class="row">
+    <button id="resetPhysicsDefaults" class="btn" type="button">Reset to Defaults</button>
+  </div>
+
+  <div class="row sl">
+    <label for="accelPitch">Max Pitch Accel (°/s²)</label>
+    <input id="accelPitch" type="range" min="0" max="2400" step="0.01" value="733"/>
+    <span class="tag" id="accelPitchTag">733</span>
+  </div>
+
+  <div class="row sl">
+    <label for="accelYaw">Max Yaw Accel (°/s²)</label>
+    <input id="accelYaw" type="range" min="0" max="2400" step="0.01" value="528"/>
+    <span class="tag" id="accelYawTag">528</span>
+  </div>
+
+  <div class="row sl">
+    <label for="accelRoll">Max Roll Accel (°/s²)</label>
+    <input id="accelRoll" type="range" min="0" max="2400" step="0.01" value="898"/>
+    <span class="tag" id="accelRollTag">898</span>
+  </div>
+
+  <div class="row sl">
+    <label for="curveRange">Input Curve</label>
+    <input id="curveRange" type="range" min="0" max="5.0" step="0.01" value="1.0"/>
+    <span class="tag" id="curveTag">1.00</span>
+  </div>
+
+  <div class="row sl">
+    <label for="stickRangeSlider">Stick Range</label>
+    <input id="stickRangeSlider" type="range" min="0" max="1.0" step="0.01" value="1.0"/>
+    <span class="tag" id="stickRangeTag">1.00</span>
+  </div>
+
+  <div class="row sl">
+    <label for="dampRange">Damp (No-DAR)</label>
+    <input id="dampRange" type="range" min="0" max="20.0" step="0.01" value="2.96"/>
+    <span class="tag" id="dampTag">2.96</span>
+  </div>
+
+  <div class="row sl">
+    <label for="dampDARRange">Damp (DAR)</label>
+    <input id="dampDARRange" type="range" min="0" max="20.0" step="0.01" value="4.35"/>
+    <span class="tag" id="dampDARTag">4.35</span>
+  </div>
+
+  <div class="row sl">
+    <label for="brakeRange">Release Brake</label>
+    <input id="brakeRange" type="range" min="0" max="20.0" step="0.1" value="0.0"/>
+    <span class="tag" id="brakeTag">0.0</span>
+  </div>
+
+  <div class="row sl">
+    <label for="wmaxRange">Max ω (global)</label>
+    <input id="wmaxRange" type="range" min="0" max="50.0" step="0.1" value="5.5"/>
+    <span class="tag" id="wmaxTag">5.5</span>
+  </div>
+
+  <div class="row sl">
+    <label for="wmaxPitch">Max Pitch ω</label>
+    <input id="wmaxPitch" type="range" min="0" max="50.0" step="0.01" value="24.0"/>
+    <span class="tag" id="wmaxPitchTag">24.0</span>
+  </div>
+
+  <div class="row sl">
+    <label for="wmaxYaw">Max Yaw ω</label>
+    <input id="wmaxYaw" type="range" min="0" max="50.0" step="0.01" value="24.0"/>
+    <span class="tag" id="wmaxYawTag">24.0</span>
+  </div>
+
+  <div class="row sl">
+    <label for="wmaxRoll">Max Roll ω</label>
+    <input id="wmaxRoll" type="range" min="0" max="50.0" step="0.01" value="24.0"/>
+    <span class="tag" id="wmaxRollTag">24.0</span>
+  </div>
+</div>
+<!-- Car -->
+<div class="card">
+  <h3>Car</h3>
+  <div class="row sl">
+    <label for="presetSel">Body</label>
+    <select id="presetSel">
+      <option value="octane" selected>Octane</option>
+      <option value="fennec">Fennec</option>
+      <option value="dominus">Dominus</option>
+    </select>
+  </div>
+</div>
+        <!-- View / HUD -->
+        <div class="card">
+          <h3>View & HUD</h3>
+
+          <div class="row">
+            <button id="arrowToggle" class="btn active" type="button">Show Arrow</button>
+            <button id="circleToggle" class="btn active" type="button">Show Circle</button>
+          </div>
+
+          <div class="row sl">
+            <label for="zoomSlider">Zoom</label>
+            <input id="zoomSlider" type="range" min="0.20" max="4.00" step="0.01" value="1.00" />
+            <span class="tag" id="zoomVal">1.00×</span>
+          </div>
+
+          <div class="row sl">
+            <label for="stickSizeSlider">Stick Size</label>
+            <input id="stickSizeSlider" type="range" min="60" max="180" step="1" value="100" />
+            <span class="tag" id="stickVal">100</span>
+          </div>
+
+          <div class="row sl">
+            <label for="arrowSlider">Arrow Size</label>
+            <input id="arrowSlider" type="range" min="0.60" max="4.00" step="0.01" value="4.00" />
+            <span class="tag" id="arrowVal">4.00×</span>
+          </div>
+
+        </div>
+
+        <!-- Rhythm Mode (Hidden by default - Developer mode) -->
+        <div class="card" id="rhythmModeCard" style="display:none">
+          <h3>Rhythm Mode</h3>
+
+          <div class="row">
+            <button id="rhythmMode" class="btn" type="button">Rhythm Mode</button>
+          </div>
+
+          <div class="tip">
+            <b>Rhythm Mode:</b> Create custom ring courses synced to your music! Manually or automatically generate beat maps, then navigate through rings using car body hit detection.
+          </div>
+        </div>
+
+        <!-- Developer Mode Toggle -->
+        <div style="padding: 1rem; text-align: center; border-top: 1px solid rgba(58,61,69,0.5); margin-top: 1rem;">
+          <button id="developerModeBtn" class="btn" type="button" style="background: rgba(76,141,255,0.15); border: 1px solid rgba(76,141,255,0.3); font-size: 0.9rem;">
+            🔧 Developer Mode
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Hints -->
+  <div id="joyHint">Hold outside the stick to reposition (UI hidden)</div>
+  <div id="darHint">Tap to toggle roll • Hold to move</div>
+
+  <!-- Rhythm Mode Modal -->
+  <div id="rhythmModeModal" style="display:none; position:fixed; inset:0; z-index:999; background:rgba(10,12,16,0.85); backdrop-filter:blur(5px);">
+    <div style="position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:min(800px, calc(100vw - 2rem)); max-height:85vh; overflow:auto; background:#181a20; border:1px solid #3a3d45; border-radius:14px; box-shadow:0 20px 60px rgba(0,0,0,.5); color:#e8e8ea;">
+
+      <!-- Header -->
+      <div style="position:sticky; top:0; background:#181a20; z-index:1; padding:1rem; border-bottom:1px solid #33373f; display:flex; align-items:center; justify-content:space-between;">
+        <div style="font-weight:700; font-size:1.2rem; letter-spacing:.3px;">🎵 Rhythm Mode</div>
+        <button id="rhythmModeClose" style="border:1px solid #3a3d45; background:#15171d; color:#e8e8ea; border-radius:10px; padding:.4rem .8rem; cursor:pointer; font-weight:600;">Close</button>
+      </div>
+
+      <!-- Body -->
+      <div style="padding:1.5rem;">
+
+        <!-- Mode Tabs -->
+        <div style="display:flex; gap:1rem; margin-bottom:1.5rem; border-bottom:1px solid #33373f; padding-bottom:1rem;">
+          <button id="rhythmTabPlay" class="rhythmTab" style="flex:1; padding:.6rem; border:1px solid #4c8dff; background:rgba(76,141,255,0.2); color:#4c8dff; border-radius:8px; font-weight:600; cursor:pointer;">▶ Play Mode</button>
+          <button id="rhythmTabEditor" class="rhythmTab" style="flex:1; padding:.6rem; border:1px solid #3a3d45; background:#15171d; color:#e8e8ea; border-radius:8px; font-weight:600; cursor:pointer;">✏ Editor Mode</button>
+        </div>
+
+        <!-- Play Mode Panel -->
+        <div id="rhythmPlayPanel" style="display:block;">
+
+          <!-- Song Selection -->
+          <div style="background:#15171d; border:1px solid #33373f; border-radius:12px; padding:1rem; margin-bottom:1rem;">
+            <h3 style="margin:0 0 1rem; font-size:1rem; opacity:.95;">Song Selection</h3>
+
+            <div style="margin-bottom:1rem;">
+              <label style="display:block; margin-bottom:.5rem; opacity:.8;">Select Beat Map:</label>
+              <select id="rhythmSongSelect" style="width:100%; padding:.6rem; background:#181a20; border:1px solid #3a3d45; border-radius:8px; color:#e8e8ea; font-size:1rem;">
+                <option value="">-- No beat maps loaded --</option>
+              </select>
+            </div>
+
+            <div style="display:flex; gap:.8rem;">
+              <button id="rhythmLoadBeatMap" style="flex:1; padding:.7rem; background:#15171d; border:1px solid #4c8dff; color:#4c8dff; border-radius:8px; cursor:pointer; font-weight:600;">📁 Load Beat Map</button>
+              <button id="rhythmLoadAudio" style="flex:1; padding:.7rem; background:#15171d; border:1px solid #4c8dff; color:#4c8dff; border-radius:8px; cursor:pointer; font-weight:600;">🎵 Load Audio</button>
+            </div>
+
+            <input type="file" id="rhythmBeatMapFile" accept=".json" style="display:none;">
+            <input type="file" id="rhythmAudioFile" accept="audio/*" style="display:none;">
+          </div>
+
+          <!-- Game Controls -->
+          <div style="background:#15171d; border:1px solid #33373f; border-radius:12px; padding:1rem; margin-bottom:1rem;">
+            <h3 style="margin:0 0 1rem; font-size:1rem; opacity:.95;">Game Controls</h3>
+
+            <div style="display:flex; gap:.8rem; margin-bottom:1rem;">
+              <button id="rhythmStart" style="flex:1; padding:.9rem; background:#0066ff; border:1px solid #4c8dff; color:#fff; border-radius:8px; cursor:pointer; font-weight:700; font-size:1.1rem;" disabled>▶ Start Game</button>
+              <button id="rhythmStop" style="flex:1; padding:.9rem; background:#cc0000; border:1px solid #ff3333; color:#fff; border-radius:8px; cursor:pointer; font-weight:700; font-size:1.1rem;" disabled>■ Stop</button>
+            </div>
+
+            <div style="opacity:.7; font-size:.9rem; text-align:center;">Load a beat map and audio to start playing</div>
+          </div>
+
+          <!-- Stats Display -->
+          <div id="rhythmStats" style="background:#15171d; border:1px solid #33373f; border-radius:12px; padding:1rem; display:none;">
+            <h3 style="margin:0 0 1rem; font-size:1rem; opacity:.95;">Stats</h3>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); gap:.8rem; font-size:.9rem;">
+              <div style="background:#181a20; padding:.6rem; border-radius:6px;">
+                <div style="opacity:.6; font-size:.8rem;">Score</div>
+                <div id="rhythmScoreDisplay" style="font-size:1.3rem; font-weight:700; color:#4c8dff;">0</div>
+              </div>
+              <div style="background:#181a20; padding:.6rem; border-radius:6px;">
+                <div style="opacity:.6; font-size:.8rem;">Combo</div>
+                <div id="rhythmComboDisplay" style="font-size:1.3rem; font-weight:700; color:#ffaa00;">0x</div>
+              </div>
+              <div style="background:#181a20; padding:.6rem; border-radius:6px;">
+                <div style="opacity:.6; font-size:.8rem;">Perfect</div>
+                <div id="rhythmPerfectDisplay" style="font-size:1.3rem; font-weight:700; color:#00ff00;">0</div>
+              </div>
+              <div style="background:#181a20; padding:.6rem; border-radius:6px;">
+                <div style="opacity:.6; font-size:.8rem;">Good</div>
+                <div id="rhythmGoodDisplay" style="font-size:1.3rem; font-weight:700; color:#00ffff;">0</div>
+              </div>
+              <div style="background:#181a20; padding:.6rem; border-radius:6px;">
+                <div style="opacity:.6; font-size:.8rem;">Miss</div>
+                <div id="rhythmMissDisplay" style="font-size:1.3rem; font-weight:700; color:#ff0000;">0</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Editor Mode Panel -->
+        <div id="rhythmEditorPanel" style="display:none;">
+
+          <!-- Audio Loading -->
+          <div style="background:#15171d; border:1px solid #33373f; border-radius:12px; padding:1rem; margin-bottom:1rem;">
+            <h3 style="margin:0 0 1rem; font-size:1rem; opacity:.95;">1. Load Audio</h3>
+
+            <button id="editorLoadAudio" style="width:100%; padding:.8rem; background:#15171d; border:1px solid #4c8dff; color:#4c8dff; border-radius:8px; cursor:pointer; font-weight:600;">🎵 Select Audio File</button>
+            <input type="file" id="editorAudioFile" accept="audio/*" style="display:none;">
+
+            <div id="editorAudioInfo" style="margin-top:.8rem; padding:.6rem; background:#181a20; border-radius:6px; font-size:.9rem; opacity:.7; display:none;">
+              <div>File: <span id="editorFileName">-</span></div>
+              <div>Duration: <span id="editorDuration">-</span></div>
+            </div>
+          </div>
+
+          <!-- Load Existing Beat Map (Optional) -->
+          <div style="background:#15171d; border:1px solid #33373f; border-radius:12px; padding:1rem; margin-bottom:1rem;">
+            <h3 style="margin:0 0 1rem; font-size:1rem; opacity:.95;">2. Load Existing Beat Map (Optional)</h3>
+
+            <button id="editorLoadBeatMap" style="width:100%; padding:.8rem; background:#15171d; border:1px solid #4c8dff; color:#4c8dff; border-radius:8px; cursor:pointer; font-weight:600;">📂 Load Beat Map JSON</button>
+            <input type="file" id="editorBeatMapFileLoad" accept=".json" style="display:none;">
+
+            <div id="editorLoadedBeatMapInfo" style="margin-top:.8rem; padding:.6rem; background:#181a20; border-radius:6px; font-size:.9rem; opacity:.7; display:none;">
+              <div>Loaded: <span id="editorLoadedBeatMapName">-</span></div>
+              <div>Beats: <span id="editorLoadedBeatCount">0</span></div>
+            </div>
+          </div>
+
+          <!-- Beat Detection -->
+          <div style="background:#15171d; border:1px solid #33373f; border-radius:12px; padding:1rem; margin-bottom:1rem;">
+            <h3 style="margin:0 0 1rem; font-size:1rem; opacity:.95;">3. Create/Edit Beat Map</h3>
+
+            <!-- Editor Mode Tabs -->
+            <div style="display:flex; gap:.5rem; margin-bottom:1rem;">
+              <button id="editorTabTiming" style="flex:1; padding:.7rem; background:#4c8dff; border:1px solid #4c8dff; color:#fff; border-radius:8px; cursor:pointer; font-weight:600;">⏱ Beat Timing</button>
+              <button id="editorTabPositions" style="flex:1; padding:.7rem; background:#15171d; border:1px solid #3a3d45; color:#888; border-radius:8px; cursor:pointer; font-weight:600;" disabled>📍 Ring Positions</button>
+            </div>
+
+            <!-- Beat Timing View -->
+            <div id="editorTimingView">
+              <!-- Waveform Visualizer -->
+              <div style="margin-bottom:1rem;">
+                <div style="background:#0a0c10; border:1px solid #3a3d45; border-radius:8px; overflow:hidden;">
+                  <canvas id="beatEditorCanvas" style="display:block; width:100%; cursor:crosshair;"></canvas>
+                </div>
+                <div style="margin-top:.5rem; font-size:.85rem; opacity:.7; text-align:center;">
+                  Click on waveform to add/remove beat markers | Green lines = beats | Red line = playhead
+                </div>
+              </div>
+
+            <div style="display:flex; gap:.8rem; margin-bottom:1rem;">
+              <button id="editorAutoDetect" style="flex:1; padding:.7rem; background:#15171d; border:1px solid #4c8dff; color:#4c8dff; border-radius:8px; cursor:pointer; font-weight:600;" disabled>🤖 Auto-Detect Beats</button>
+              <button id="editorPlayPause" style="flex:1; padding:.7rem; background:#15171d; border:1px solid #4c8dff; color:#4c8dff; border-radius:8px; cursor:pointer; font-weight:600;" disabled>▶ Play/Pause</button>
+              <button id="editorAddBeatAtPlayhead" style="flex:1; padding:.7rem; background:#15171d; border:1px solid #4c8dff; color:#4c8dff; border-radius:8px; cursor:pointer; font-weight:600;" disabled>➕ Add Beat Here</button>
+              <button id="editorResetToStart" style="flex:1; padding:.7rem; background:#15171d; border:1px solid #4c8dff; color:#4c8dff; border-radius:8px; cursor:pointer; font-weight:600;" disabled>⏮ Reset to Start</button>
+            </div>
+
+            <div style="display:flex; gap:.8rem; margin-bottom:1rem;">
+              <div style="flex:1;">
+                <label style="display:block; margin-bottom:.5rem; opacity:.8; font-size:.85rem;">Zoom:</label>
+                <div style="display:flex; align-items:center; gap:.5rem;">
+                  <button id="editorZoomOut" style="padding:.5rem .8rem; background:#15171d; border:1px solid #3a3d45; color:#e8e8ea; border-radius:6px; cursor:pointer;">−</button>
+                  <input id="editorZoomSlider" type="range" min="0.5" max="10" step="0.5" value="1" style="flex:1;">
+                  <button id="editorZoomIn" style="padding:.5rem .8rem; background:#15171d; border:1px solid #3a3d45; color:#e8e8ea; border-radius:6px; cursor:pointer;">+</button>
+                  <span id="editorZoomLabel" style="min-width:3rem; text-align:center; opacity:.8; font-size:.85rem;">100%</span>
+                </div>
+              </div>
+              <div style="flex:1;">
+                <label style="display:block; margin-bottom:.5rem; opacity:.8; font-size:.85rem;">Playback Speed:</label>
+                <div style="display:flex; align-items:center; gap:.5rem;">
+                  <button id="editorSpeedDown" style="padding:.5rem .8rem; background:#15171d; border:1px solid #3a3d45; color:#e8e8ea; border-radius:6px; cursor:pointer;">−</button>
+                  <input id="editorSpeedSlider" type="range" min="0.25" max="2.0" step="0.25" value="1" style="flex:1;">
+                  <button id="editorSpeedUp" style="padding:.5rem .8rem; background:#15171d; border:1px solid #3a3d45; color:#e8e8ea; border-radius:6px; cursor:pointer;">+</button>
+                  <span id="editorSpeedLabel" style="min-width:3rem; text-align:center; opacity:.8; font-size:.85rem;">1.0x</span>
+                </div>
+              </div>
+            </div>
+
+              <div style="background:#181a20; padding:.8rem; border-radius:6px; font-size:.85rem; opacity:.7;">
+                <b>Click waveform:</b> Add or remove beat markers<br>
+                <b>Drag waveform:</b> Scroll left/right | <b>Pinch/Zoom:</b> Zoom in/out<br>
+                <b>Auto-Detect:</b> Analyzes audio to find beats automatically
+              </div>
+            </div>
+
+            <!-- Ring Positions View -->
+            <div id="editorPositionsView" style="display:none;">
+              <!-- Grid Visualizer -->
+              <div style="margin-bottom:1rem;">
+                <div style="background:#0a0c10; border:1px solid #3a3d45; border-radius:8px; overflow:hidden;">
+                  <canvas id="ringPositionCanvas" style="display:block; width:100%; cursor:default; touch-action:none;"></canvas>
+                </div>
+                <div style="margin-top:.5rem; font-size:.85rem; opacity:.7; text-align:center;">
+                  Drag ring to reposition | Red boundary = danger zone
+                </div>
+              </div>
+
+              <!-- Navigation Controls -->
+              <div style="display:flex; gap:.8rem; margin-bottom:1rem;">
+                <button id="positionPrevBeat" style="flex:1; padding:.7rem; background:#15171d; border:1px solid #3a3d45; color:#e8e8ea; border-radius:8px; cursor:pointer; font-weight:600;">◀ Previous Beat</button>
+                <div style="flex:2; display:flex; align-items:center; justify-content:center; background:#181a20; border-radius:8px; padding:.5rem;">
+                  <span id="positionBeatInfo" style="font-weight:600; color:#4c8dff;">Beat 1/0</span>
+                </div>
+                <button id="positionNextBeat" style="flex:1; padding:.7rem; background:#15171d; border:1px solid #3a3d45; color:#e8e8ea; border-radius:8px; cursor:pointer; font-weight:600;">Next Beat ▶</button>
+              </div>
+
+              <!-- Position Controls -->
+              <div style="display:flex; gap:.8rem; margin-bottom:1rem;">
+                <button id="positionPlayPreview" style="flex:1; padding:.9rem; background:#00cc44; border:2px solid #00ff55; color:#fff; border-radius:8px; cursor:pointer; font-weight:700; font-size:1rem; box-shadow:0 2px 8px rgba(0,204,68,0.3);">▶ Play Preview</button>
+                <label style="flex:1; display:flex; align-items:center; gap:.5rem; background:#181a20; border-radius:8px; padding:.5rem; cursor:pointer;">
+                  <input type="checkbox" id="positionSnapGrid" style="width:20px; height:20px; cursor:pointer;">
+                  <span style="font-size:.9rem; color:#e8e8ea;">Snap to Grid</span>
+                </label>
+              </div>
+
+              <!-- Auto-Generate Controls -->
+              <div style="display:flex; gap:.8rem; margin-bottom:1rem;">
+                <button id="positionAutoGenerate" style="flex:1; padding:.9rem; background:#4c8dff; border:2px solid #5c9dff; color:#fff; border-radius:8px; cursor:pointer; font-weight:700; font-size:1rem; box-shadow:0 2px 8px rgba(76,141,255,0.3);">✨ Auto-Generate Positions</button>
+                <select id="positionPatternType" style="flex:1; padding:.5rem; background:#181a20; border:1px solid #3a3d45; color:#e8e8ea; border-radius:8px; cursor:pointer; font-size:.9rem;">
+                  <option value="normal">Normal Difficulty</option>
+                  <option value="hard">Hard Difficulty</option>
+                  <option value="expert">Expert Difficulty</option>
+                </select>
+              </div>
+
+              <div style="background:#181a20; padding:.8rem; border-radius:6px; font-size:.85rem; opacity:.7;">
+                <b>Drag ring:</b> Reposition on grid<br>
+                <b>Navigation:</b> Use Previous/Next to move between beats<br>
+                <b>Preview:</b> See all rings in sequence with music
+              </div>
+            </div>
+          </div>
+
+          <!-- Beat Map Controls -->
+          <div style="background:#15171d; border:1px solid #33373f; border-radius:12px; padding:1rem; margin-bottom:1rem;">
+            <h3 style="margin:0 0 1rem; font-size:1rem; opacity:.95;">3. Export Beat Map</h3>
+
+            <div style="margin-bottom:1rem;">
+              <label style="display:block; margin-bottom:.5rem; opacity:.8;">Beat Map Name:</label>
+              <input id="editorBeatMapName" type="text" placeholder="My Awesome Song" style="width:100%; padding:.6rem; background:#181a20; border:1px solid #3a3d45; border-radius:8px; color:#e8e8ea; font-size:1rem;">
+            </div>
+
+            <div style="display:flex; gap:.8rem;">
+              <button id="editorExport" style="flex:1; padding:.7rem; background:#0066ff; border:1px solid #4c8dff; color:#fff; border-radius:8px; cursor:pointer; font-weight:600;" disabled>💾 Export Beat Map</button>
+              <button id="editorClear" style="flex:1; padding:.7rem; background:#15171d; border:1px solid #cc0000; color:#ff3333; border-radius:8px; cursor:pointer; font-weight:600;">🗑 Clear Beats</button>
+            </div>
+
+            <div id="editorBeatCount" style="margin-top:1rem; text-align:center; font-size:.9rem; opacity:.7;">
+              Beats recorded: <span id="editorBeatCountNum">0</span>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Boost to Start Message (outside modal so it stays visible) -->
+  <div id="rhythmBoostToStart" style="position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background:rgba(76,141,255,0.95); color:#fff; padding:1.5rem 2.5rem; border-radius:16px; font-size:1.5rem; font-weight:700; box-shadow:0 8px 32px rgba(76,141,255,.6); z-index:9999; display:none; text-align:center; letter-spacing:0.5px; pointer-events:none;">
+    🚀 Press BOOST to Start
+  </div>
+
+<script>
+// Developer Mode Toggle
+let developerMode = false;
+document.addEventListener('DOMContentLoaded', () => {
+  const developerModeBtn = document.getElementById('developerModeBtn');
+  const dynamicsCard = document.getElementById('dynamicsCard');
+  const rhythmModeCard = document.getElementById('rhythmModeCard');
+
+  if (developerModeBtn && dynamicsCard && rhythmModeCard) {
+    developerModeBtn.addEventListener('click', () => {
+      developerMode = !developerMode;
+      dynamicsCard.style.display = developerMode ? 'block' : 'none';
+      rhythmModeCard.style.display = developerMode ? 'block' : 'none';
+      developerModeBtn.textContent = developerMode ? '🔧 Developer Mode (ON)' : '🔧 Developer Mode';
+    });
+  }
+});
+</script>
+
+<script type="module">
+// L4 DAR Prototype - Main Application Entry Point
+import { init } from "./js/main.js";
+init();
+</script>
+</body>
+</html>
