@@ -395,6 +395,19 @@ export function init() {
   RhythmMode.init(gameState);
   RhythmModeUI.initRhythmModeUI(sceneManager.getScene(), sceneManager.getCamera(), uiManager);
 
+  // Expose core modules for interactive debugging in browser console
+  // Usage example: window.__APP.Car.carCenterPoint.visible = true;
+  window.__APP = {
+    sceneManager,
+    cameraController,
+    Car,
+    RingMode,
+    Physics,
+    Input,
+    scene: sceneManager.getScene(),
+    camera: sceneManager.getCamera()
+  };
+
   // Apply loaded values to sliders
   const accelPitch = document.getElementById('accelPitch');
   const accelYaw = document.getElementById('accelYaw');

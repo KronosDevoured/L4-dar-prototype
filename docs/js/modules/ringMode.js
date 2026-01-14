@@ -1972,6 +1972,13 @@ export function updateRingModeRendering(dt) {
 
   camera.lookAt(lookAtX, lookAtY, lookAtZ);
 
+  // Subtle camera roll tilt toward lateral target offset to give directional feedback
+  // Compute lateral offset between camera and player and apply a small smoothed roll
+  const lateralOffset = camera.position.x - ringModePosition.x;
+  const targetRoll = THREE.MathUtils.clamp(-lateralOffset / 600, -0.25, 0.25); // radians
+  // Smoothly approach target roll
+  camera.rotation.z += (targetRoll - (camera.rotation.z || 0)) * 0.08;
+
   // Move rings toward camera (only if not paused, game has started, and not game over)
   if (!ringModePaused && ringModeStarted && ringModeLives > 0) {
     for(let i = rings.length - 1; i >= 0; i--) {

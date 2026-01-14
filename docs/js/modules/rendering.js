@@ -257,7 +257,14 @@ export function drawRingModeHUD(state) {
       // Keep showing until car reaches the dashed circle (landing zone)
       const wasInitiallyDistant = targetRing.initialDistance2D && targetRing.initialDistance2D >= 1000;
       const ringRadius = targetRing.size / 2;
-      const showIndicator = wasInitiallyDistant ? distance2D > ringRadius : distance2D > 800;
+
+      // Determine if the ring is offscreen in HUD coordinates.
+      // Player is always at screen center; ringScreenX/Y are relative to that.
+      const isOffscreen = (ringScreenX < 0 || ringScreenX > innerWidth || ringScreenY < 0 || ringScreenY > innerHeight);
+
+      // Distance-based rule (legacy behavior) and offscreen rule: show indicator if either applies
+      const distanceBased = wasInitiallyDistant ? distance2D > ringRadius : distance2D > 800;
+      const showIndicator = isOffscreen || distanceBased;
 
       // Calculate arrow position (will be used for dashed line start point)
       let arrowX, arrowY;

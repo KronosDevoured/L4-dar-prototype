@@ -21,6 +21,9 @@ export let carCenterPoint = null;
 export let carNosePoint = null;
 export let carBackPoint = null;
 export let carRollAxisLine = null;
+export let localAxisLineX = null;
+export let localAxisLineY = null;
+export let localAxisLineZ = null;
 export let bodyMesh = null;
 export let yellowTornadoLine = null;
 export let magentaLinePoint = null;
@@ -30,6 +33,7 @@ export let debugLine1 = null; // Nose to magenta
 export let debugLine2 = null; // Perpendicular 1
 export let debugLine3 = null; // Perpendicular 2
 export let debugLine4 = null; // Perpendicular to both
+export let model = null;
 let carScene = null; // Store reference to scene
 
 // ============================================================================
@@ -97,7 +101,7 @@ export function loadCarModel(presetName, scene) {
   gltfLoader.load(
     url,
     (gltf) => {
-      const model = gltf.scene;
+      model = gltf.scene;
 
       // Suppress verbose model load logs in normal builds
 
@@ -114,35 +118,37 @@ export function loadCarModel(presetName, scene) {
         }
       });
 
+        // NOTE: Octane child-transform baking removed; assume GLB is corrected
+
       // Preset-specific pivot point offsets
-      // These offsets position the visual model relative to the car Group's rotation point
-      let xOffset = 0; // Forward/backward offset (positive = forward)
+      // These offsets position the visual model relative to the car Group's rotation point.
+      // Note: forward/back offsets must be applied along the Z axis (car nose direction).
+      // Use `xOffset` for lateral (left/right), `yOffset` for vertical, and `zOffset` for forward/back.
+      let xOffset = 0; // Left/right offset (positive = right)
       let yOffset = -BOX.hy; // Vertical offset (baseline: bottom of hitbox)
-      let zOffset = 0; // Left/right offset
+      let zOffset = 0; // Forward/backward offset (positive = forward)
 
       if (presetName === 'octane') {
-        // Octane: Shift model BACKWARD so rotation happens around forward-biased COM
-        // RLBot measurement shows COM is ~4.85 uu forward of geometric center
-        xOffset = -4.85; // Negative moves model backward, making rotation point forward
-        yOffset = -BOX.hy; // Keep at hitbox bottom (no vertical COM offset)
-        zOffset = 0; // Centered laterally (symmetric car)
+        // Octane: reset all offsets to zero (use visual model origin)
+        xOffset = 0;
+        yOffset = 0;
+        zOffset = 0;
       } else if (presetName === 'fennec') {
         // Fennec: Uses Octane hitbox with nearly identical COM
         // RLBot measurement shows COM is ~4.93 uu forward (vs Octane's 4.85)
-        // NOTE: Fennec model uses scale 160 vs 1.6, so offsets need adjustment
+        // NOTE: Fennec model uses different internal units, so offsets need scaling
         // These values are scaled down by factor of 100 to match model's internal units
-        xOffset = -4.93 / 100; // Forward bias (scaled for Fennec model)
+        zOffset = -4.93 / 100; // Forward bias (scaled for Fennec model)
         yOffset = (-BOX.hy + 1.23) / 100; // Vertical offset (scaled for Fennec model)
-        zOffset = 0; // Centered laterally (symmetric car)
+        xOffset = 0; // Centered laterally (symmetric car)
       } else if (presetName === 'dominus') {
-        // Dominus: Shift model BACKWARD so rotation happens around forward-biased COM
-        // RLBot measurement shows COM is ~5.34 uu forward of geometric center
-        xOffset = -5.34; // Negative moves model backward, making rotation point forward
-        yOffset = -BOX.hy + 1.44; // Raise model slightly (COM is 1.44 uu above geometric center)
-        zOffset = 0; // Centered laterally (symmetric car)
+        // Dominus: use zero forward/back offset; apply vertical correction to lower roll axis
+        zOffset = 0;
+        yOffset = -BOX.hy + 8.5;
+        xOffset = 0; // Centered laterally (symmetric car)
       }
 
-      // Apply position with offsets
+      // Apply position with corrected axis mapping
       model.position.set(xOffset, yOffset, zOffset);
 
       // Scale the GLB - Fennec model needs different scale due to different internal units
@@ -164,7 +170,120 @@ export function loadCarModel(presetName, scene) {
         model.rotation.y = -Math.PI / 2; // -90 degrees (octane)
       }
 
+      // NOTE: Octane auto-centering removed — use model's native origin/pivot
+
+      // No automatic centering: assume GLB pivot/geometry are authored correctly.
+
       car.add(model);
+
+      // Adjust nose/back indicator positions for GLB models (Dominus)
+      try {
+        if (presetName === 'dominus' && model && car) {
+          // Compute model bbox in world space, then convert to model-local to pick the front-center point
+          const bboxWorld = new THREE.Box3().setFromObject(model);
+
+          // Ensure world matrices are up-to-date
+          model.updateMatrixWorld(true);
+          car.updateMatrixWorld(true);
+
+          // Convert bbox corners into model-local space
+          const invModelMatrix = model.matrixWorld.clone().invert();
+          const minsLocal = bboxWorld.min.clone().applyMatrix4(invModelMatrix);
+          const maxsLocal = bboxWorld.max.clone().applyMatrix4(invModelMatrix);
+
+          // Choose front-center in model-local coords: center of X/Y at max Z
+          const noseLocal = new THREE.Vector3(
+            (minsLocal.x + maxsLocal.x) / 2,
+            (minsLocal.y + maxsLocal.y) / 2,
+            maxsLocal.z
+          );
+
+          const backLocal = new THREE.Vector3(
+            (minsLocal.x + maxsLocal.x) / 2,
+            (minsLocal.y + maxsLocal.y) / 2,
+            minsLocal.z
+          );
+
+          // Convert back to world then to car-local coordinates
+          const noseWorld = noseLocal.clone().applyMatrix4(model.matrixWorld);
+          const backWorld = backLocal.clone().applyMatrix4(model.matrixWorld);
+
+          const noseCarLocal = car.worldToLocal(noseWorld.clone());
+          const backCarLocal = car.worldToLocal(backWorld.clone());
+
+          // Small upward tweak so the nose indicator aligns with the car's roll axis line
+          const NOSE_Y_TWEAK = 17; // units
+          noseCarLocal.y += NOSE_Y_TWEAK;
+
+          if (carNosePoint) carNosePoint.position.copy(noseCarLocal);
+          if (carBackPoint) carBackPoint.position.copy(backCarLocal);
+          if (faceTip) faceTip.position.copy(noseCarLocal);
+        }
+        // Small forward nudge for Fennec so the nose indicator sits slightly ahead of COM
+        if (presetName === 'fennec' && car && carNosePoint) {
+          const FENNEC_NOSE_NUDGE = 12; // units forward along local +Z (increased by 4)
+          carNosePoint.position.z += FENNEC_NOSE_NUDGE;
+        }
+      } catch (e) {
+        // ignore - indicators will use hitbox fallback
+      }
+
+      // Debug: compute model world position after applying offsets/scale
+      try {
+        const worldPos = new THREE.Vector3();
+        model.getWorldPosition(worldPos);
+
+        // Expected RL COM offsets (forward positive in UU)
+        const expectedCOM = {
+          octane: { forward: 4.85, vertical: 0 },
+          fennec: { forward: 4.93, vertical: 1.23 },
+          dominus: { forward: 5.34, vertical: 1.44 }
+        };
+
+        const expected = expectedCOM[presetName] || { forward: 0, vertical: 0 };
+
+        // For Octane we want the visual model's geometric center (bbox center)
+        // to coincide with the car group's origin. Skip RL auto-correction
+        // that moves the visual model to match an external "expected" COM.
+        if (presetName === 'octane') {
+          // treat expected COM as zero so auto-correct will place COM at origin
+          expected.forward = 0;
+          expected.vertical = 0;
+        }
+
+        // Compute measured offsets in car-local axes
+        const carWorld = new THREE.Vector3();
+        car.getWorldPosition(carWorld);
+        const delta = worldPos.clone().sub(carWorld);
+        const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(car.quaternion).normalize();
+        const up = new THREE.Vector3(0, 1, 0).applyQuaternion(car.quaternion).normalize();
+        const measuredForward = delta.dot(forward);
+        const measuredUp = delta.dot(up);
+
+        // Debug info removed to reduce console noise
+
+        // Auto-correct model.local position to match expected RL COM (small tolerance)
+        const forwardDelta = expected.forward - measuredForward;
+        const upDelta = expected.vertical - measuredUp;
+
+        if (Math.abs(forwardDelta) > 0.01 || Math.abs(upDelta) > 0.01) {
+          // Apply corrections in car-local space (Z = forward, Y = up)
+          model.position.z += forwardDelta;
+          model.position.y += upDelta;
+
+          // Recompute world pos after correction
+          model.updateMatrixWorld(true);
+          const worldPos2 = new THREE.Vector3();
+          model.getWorldPosition(worldPos2);
+          const delta2 = worldPos2.clone().sub(carWorld);
+          const measuredForward2 = delta2.dot(forward);
+          const measuredUp2 = delta2.dot(up);
+
+          // Auto-correction applied (logging removed)
+        }
+      } catch (e) {
+        console.warn('[Car] Could not compute world COM debug info:', e);
+      }
     },
     undefined,
     (err) => {
@@ -186,6 +305,8 @@ export function loadCarModel(presetName, scene) {
 
       // Position to match hitbox (bottom at y=0)
       fallbackMesh.position.set(0, -BOX.hy, 0);
+      // Expose fallback mesh as the current visual model for debugging
+      model = fallbackMesh;
 
       car.add(fallbackMesh);
     }
@@ -214,6 +335,7 @@ export function clearCar(scene) {
     }
   });
   car = null;
+  model = null;
 
   // Also remove tornado circle from scene (it's not a car child)
   if (tornadoCircle && scene) {
@@ -239,6 +361,45 @@ export function buildCar(boxDims, presetName = "placeholder", scene) {
   car.position.set(0, 0, 0); // At grid intersection
 
   scene.add(car);
+
+  // Local-axis debug lines (drawn over the car)
+  try {
+    const halfX = BOX.hx * 2; // half-length for doubled-size line endpoints
+    const halfY = BOX.hy * 2;
+    const halfZ = BOX.hz * 2;
+
+    const geomX = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(-halfX, 0, 0),
+      new THREE.Vector3(halfX, 0, 0)
+    ]);
+    localAxisLineX = new THREE.Line(geomX, new THREE.LineBasicMaterial({ color: 0x0000ff, linewidth: 2, depthTest: false }));
+    localAxisLineX.renderOrder = 999;
+    car.add(localAxisLineX);
+    // Hide blue debug line in normal usage
+    localAxisLineX.visible = false;
+
+    const geomY = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(0, -halfY, 0),
+      new THREE.Vector3(0, halfY, 0)
+    ]);
+    localAxisLineY = new THREE.Line(geomY, new THREE.LineBasicMaterial({ color: 0x00ff00, linewidth: 2, depthTest: false }));
+    localAxisLineY.renderOrder = 999;
+    car.add(localAxisLineY);
+    // Hide green debug line in normal usage
+    localAxisLineY.visible = false;
+
+    const geomZ = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(0, 0, -halfZ),
+      new THREE.Vector3(0, 0, halfZ)
+    ]);
+    localAxisLineZ = new THREE.Line(geomZ, new THREE.LineBasicMaterial({ color: 0xffff00, linewidth: 2, depthTest: false }));
+    localAxisLineZ.renderOrder = 999;
+    car.add(localAxisLineZ);
+    // Hide yellow debug line in normal usage
+    localAxisLineZ.visible = false;
+  } catch (e) {
+    console.warn('[Car] Failed to create local-axis debug lines:', e);
+  }
 
   if (presetName === "placeholder") {
     // Hitbox body + fancy fake car
@@ -285,7 +446,8 @@ export function buildCar(boxDims, presetName = "placeholder", scene) {
   const pivotGeom = new THREE.SphereGeometry(3, 16, 16);
   const pivotMat = new THREE.MeshBasicMaterial({ color: 0xff00ff });
   tornadoPivotPoint = new THREE.Mesh(pivotGeom, pivotMat);
-  tornadoPivotPoint.position.set(0, -160, 225);
+  // Position pivot at grid intersection under car center (Z = 0 so it's beneath the car)
+  tornadoPivotPoint.position.set(0, -160, 0);
 
   if (carScene) {
     carScene.add(tornadoPivotPoint);
@@ -405,7 +567,7 @@ export function buildCar(boxDims, presetName = "placeholder", scene) {
   // Circle default faces Z direction in line's local space
   yellowTornadoLine.add(magentaCircle);
   magentaCircle.position.set(0, 0, 120); // Same position as magenta dot on the line
-  magentaCircle.visible = true; // Always visible
+  magentaCircle.visible = true; // Visible (circle kept visible even when debug dots are hidden)
 
   // Debug lines - will be updated in physics.js
   // Line 1: Nose to Magenta (RED)
