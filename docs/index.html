@@ -514,7 +514,7 @@
 
             <div style="margin-bottom:1rem;">
               <label style="display:block; margin-bottom:.5rem; opacity:.8;">Select Beat Map:</label>
-              <select id="rhythmSongSelect" style="width:100%; padding:.6rem; background:#181a20; border:1px solid #3a3d45; border-radius:8px; color:#e8e8ea; font-size:1rem;">
+              <select id="rhythmSongSelect" style="width:100%; padding:.6rem; background:#181a20; border:1px solid #3a3d45; border-radius:8px; color:#e8e8ea; font-size:1rem;" aria-label="Select beat map song">
                 <option value="">-- No beat maps loaded --</option>
               </select>
             </div>
@@ -524,8 +524,8 @@
               <button id="rhythmLoadAudio" style="flex:1; padding:.7rem; background:#15171d; border:1px solid #4c8dff; color:#4c8dff; border-radius:8px; cursor:pointer; font-weight:600;">🎵 Load Audio</button>
             </div>
 
-            <input type="file" id="rhythmBeatMapFile" accept=".json" style="display:none;">
-            <input type="file" id="rhythmAudioFile" accept="audio/*" style="display:none;">
+            <input type="file" id="rhythmBeatMapFile" accept=".json" style="display:none;" aria-label="Select beat map JSON file">
+            <input type="file" id="rhythmAudioFile" accept="audio/*" style="display:none;" aria-label="Select audio file">
           </div>
 
           <!-- Game Controls -->
@@ -577,7 +577,7 @@
             <h3 style="margin:0 0 1rem; font-size:1rem; opacity:.95;">1. Load Audio</h3>
 
             <button id="editorLoadAudio" style="width:100%; padding:.8rem; background:#15171d; border:1px solid #4c8dff; color:#4c8dff; border-radius:8px; cursor:pointer; font-weight:600;">🎵 Select Audio File</button>
-            <input type="file" id="editorAudioFile" accept="audio/*" style="display:none;">
+            <input type="file" id="editorAudioFile" accept="audio/*" style="display:none;" aria-label="Select audio file for editor">
 
             <div id="editorAudioInfo" style="margin-top:.8rem; padding:.6rem; background:#181a20; border-radius:6px; font-size:.9rem; opacity:.7; display:none;">
               <div>File: <span id="editorFileName">-</span></div>
@@ -590,7 +590,7 @@
             <h3 style="margin:0 0 1rem; font-size:1rem; opacity:.95;">2. Load Existing Beat Map (Optional)</h3>
 
             <button id="editorLoadBeatMap" style="width:100%; padding:.8rem; background:#15171d; border:1px solid #4c8dff; color:#4c8dff; border-radius:8px; cursor:pointer; font-weight:600;">📂 Load Beat Map JSON</button>
-            <input type="file" id="editorBeatMapFileLoad" accept=".json" style="display:none;">
+            <input type="file" id="editorBeatMapFileLoad" accept=".json" style="display:none;" aria-label="Load existing beat map JSON">
 
             <div id="editorLoadedBeatMapInfo" style="margin-top:.8rem; padding:.6rem; background:#181a20; border-radius:6px; font-size:.9rem; opacity:.7; display:none;">
               <div>Loaded: <span id="editorLoadedBeatMapName">-</span></div>
@@ -632,7 +632,7 @@
                 <label style="display:block; margin-bottom:.5rem; opacity:.8; font-size:.85rem;">Zoom:</label>
                 <div style="display:flex; align-items:center; gap:.5rem;">
                   <button id="editorZoomOut" style="padding:.5rem .8rem; background:#15171d; border:1px solid #3a3d45; color:#e8e8ea; border-radius:6px; cursor:pointer;">−</button>
-                  <input id="editorZoomSlider" type="range" min="0.5" max="10" step="0.5" value="1" style="flex:1;">
+                  <input id="editorZoomSlider" type="range" min="0.5" max="10" step="0.5" value="1" style="flex:1;" aria-label="Zoom level">
                   <button id="editorZoomIn" style="padding:.5rem .8rem; background:#15171d; border:1px solid #3a3d45; color:#e8e8ea; border-radius:6px; cursor:pointer;">+</button>
                   <span id="editorZoomLabel" style="min-width:3rem; text-align:center; opacity:.8; font-size:.85rem;">100%</span>
                 </div>
@@ -641,7 +641,7 @@
                 <label style="display:block; margin-bottom:.5rem; opacity:.8; font-size:.85rem;">Playback Speed:</label>
                 <div style="display:flex; align-items:center; gap:.5rem;">
                   <button id="editorSpeedDown" style="padding:.5rem .8rem; background:#15171d; border:1px solid #3a3d45; color:#e8e8ea; border-radius:6px; cursor:pointer;">−</button>
-                  <input id="editorSpeedSlider" type="range" min="0.25" max="2.0" step="0.25" value="1" style="flex:1;">
+                  <input id="editorSpeedSlider" type="range" min="0.25" max="2.0" step="0.25" value="1" style="flex:1;" aria-label="Playback speed">
                   <button id="editorSpeedUp" style="padding:.5rem .8rem; background:#15171d; border:1px solid #3a3d45; color:#e8e8ea; border-radius:6px; cursor:pointer;">+</button>
                   <span id="editorSpeedLabel" style="min-width:3rem; text-align:center; opacity:.8; font-size:.85rem;">1.0x</span>
                 </div>
@@ -688,7 +688,7 @@
               <!-- Auto-Generate Controls -->
               <div style="display:flex; gap:.8rem; margin-bottom:1rem;">
                 <button id="positionAutoGenerate" style="flex:1; padding:.9rem; background:#4c8dff; border:2px solid #5c9dff; color:#fff; border-radius:8px; cursor:pointer; font-weight:700; font-size:1rem; box-shadow:0 2px 8px rgba(76,141,255,0.3);">✨ Auto-Generate Positions</button>
-                <select id="positionPatternType" style="flex:1; padding:.5rem; background:#181a20; border:1px solid #3a3d45; color:#e8e8ea; border-radius:8px; cursor:pointer; font-size:.9rem;">
+                <select id="positionPatternType" style="flex:1; padding:.5rem; background:#181a20; border:1px solid #3a3d45; color:#e8e8ea; border-radius:8px; cursor:pointer; font-size:.9rem;" aria-label="Auto-generate pattern difficulty">
                   <option value="normal">Normal Difficulty</option>
                   <option value="hard">Hard Difficulty</option>
                   <option value="expert">Expert Difficulty</option>

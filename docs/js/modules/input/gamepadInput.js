@@ -241,16 +241,38 @@ export function updateGamepadMenuNavigation(callbacks) {
   const stickLeft = lx < -0.5;
   const stickRight = lx > 0.5;
 
-  // Handle directional navigation with cooldown
-  if (dpadUp || stickUp) {
+  // Track previous stick state for edge detection
+  const prevStickUp = !!gpPrevActionPressed['stick_up'];
+  const prevStickDown = !!gpPrevActionPressed['stick_down'];
+  const prevStickLeft = !!gpPrevActionPressed['stick_left'];
+  const prevStickRight = !!gpPrevActionPressed['stick_right'];
+
+  // Track d-pad previous state
+  const prevDpadUp = !!gpPrevActionPressed['dpad_up'];
+  const prevDpadDown = !!gpPrevActionPressed['dpad_down'];
+  const prevDpadLeft = !!gpPrevActionPressed['dpad_left'];
+  const prevDpadRight = !!gpPrevActionPressed['dpad_right'];
+
+  // Handle directional navigation with edge detection
+  if ((dpadUp && !prevDpadUp) || (stickUp && !prevStickUp)) {
     callbacks?.onMenuNavigate?.('up', currentTime);
-  } else if (dpadDown || stickDown) {
+  } else if ((dpadDown && !prevDpadDown) || (stickDown && !prevStickDown)) {
     callbacks?.onMenuNavigate?.('down', currentTime);
-  } else if (dpadLeft || stickLeft) {
+  } else if ((dpadLeft && !prevDpadLeft) || (stickLeft && !prevStickLeft)) {
     callbacks?.onMenuNavigate?.('left', currentTime);
-  } else if (dpadRight || stickRight) {
+  } else if ((dpadRight && !prevDpadRight) || (stickRight && !prevStickRight)) {
     callbacks?.onMenuNavigate?.('right', currentTime);
   }
+
+  // Update previous states
+  gpPrevActionPressed['stick_up'] = stickUp;
+  gpPrevActionPressed['stick_down'] = stickDown;
+  gpPrevActionPressed['stick_left'] = stickLeft;
+  gpPrevActionPressed['stick_right'] = stickRight;
+  gpPrevActionPressed['dpad_up'] = dpadUp;
+  gpPrevActionPressed['dpad_down'] = dpadDown;
+  gpPrevActionPressed['dpad_left'] = dpadLeft;
+  gpPrevActionPressed['dpad_right'] = dpadRight;
 
   // X button (Cross) to activate/select (button 0)
   const xPressed = pad.buttons[0]?.pressed || false;
