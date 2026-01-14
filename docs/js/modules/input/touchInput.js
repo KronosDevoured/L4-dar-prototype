@@ -186,6 +186,15 @@ export function onPointerDown(e, callbacks) {
     joyVec.copy(vecFromJoyPx(x, y));
     joyPressStartPos.set(x, y);
 
+    // Capture pointer to ensure we receive move/up/cancel events even if finger leaves HUD
+    if (hudElement && hudElement.setPointerCapture) {
+      try {
+        hudElement.setPointerCapture(id);
+      } catch (e) {
+        // Ignore errors - some browsers may not support this
+      }
+    }
+
     clearTimeout(holdTimer);
     holdTimer = setTimeout(() => {
       // Only enable relocate if still active and timer wasn't cancelled by movement
@@ -201,6 +210,16 @@ export function onPointerDown(e, callbacks) {
     darPressT = performance.now();
     darOn = true;
     darPressStartPos.set(x, y);
+
+    // Capture pointer for DAR button
+    if (hudElement && hudElement.setPointerCapture) {
+      try {
+        hudElement.setPointerCapture(id);
+      } catch (e) {
+        // Ignore errors
+      }
+    }
+
     callbacks?.onDARPress?.(true);
 
     clearTimeout(darHoldTimer);
@@ -333,6 +352,15 @@ export function onPointerMove(e, callbacks) {
 
 export function endPtr(id, callbacks) {
   activePointers.delete(id);
+
+  // Release pointer capture
+  if (hudElement && hudElement.releasePointerCapture) {
+    try {
+      hudElement.releasePointerCapture(id);
+    } catch (e) {
+      // Ignore errors - pointer may not be captured
+    }
+  }
 
   // Joystick release
   if (id === joyPointerId) {
