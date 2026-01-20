@@ -55,127 +55,80 @@ function findClosestElementInDirection(direction) {
   if (menuFocusableElements.length === 0) return menuFocusIndex;
 
   const currentEl = menuFocusableElements[menuFocusIndex];
-  const isHeader = currentEl.tagName === 'H3';
+  const currentRect = currentEl.getBoundingClientRect();
+  const currentCenterX = currentRect.left + currentRect.width / 2;
+  const currentCenterY = currentRect.top + currentRect.height / 2;
 
-  // UP/DOWN behavior - NEW LOGIC for better navigation
-  if (direction === 'down' || direction === 'up') {
-    const step = direction === 'down' ? 1 : -1;
-    const currentCard = currentEl.closest('.card');
+  let candidates = [];
 
-    if (isHeader) {
-      if (direction === 'down') {
-        // DOWN from header → Enter card ONLY if expanded, otherwise jump to next header
-        const isCardExpanded = currentCard && !currentCard.classList.contains('collapsed');
+  // Find all elements in the target direction with their distances
+  for (let i = 0; i < menuFocusableElements.length; i++) {
+    if (i === menuFocusIndex) continue; // Skip self
 
-        if (isCardExpanded) {
-          // Card is expanded → Try to enter card (find first non-header element)
-          for (let i = 1; i < menuFocusableElements.length; i++) {
-            const checkIndex = (menuFocusIndex + i) % menuFocusableElements.length;
-            const checkEl = menuFocusableElements[checkIndex];
-            const checkCard = checkEl.closest('.card');
+    const el = menuFocusableElements[i];
+    const rect = el.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
 
-            // Found first element inside current card
-            if (checkCard === currentCard && checkEl.tagName !== 'H3') {
-              return checkIndex;
-            }
+    // Determine if element is in the target direction and calculate preference score
+    let isValid = false;
+    let score = Infinity;
 
-            // Reached next card without finding elements → jump to next card header
-            if (checkCard !== currentCard) {
-              break;
-            }
-          }
-        }
-
-        // Card is collapsed OR has no elements → jump to next card header
-        for (let i = 1; i < menuFocusableElements.length; i++) {
-          const checkIndex = (menuFocusIndex + i) % menuFocusableElements.length;
-          const checkEl = menuFocusableElements[checkIndex];
-          if (checkEl.tagName === 'H3') {
-            return checkIndex;
-          }
-        }
-      } else {
-        // UP from header → Go to previous card header
-        for (let i = 1; i < menuFocusableElements.length; i++) {
-          const checkIndex = (menuFocusIndex - i + menuFocusableElements.length) % menuFocusableElements.length;
-          const checkEl = menuFocusableElements[checkIndex];
-          if (checkEl.tagName === 'H3') {
-            return checkIndex;
-          }
-        }
+    if (direction === 'down') {
+      // Element must be below current element
+      if (centerY > currentCenterY) {
+        isValid = true;
+        // Prefer elements more directly below (small horizontal distance)
+        // Secondary preference: closest vertical distance
+        const horizontalDist = Math.abs(centerX - currentCenterX);
+        const verticalDist = centerY - currentCenterY;
+        score = horizontalDist * 2 + verticalDist; // Horizontal distance weighted 2x
       }
-    } else {
-      // Currently on a control element (button/slider/select)
-      if (direction === 'down') {
-        // DOWN from control → Next element in card OR next card header
-        for (let i = 1; i < menuFocusableElements.length; i++) {
-          const checkIndex = (menuFocusIndex + i) % menuFocusableElements.length;
-          const checkEl = menuFocusableElements[checkIndex];
-          const checkCard = checkEl.closest('.card');
-
-          // Still in same card → move to next element
-          if (checkCard === currentCard && checkEl.tagName !== 'H3') {
-            return checkIndex;
-          }
-
-          // Left card → jump to next card header
-          if (checkCard !== currentCard && checkEl.tagName === 'H3') {
-            return checkIndex;
-          }
-        }
-      } else {
-        // UP from control → Previous element in card OR card header
-        for (let i = 1; i < menuFocusableElements.length; i++) {
-          const checkIndex = (menuFocusIndex - i + menuFocusableElements.length) % menuFocusableElements.length;
-          const checkEl = menuFocusableElements[checkIndex];
-          const checkCard = checkEl.closest('.card');
-
-          // Previous element in same card (including header)
-          if (checkCard === currentCard) {
-            return checkIndex;
-          }
-        }
+    } else if (direction === 'up') {
+      // Element must be above current element
+      if (centerY < currentCenterY) {
+        isValid = true;
+        // Prefer elements more directly above (small horizontal distance)
+        // Secondary preference: closest vertical distance
+        const horizontalDist = Math.abs(centerX - currentCenterX);
+        const verticalDist = currentCenterY - centerY;
+        score = horizontalDist * 2 + verticalDist; // Horizontal distance weighted 2x
+      }
+    } else if (direction === 'right') {
+      // Element must be to the right of current element
+      if (centerX > currentCenterX) {
+        isValid = true;
+        // Prefer elements more directly to the right (small vertical distance)
+        // Secondary preference: closest horizontal distance
+        const verticalDist = Math.abs(centerY - currentCenterY);
+        const horizontalDist = centerX - currentCenterX;
+        score = verticalDist * 2 + horizontalDist; // Vertical distance weighted 2x
+      }
+    } else if (direction === 'left') {
+      // Element must be to the left of current element
+      if (centerX < currentCenterX) {
+        isValid = true;
+        // Prefer elements more directly to the left (small vertical distance)
+        // Secondary preference: closest horizontal distance
+        const verticalDist = Math.abs(centerY - currentCenterY);
+        const horizontalDist = currentCenterX - centerX;
+        score = verticalDist * 2 + horizontalDist; // Vertical distance weighted 2x
       }
     }
 
-    // Fallback
-    return (menuFocusIndex + step + menuFocusableElements.length) % menuFocusableElements.length;
-  }
-
-  // LEFT/RIGHT: Navigate within current card (sequential)
-  if (direction === 'left' || direction === 'right') {
-    const step = direction === 'right' ? 1 : -1;
-    const currentCard = currentEl.closest('.card');
-
-    // Try to find next/previous element in same card
-    for (let i = 1; i < menuFocusableElements.length; i++) {
-      const checkIndex = (menuFocusIndex + (i * step) + menuFocusableElements.length) % menuFocusableElements.length;
-      const checkEl = menuFocusableElements[checkIndex];
-      const checkCard = checkEl.closest('.card');
-
-      // If still in same card, return this element
-      if (checkCard === currentCard) {
-        return checkIndex;
-      }
-
-      // If we've left the card, wrap back to start/end of current card
-      if (direction === 'right') {
-        // Wrap to first element in card
-        return menuFocusableElements.findIndex(el => el.closest('.card') === currentCard);
-      } else {
-        // Wrap to last element in card
-        for (let j = menuFocusableElements.length - 1; j >= 0; j--) {
-          if (menuFocusableElements[j].closest('.card') === currentCard) {
-            return j;
-          }
-        }
-      }
+    if (isValid) {
+      candidates.push({ index: i, score });
     }
-
-    // Fallback to sequential
-    return (menuFocusIndex + step + menuFocusableElements.length) % menuFocusableElements.length;
   }
 
+  // If candidates found, return the one with the best score
+  if (candidates.length > 0) {
+    candidates.sort((a, b) => a.score - b.score);
+    return candidates[0].index;
+  }
+
+  // Fallback: if no candidates in direction, stay on current element
+  // This prevents wrapping to the opposite side, keeping it grid-like
   return menuFocusIndex;
 }
 

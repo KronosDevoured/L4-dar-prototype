@@ -47,13 +47,10 @@ export class MenuNavigator {
       return false;
     }
 
-    const currentEl = this.focusableElements[this.focusIndex];
-    const isHeader = currentEl.tagName === 'H3';
-
     let newIndex = this.focusIndex;
 
     if (direction === 'down' || direction === 'up') {
-      newIndex = this.findVerticalElement(direction, isHeader);
+      newIndex = this.findVerticalElement(direction);
     } else if (direction === 'left' || direction === 'right') {
       newIndex = this.findHorizontalElement(direction);
     }
@@ -69,132 +66,116 @@ export class MenuNavigator {
   }
 
   /**
-   * Find next/previous element vertically (up/down)
+   * Find next/previous element vertically (up/down) using grid-based logic
    * @private
    */
-  findVerticalElement(direction, isHeader) {
+  findVerticalElement(direction) {
     const currentEl = this.focusableElements[this.focusIndex];
-    const currentCard = currentEl.closest('.card');
+    const currentRect = currentEl.getBoundingClientRect();
+    const currentCenterX = currentRect.left + currentRect.width / 2;
+    const currentCenterY = currentRect.top + currentRect.height / 2;
 
-    if (isHeader) {
+    let candidates = [];
+
+    // Find all elements in the target direction
+    for (let i = 0; i < this.focusableElements.length; i++) {
+      if (i === this.focusIndex) continue; // Skip self
+
+      const el = this.focusableElements[i];
+      const rect = el.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+
+      let isValid = false;
+      let score = Infinity;
+
       if (direction === 'down') {
-        return this.findNextCardElement(currentCard, true);
-      } else {
-        return this.findPreviousCardHeader();
-      }
-    } else {
-      // Currently on a control element
-      if (direction === 'down') {
-        return this.findNextControlOrHeader(currentCard);
-      } else {
-        return this.findPreviousControlOrHeader(currentCard);
-      }
-    }
-  }
-
-  /**
-   * Find next element inside current card or next card header
-   * @private
-   */
-  findNextCardElement(currentCard, enterCard) {
-    const isCardExpanded = currentCard && !currentCard.classList.contains('collapsed');
-
-    if (enterCard && isCardExpanded) {
-      // Try to enter card (find first non-header element)
-      for (let i = 1; i < this.focusableElements.length; i++) {
-        const checkIndex = (this.focusIndex + i) % this.focusableElements.length;
-        const checkEl = this.focusableElements[checkIndex];
-        const checkCard = checkEl.closest('.card');
-
-        if (checkCard === currentCard && checkEl.tagName !== 'H3') {
-          return checkIndex;
+        // Element must be below current element
+        if (centerY > currentCenterY) {
+          isValid = true;
+          // Prefer elements more directly below (small horizontal distance)
+          const horizontalDist = Math.abs(centerX - currentCenterX);
+          const verticalDist = centerY - currentCenterY;
+          score = horizontalDist * 2 + verticalDist;
         }
-        if (checkCard !== currentCard) break;
+      } else if (direction === 'up') {
+        // Element must be above current element
+        if (centerY < currentCenterY) {
+          isValid = true;
+          // Prefer elements more directly above (small horizontal distance)
+          const horizontalDist = Math.abs(centerX - currentCenterX);
+          const verticalDist = currentCenterY - centerY;
+          score = horizontalDist * 2 + verticalDist;
+        }
+      }
+
+      if (isValid) {
+        candidates.push({ index: i, score });
       }
     }
 
-    // Jump to next card header
-    for (let i = 1; i < this.focusableElements.length; i++) {
-      const checkIndex = (this.focusIndex + i) % this.focusableElements.length;
-      const checkEl = this.focusableElements[checkIndex];
-      if (checkEl.tagName === 'H3') {
-        return checkIndex;
-      }
+    if (candidates.length > 0) {
+      candidates.sort((a, b) => a.score - b.score);
+      return candidates[0].index;
     }
 
     return this.focusIndex;
   }
 
   /**
-   * Find previous card header
-   * @private
-   */
-  findPreviousCardHeader() {
-    for (let i = 1; i < this.focusableElements.length; i++) {
-      const checkIndex = (this.focusIndex - i + this.focusableElements.length) % this.focusableElements.length;
-      const checkEl = this.focusableElements[checkIndex];
-      if (checkEl.tagName === 'H3') {
-        return checkIndex;
-      }
-    }
-    return this.focusIndex;
-  }
-
-  /**
-   * Find next control element in card or next card header
-   * @private
-   */
-  findNextControlOrHeader(currentCard) {
-    for (let i = 1; i < this.focusableElements.length; i++) {
-      const checkIndex = (this.focusIndex + i) % this.focusableElements.length;
-      const checkEl = this.focusableElements[checkIndex];
-      const checkCard = checkEl.closest('.card');
-
-      if (checkCard === currentCard && checkEl.tagName !== 'H3') {
-        return checkIndex;
-      }
-      if (checkCard !== currentCard && checkEl.tagName === 'H3') {
-        return checkIndex;
-      }
-    }
-    return this.focusIndex;
-  }
-
-  /**
-   * Find previous control element in card or card header
-   * @private
-   */
-  findPreviousControlOrHeader(currentCard) {
-    for (let i = 1; i < this.focusableElements.length; i++) {
-      const checkIndex = (this.focusIndex - i + this.focusableElements.length) % this.focusableElements.length;
-      const checkEl = this.focusableElements[checkIndex];
-      const checkCard = checkEl.closest('.card');
-
-      if (checkCard === currentCard) {
-        return checkIndex;
-      }
-    }
-    return this.focusIndex;
-  }
-
-  /**
-   * Find next/previous element horizontally (left/right)
+   * Find next/previous element horizontally (left/right) using grid-based logic
    * @private
    */
   findHorizontalElement(direction) {
     const currentEl = this.focusableElements[this.focusIndex];
-    const currentCard = currentEl.closest('.card');
-    const step = direction === 'right' ? 1 : -1;
+    const currentRect = currentEl.getBoundingClientRect();
+    const currentCenterX = currentRect.left + currentRect.width / 2;
+    const currentCenterY = currentRect.top + currentRect.height / 2;
 
-    for (let i = 1; i < this.focusableElements.length; i++) {
-      const checkIndex = (this.focusIndex + (i * step) + this.focusableElements.length) % this.focusableElements.length;
-      const checkEl = this.focusableElements[checkIndex];
-      const checkCard = checkEl.closest('.card');
+    let candidates = [];
 
-      if (checkCard === currentCard && checkEl.tagName !== 'H3') {
-        return checkIndex;
+    // Find all elements in the target direction
+    for (let i = 0; i < this.focusableElements.length; i++) {
+      if (i === this.focusIndex) continue; // Skip self
+
+      const el = this.focusableElements[i];
+      const rect = el.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+
+      let isValid = false;
+      let score = Infinity;
+
+      if (direction === 'right') {
+        // Element must be to the right of current element
+        if (centerX > currentCenterX) {
+          isValid = true;
+          // Prefer elements more directly to the right (small vertical distance)
+          const verticalDist = Math.abs(centerY - currentCenterY);
+          const horizontalDist = centerX - currentCenterX;
+          score = verticalDist * 2 + horizontalDist;
+        }
+      } else if (direction === 'left') {
+        // Element must be to the left of current element
+        if (centerX < currentCenterX) {
+          isValid = true;
+          // Prefer elements more directly to the left (small vertical distance)
+          const verticalDist = Math.abs(centerY - currentCenterY);
+          const horizontalDist = currentCenterX - centerX;
+          score = verticalDist * 2 + horizontalDist;
+        }
+      }
+
+      if (isValid) {
+        candidates.push({ index: i, score });
       }
     }
+
+    if (candidates.length > 0) {
+      candidates.sort((a, b) => a.score - b.score);
+      return candidates[0].index;
+    }
+
     return this.focusIndex;
   }
 
