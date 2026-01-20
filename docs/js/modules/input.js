@@ -58,6 +58,8 @@ function findClosestElementInDirection(direction) {
   const currentRect = currentEl.getBoundingClientRect();
   const currentCenterX = currentRect.left + currentRect.width / 2;
   const currentCenterY = currentRect.top + currentRect.height / 2;
+  const currentHeight = currentRect.height;
+  const currentWidth = currentRect.width;
 
   let candidates = [];
 
@@ -70,49 +72,61 @@ function findClosestElementInDirection(direction) {
     const centerX = rect.left + rect.width / 2;
     const centerY = rect.top + rect.height / 2;
 
-    // Determine if element is in the target direction and calculate preference score
     let isValid = false;
     let score = Infinity;
 
     if (direction === 'down') {
       // Element must be below current element
       if (centerY > currentCenterY) {
-        isValid = true;
-        // Prefer elements more directly below (small horizontal distance)
-        // Secondary preference: closest vertical distance
         const horizontalDist = Math.abs(centerX - currentCenterX);
         const verticalDist = centerY - currentCenterY;
-        score = horizontalDist * 2 + verticalDist; // Horizontal distance weighted 2x
+        
+        // Only consider if it's clearly more vertical than horizontal
+        // Require vertical distance to be at least 1/3 of horizontal span to avoid picking side elements
+        if (verticalDist > Math.max(currentHeight * 0.1, 10)) {
+          isValid = true;
+          // Strong penalty for horizontal misalignment
+          score = horizontalDist * 3 + verticalDist * 0.5;
+        }
       }
     } else if (direction === 'up') {
       // Element must be above current element
       if (centerY < currentCenterY) {
-        isValid = true;
-        // Prefer elements more directly above (small horizontal distance)
-        // Secondary preference: closest vertical distance
         const horizontalDist = Math.abs(centerX - currentCenterX);
         const verticalDist = currentCenterY - centerY;
-        score = horizontalDist * 2 + verticalDist; // Horizontal distance weighted 2x
+        
+        // Only consider if it's clearly more vertical than horizontal
+        if (verticalDist > Math.max(currentHeight * 0.1, 10)) {
+          isValid = true;
+          // Strong penalty for horizontal misalignment
+          score = horizontalDist * 3 + verticalDist * 0.5;
+        }
       }
     } else if (direction === 'right') {
       // Element must be to the right of current element
       if (centerX > currentCenterX) {
-        isValid = true;
-        // Prefer elements more directly to the right (small vertical distance)
-        // Secondary preference: closest horizontal distance
         const verticalDist = Math.abs(centerY - currentCenterY);
         const horizontalDist = centerX - currentCenterX;
-        score = verticalDist * 2 + horizontalDist; // Vertical distance weighted 2x
+        
+        // Only consider if it's clearly more horizontal than vertical
+        if (horizontalDist > Math.max(currentWidth * 0.1, 10)) {
+          isValid = true;
+          // Strong penalty for vertical misalignment
+          score = verticalDist * 3 + horizontalDist * 0.5;
+        }
       }
     } else if (direction === 'left') {
       // Element must be to the left of current element
       if (centerX < currentCenterX) {
-        isValid = true;
-        // Prefer elements more directly to the left (small vertical distance)
-        // Secondary preference: closest horizontal distance
         const verticalDist = Math.abs(centerY - currentCenterY);
         const horizontalDist = currentCenterX - centerX;
-        score = verticalDist * 2 + horizontalDist; // Vertical distance weighted 2x
+        
+        // Only consider if it's clearly more horizontal than vertical
+        if (horizontalDist > Math.max(currentWidth * 0.1, 10)) {
+          isValid = true;
+          // Strong penalty for vertical misalignment
+          score = verticalDist * 3 + horizontalDist * 0.5;
+        }
       }
     }
 
@@ -128,7 +142,6 @@ function findClosestElementInDirection(direction) {
   }
 
   // Fallback: if no candidates in direction, stay on current element
-  // This prevents wrapping to the opposite side, keeping it grid-like
   return menuFocusIndex;
 }
 
