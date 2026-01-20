@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Menu System Test - Sequential Card Navigation</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: linear-gradient(180deg, #f6f7fb 0%, #eef1f6 100%);
+      color: #0e0f12;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      padding: 2rem;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+
+    .info-box {
+      background: rgba(255, 255, 255, 0.8);
+      border: 2px solid #4c8dff;
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+      line-height: 1.6;
+    }
+
+    .info-box h2 {
+      color: #4c8dff;
+      margin-bottom: 1rem;
+    }
+
+    .info-box code {
+      background: #f0f0f0;
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      font-family: monospace;
+    }
+
+    /* Menu Styles */
+    #menuPanel {
+      background: rgba(24, 26, 32, 0.96);
+      border: 1px solid #3a3d45;
+      border-radius: 14px;
+      padding: 1.5rem;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+    }
+
+    .card {
+      background: #15171d;
+      border: 1px solid #33373f;
+      border-radius: 12px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      transition: all 0.2s ease;
+    }
+
+    .card.active-card {
+      border-color: #4c8dff;
+      background: #1a1d26;
+      box-shadow: 0 0 16px rgba(76, 141, 255, 0.2);
+    }
+
+    .card h3 {
+      color: #e8e8ea;
+      font-size: 0.95rem;
+      margin-bottom: 1rem;
+      opacity: 0.9;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      margin-bottom: 0.8rem;
+      flex-wrap: wrap;
+    }
+
+    .row label {
+      color: #cfd3dc;
+      font-size: 0.9rem;
+      flex: 0 0 150px;
+    }
+
+    button {
+      background: #181a20;
+      border: 1px solid #3a3d45;
+      color: #e8e8ea;
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s ease;
+    }
+
+    button:hover {
+      border-color: #4c8dff;
+      background: #1f2229;
+    }
+
+    button:focus {
+      outline: 3px solid #4c8dff;
+      box-shadow: 0 0 12px rgba(76, 141, 255, 0.6);
+    }
+
+    button.active {
+      background: #0066ff;
+      border-color: #4c8dff;
+      color: #fff;
+    }
+
+    input[type="range"] {
+      flex: 1;
+      min-width: 150px;
+      accent-color: #4c8dff;
+    }
+
+    input[type="range"]:focus {
+      outline: 2px solid #4c8dff;
+    }
+
+    select {
+      background: #181a20;
+      border: 1px solid #3a3d45;
+      color: #e8e8ea;
+      padding: 0.5rem;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    select:focus {
+      outline: 3px solid #4c8dff;
+      box-shadow: 0 0 12px rgba(76, 141, 255, 0.6);
+    }
+
+    .tag {
+      background: #181a20;
+      border: 1px solid #3a3d45;
+      color: #e8e8ea;
+      padding: 0.3rem 0.6rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      flex: 0 0 auto;
+    }
+
+    .tip {
+      background: rgba(76, 141, 255, 0.1);
+      border-left: 3px solid #4c8dff;
+      color: #cfd3dc;
+      padding: 0.8rem;
+      border-radius: 4px;
+      font-size: 0.85rem;
+      margin-top: 1rem;
+      line-height: 1.5;
+    }
+
+    .controls-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎮 Sequential Card Navigation Test</h1>
+
+    <div class="info-box">
+      <h2>How to Test</h2>
+      <p><strong>Keyboard:</strong> Use arrow keys to navigate, Enter to activate</p>
+      <p><strong>Gamepad:</strong> Use D-pad or left stick, X button to activate, O button to close</p>
+      <p style="margin-top: 1rem; font-size: 0.9rem; opacity: 0.7;">
+        <strong>Expected behavior:</strong> DOWN moves through elements in a card, then jumps to next card.
+        LEFT/RIGHT navigate between elements in the same row. The active card is highlighted with blue glow.
+      </p>
+    </div>
+
+    <!-- Menu Panel -->
+    <div id="menuPanel">
+      <!-- Rotation Card -->
+      <div class="card">
+        <h3>🔄 Rotation</h3>
+        <div class="row">
+          <button>Air Roll Left</button>
+          <button>Air Roll Right</button>
+          <button>Air Roll (Free)</button>
+          <button>Restart</button>
+        </div>
+        <div class="row">
+          <label>Air Roll Mode:</label>
+          <button class="active">Toggle</button>
+        </div>
+        <div class="row">
+          <label>Lock Axes:</label>
+          <button>Pitch</button>
+          <button>Yaw</button>
+          <button>Roll</button>
+        </div>
+        <div class="tip">
+          💡 Tip: With Air Roll Right, rotate the stick clockwise. With Air Roll Left, rotate counter-clockwise.
+        </div>
+      </div>
+
+      <!-- Gamepad Card -->
+      <div class="card">
+        <h3>🎮 Gamepad</h3>
+        <div class="row">
+          <label>Status:</label>
+          <button class="active">Enable</button>
+          <span class="tag">Enabled (waiting)</span>
+        </div>
+        <div class="row">
+          <label>Preset:</label>
+          <select>
+            <option selected>PS5 / DualSense</option>
+            <option>Generic XInput</option>
+          </select>
+        </div>
+        <div class="row">
+          <label>Remap:</label>
+          <button>Remap Action…</button>
+          <select>
+            <option>Toggle DAR</option>
+            <option>Air Roll Left</option>
+            <option>Air Roll Right</option>
+            <option>Boost</option>
+          </select>
+          <span class="tag">—</span>
+        </div>
+        <div class="row">
+          <button>Reset to Defaults</button>
+        </div>
+        <div class="tip">
+          💡 Tip: Left stick moves the on-screen stick. Press a button to bind actions.
+        </div>
+      </div>
+
+      <!-- View & HUD Card -->
+      <div class="card">
+        <h3>👁️ View & HUD</h3>
+        <div class="row">
+          <button class="active">Show Arrow</button>
+          <button class="active">Show Circle</button>
+        </div>
+        <div class="row">
+          <label>Zoom:</label>
+          <input type="range" min="0.2" max="4" step="0.01" value="1">
+          <span class="tag">1.00×</span>
+        </div>
+        <div class="row">
+          <label>Stick Size:</label>
+          <input type="range" min="60" max="180" step="1" value="100">
+          <span class="tag">100</span>
+        </div>
+        <div class="row">
+          <label>Arrow Size:</label>
+          <input type="range" min="0.6" max="4" step="0.01" value="4">
+          <span class="tag">4.00×</span>
+        </div>
+      </div>
+
+      <!-- Car Card -->
+      <div class="card">
+        <h3>🚗 Car</h3>
+        <div class="row">
+          <label>Body:</label>
+          <select>
+            <option selected>Octane</option>
+            <option>Fennec</option>
+            <option>Dominus</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Dynamics Card (Developer) -->
+      <div class="card">
+        <h3>⚙️ Dynamics</h3>
+        <div class="row">
+          <label>Max Pitch Accel (°/s²):</label>
+          <input type="range" min="0" max="2400" step="1" value="733">
+          <span class="tag">733</span>
+        </div>
+        <div class="row">
+          <label>Max Yaw Accel (°/s²):</label>
+          <input type="range" min="0" max="2400" step="1" value="528">
+          <span class="tag">528</span>
+        </div>
+        <div class="row">
+          <label>Max Roll Accel (°/s²):</label>
+          <input type="range" min="0" max="2400" step="1" value="898">
+          <span class="tag">898</span>
+        </div>
+        <div class="row">
+          <label>Input Curve:</label>
+          <input type="range" min="0" max="5" step="0.01" value="1">
+          <span class="tag">1.00</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Test Script -->
+  <script type="module">
+    import { MenuSystem } from './js/modules/menuSystem.js';
+
+    // Create and initialize menu
+    const menu = new MenuSystem('#menuPanel');
+    menu.init();
+
+    // Handle keyboard
+    document.addEventListener('keydown', (e) => {
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault();
+          menu.navigate('down');
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          menu.navigate('up');
+          break;
+        case 'ArrowLeft':
+          e.preventDefault();
+          const el = menu.getCurrentElement();
+          if (el?.type === 'range') {
+            menu.adjustSlider('left');
+          } else if (el?.tagName === 'SELECT') {
+            menu.adjustSelect('left');
+          } else {
+            menu.navigate('left');
+          }
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          const el2 = menu.getCurrentElement();
+          if (el2?.type === 'range') {
+            menu.adjustSlider('right');
+          } else if (el2?.tagName === 'SELECT') {
+            menu.adjustSelect('right');
+          } else {
+            menu.navigate('right');
+          }
+          break;
+        case 'Enter':
+          e.preventDefault();
+          menu.activateElement();
+          break;
+      }
+    });
+
+    // Gamepad state tracking
+    const gamepadState = {
+      prevButtons: {},
+      prevAxes: {}
+    };
+
+    // Handle gamepad
+    function pollGamepad() {
+      const gamepads = navigator.getGamepads?.() || navigator.webkitGetGamepads?.();
+      if (!gamepads) {
+        console.warn('Gamepads not supported');
+        return;
+      }
+
+      for (let i = 0; i < gamepads.length; i++) {
+        const pad = gamepads[i];
+        if (!pad) continue;
+
+        // D-Pad (buttons 12-15: up, down, left, right)
+        const dpadUp = pad.buttons[12]?.pressed || false;
+        const dpadDown = pad.buttons[13]?.pressed || false;
+        const dpadLeft = pad.buttons[14]?.pressed || false;
+        const dpadRight = pad.buttons[15]?.pressed || false;
+
+        // Left stick (axes 0 and 1)
+        const stickX = Math.abs(pad.axes[0]) > 0.5 ? Math.sign(pad.axes[0]) : 0;
+        const stickY = Math.abs(pad.axes[1]) > 0.5 ? Math.sign(pad.axes[1]) : 0;
+
+        // Action buttons (X=0, O/Circle=1)
+        const xButton = pad.buttons[0]?.pressed || false;
+        const oButton = pad.buttons[1]?.pressed || false;
+
+        // Edge detection - only fire on state change
+        if (dpadUp && !gamepadState.prevButtons['dpadUp' + i]) {
+          menu.navigate('up');
+        }
+        if (dpadDown && !gamepadState.prevButtons['dpadDown' + i]) {
+          menu.navigate('down');
+        }
+        if (dpadLeft && !gamepadState.prevButtons['dpadLeft' + i]) {
+          const el = menu.getCurrentElement();
+          if (el?.type === 'range') {
+            menu.adjustSlider('left');
+          } else if (el?.tagName === 'SELECT') {
+            menu.adjustSelect('left');
+          } else {
+            menu.navigate('left');
+          }
+        }
+        if (dpadRight && !gamepadState.prevButtons['dpadRight' + i]) {
+          const el = menu.getCurrentElement();
+          if (el?.type === 'range') {
+            menu.adjustSlider('right');
+          } else if (el?.tagName === 'SELECT') {
+            menu.adjustSelect('right');
+          } else {
+            menu.navigate('right');
+          }
+        }
+
+        // Stick handling
+        if (stickY < 0 && !gamepadState.prevAxes['stickUp' + i]) {
+          menu.navigate('up');
+        }
+        if (stickY > 0 && !gamepadState.prevAxes['stickDown' + i]) {
+          menu.navigate('down');
+        }
+        if (stickX < 0 && !gamepadState.prevAxes['stickLeft' + i]) {
+          const el = menu.getCurrentElement();
+          if (el?.type === 'range') {
+            menu.adjustSlider('left');
+          } else if (el?.tagName === 'SELECT') {
+            menu.adjustSelect('left');
+          } else {
+            menu.navigate('left');
+          }
+        }
+        if (stickX > 0 && !gamepadState.prevAxes['stickRight' + i]) {
+          const el = menu.getCurrentElement();
+          if (el?.type === 'range') {
+            menu.adjustSlider('right');
+          } else if (el?.tagName === 'SELECT') {
+            menu.adjustSelect('right');
+          } else {
+            menu.navigate('right');
+          }
+        }
+
+        // Buttons
+        if (xButton && !gamepadState.prevButtons['x' + i]) {
+          menu.activateElement();
+        }
+        if (oButton && !gamepadState.prevButtons['o' + i]) {
+          console.log('O button pressed (close)');
+        }
+
+        // Store current state
+        gamepadState.prevButtons['dpadUp' + i] = dpadUp;
+        gamepadState.prevButtons['dpadDown' + i] = dpadDown;
+        gamepadState.prevButtons['dpadLeft' + i] = dpadLeft;
+        gamepadState.prevButtons['dpadRight' + i] = dpadRight;
+        gamepadState.prevButtons['x' + i] = xButton;
+        gamepadState.prevButtons['o' + i] = oButton;
+
+        gamepadState.prevAxes['stickUp' + i] = stickY < 0;
+        gamepadState.prevAxes['stickDown' + i] = stickY > 0;
+        gamepadState.prevAxes['stickLeft' + i] = stickX < 0;
+        gamepadState.prevAxes['stickRight' + i] = stickX > 0;
+      }
+
+      requestAnimationFrame(pollGamepad);
+    }
+
+    // Start gamepad polling
+    pollGamepad();
+
+    // Log current state for debugging
+    window.menu = menu;
+    console.log('Menu system ready! Use arrow keys or gamepad to navigate.');
+  </script>
+</body>
+</html>

@@ -18,6 +18,7 @@ import * as RingMode from './modules/ringMode.js';
 import * as RhythmMode from './modules/rhythmMode.js';
 import * as RhythmModeUI from './modules/rhythmModeUI.js';
 import * as Physics from './modules/physics.js';
+import { MenuSystem } from './modules/menuSystem.js';
 import { GameState } from './modules/gameState.js';
 import { SceneManager } from './modules/sceneManager.js';
 import { ThemeManager } from './modules/themeManager.js';
@@ -900,6 +901,13 @@ export function init() {
     retry: () => RingMode.resetRingMode(),
     getRingModeLives: () => RingMode.getRingModeLives()
   });
+
+  // Initialize MenuSystem for navigation
+  const menuSystem = new MenuSystem('#menuPanel');
+  menuSystem.init();
+  Input.setMenuSystem(menuSystem);
+  window.menuSystem = menuSystem; // expose for debugging
+  console.log('[MenuSystem] init focusable count:', menuSystem.getElements().length);
 
   // Restore saved car body or default to octane
   const presetSel = document.getElementById('presetSel');

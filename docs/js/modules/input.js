@@ -12,7 +12,7 @@ import * as KeyboardInput from './input/keyboardInput.js';
 import * as GamepadInput from './input/gamepadInput.js';
 import * as AirRollController from './input/airRollController.js';
 import * as RingMode from './ringMode.js';
-import { MenuNavigator } from './menuNavigator.js';
+import { MenuSystem } from './menuSystem.js';
 
 /* ===========================
  * DEVICE DETECTION
@@ -30,25 +30,22 @@ const isDesktop = !isMobile;
 // Menu state (controlled externally but needed for input blocking)
 let chromeShown = false;
 
-// Menu navigation
-let menuFocusIndex = 0;
-let menuFocusableElements = [];
-let menuNavigationCooldown = 0;
-const MENU_NAV_COOLDOWN = 200; // ms between navigation inputs
+// MenuSystem reference (set by main app via initInput)
+let menuSystem = null;
 
+export function setMenuSystem(system) {
+  menuSystem = system;
+}
+
+// Legacy menu navigation state (replaced by MenuSystem)
+let menuFocusIndex = 0; // kept for backwards compatibility
+let menuFocusableElements = []; // kept for backwards compatibility
+let menuNavigationCooldown = 0; // kept for backwards compatibility
+const MENU_NAV_COOLDOWN = 200; // ms between navigation inputs (legacy)
+
+// No-op placeholder to preserve compatibility where invoked
 function updateMenuFocusableElements() {
-  // Get all interactive elements in the menu, including card headers
-  menuFocusableElements = Array.from(document.querySelectorAll(
-    '#menuPanel .card h3, #menuPanel button, #menuPanel input[type="range"], #menuPanel select'
-  )).filter(el => {
-    // Only include visible elements
-    // For elements inside collapsed cards, check if parent card is collapsed
-    const card = el.closest('.card');
-    if (card && card.classList.contains('collapsed') && el.tagName !== 'H3') {
-      return false; // Don't include elements in collapsed cards
-    }
-    return el.offsetParent !== null;
-  });
+  // MenuSystem now owns focusable discovery
 }
 
 function findClosestElementInDirection(direction) {
@@ -217,66 +214,24 @@ function handleMenuEscape() {
 }
 
 function handleMenuOpen() {
-  updateMenuFocusableElements();
-  // Focus first card header
-  const el = menuFocusableElements[menuFocusIndex];
-  if (el) {
-    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    el.focus();
-  }
+  if (!menuSystem) return;
+  menuSystem.updateFocusableElements();
+  menuSystem.reset();
 }
 
 function activateMenuElement() {
-  if (menuFocusableElements.length === 0) return;
-  const el = menuFocusableElements[menuFocusIndex];
-
-  if (el.tagName === 'H3') {
-    // Toggle collapse/expand for card headers
-    el.click();
-    // Refresh focusable elements after expanding/collapsing card
-    setTimeout(() => {
-      updateMenuFocusableElements();
-    }, 50);
-  } else if (el.tagName === 'BUTTON') {
-    el.click();
-  } else if (el.tagName === 'INPUT' && el.type === 'range') {
-    // For sliders, we'll allow left/right to adjust them
-    // Clicking just focuses it for now
-  } else if (el.tagName === 'SELECT') {
-    // For select, X button does nothing - use left/right to change options
-  }
+  if (!menuSystem) return;
+  menuSystem.activateElement();
 }
 
 function adjustSliderValue(direction) {
-  if (menuFocusableElements.length === 0) return;
-  const el = menuFocusableElements[menuFocusIndex];
-
-  if (el.tagName === 'INPUT' && el.type === 'range') {
-    const step = parseFloat(el.step) || 1;
-    const currentValue = parseFloat(el.value);
-    const newValue = currentValue + (direction * step);
-    const min = parseFloat(el.min);
-    const max = parseFloat(el.max);
-
-    el.value = Math.max(min, Math.min(max, newValue));
-    el.dispatchEvent(new Event('input', { bubbles: true }));
-  }
+  if (!menuSystem) return;
+  menuSystem.adjustSlider(direction < 0 ? 'left' : 'right');
 }
 
 function adjustSelectValue(direction) {
-  if (menuFocusableElements.length === 0) return;
-  const el = menuFocusableElements[menuFocusIndex];
-
-  if (el.tagName === 'SELECT') {
-    const currentIndex = el.selectedIndex;
-    const newIndex = currentIndex + direction;
-
-    // Clamp to valid range
-    if (newIndex >= 0 && newIndex < el.options.length) {
-      el.selectedIndex = newIndex;
-      el.dispatchEvent(new Event('change', { bubbles: true }));
-    }
-  }
+  if (!menuSystem) return;
+  menuSystem.adjustSelect(direction < 0 ? 'left' : 'right');
 }
 
 /* ===========================
@@ -551,48 +506,9 @@ function handleKeyboardAirRoll(airRollKeys) {
 /**
  * Handle menu navigation from gamepad
  */
-function handleMenuNavigate(direction, currentTime) {
-  // Check cooldown
-  if (currentTime - menuNavigationCooldown < MENU_NAV_COOLDOWN) {
-    return;
-  }
-
-  // Refresh focusable elements to account for any expanded/collapsed cards
-  updateMenuFocusableElements();
-
-  const focusedEl = menuFocusableElements[menuFocusIndex];
-  const isSlider = focusedEl && focusedEl.tagName === 'INPUT' && focusedEl.type === 'range';
-  const isSelect = focusedEl && focusedEl.tagName === 'SELECT';
-
-  // Handle UP/DOWN navigation (always navigates, never adjusts values)
-  if (direction === 'up' || direction === 'down') {
-    const newIndex = findClosestElementInDirection(direction);
-    focusMenuElement(newIndex);
-    menuNavigationCooldown = currentTime;
-  }
-  // Handle LEFT/RIGHT navigation (adjust slider/select if focused, otherwise navigate)
-  else if (direction === 'left') {
-    if (isSlider) {
-      adjustSliderValue(-1);
-    } else if (isSelect) {
-      adjustSelectValue(-1);
-    } else {
-      const newIndex = findClosestElementInDirection('left');
-      focusMenuElement(newIndex);
-    }
-    menuNavigationCooldown = currentTime;
-  }
-  else if (direction === 'right') {
-    if (isSlider) {
-      adjustSliderValue(1);
-    } else if (isSelect) {
-      adjustSelectValue(1);
-    } else {
-      const newIndex = findClosestElementInDirection('right');
-      focusMenuElement(newIndex);
-    }
-    menuNavigationCooldown = currentTime;
-  }
+function handleMenuNavigate(direction) {
+  if (!menuSystem) return;
+  menuSystem.navigate(direction);
 }
 
 export function updateInput(dt) {
@@ -619,7 +535,7 @@ export function updateInput(dt) {
   });
 
   // Update gamepad menu navigation (when menu is open)
-  if (chromeShown && menuFocusableElements.length > 0) {
+  if (chromeShown && menuSystem) {
     GamepadInput.updateGamepadMenuNavigation({
       onMenuNavigate: handleMenuNavigate,
       onMenuActivate: activateMenuElement,
@@ -665,19 +581,21 @@ export function positionHints() {
 export function setChromeShown(shown) {
   chromeShown = shown;
 
+  if (!menuSystem) return;
+
   if (!shown) {
-    // Clear focus styling when menu closes
-    menuFocusableElements.forEach(el => {
-      el.style.outline = '';
-      el.style.boxShadow = '';
-    });
+    menuSystem.clearFocus();
   } else {
-    // Initialize menu navigation
-    updateMenuFocusableElements();
-    menuFocusIndex = 0;
-    if (menuFocusableElements.length > 0) {
-      focusMenuElement(0);
-    }
+    // Allow layout to settle before capturing focusable elements
+    menuSystem.updateFocusableElements();
+    menuSystem.reset();
+    setTimeout(() => {
+      menuSystem.updateFocusableElements();
+      console.log('[MenuSystem] focusable count:', menuSystem.getElements().length);
+      if (menuSystem.getElements().length > 0) {
+        menuSystem.reset();
+      }
+    }, 30);
   }
 }
 
