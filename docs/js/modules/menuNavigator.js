@@ -66,7 +66,7 @@ export class MenuNavigator {
   }
 
   /**
-   * Find next/previous element vertically (up/down) using grid-based logic
+   * Find next/previous element vertically (up/down) using grid-based logic with card awareness
    * @private
    */
   findVerticalElement(direction) {
@@ -75,8 +75,10 @@ export class MenuNavigator {
     const currentCenterX = currentRect.left + currentRect.width / 2;
     const currentCenterY = currentRect.top + currentRect.height / 2;
     const currentHeight = currentRect.height;
+    const currentCard = currentEl.closest('.card');
 
     let candidates = [];
+    let sameCardCandidates = [];
 
     // Find all elements in the target direction
     for (let i = 0; i < this.focusableElements.length; i++) {
@@ -86,9 +88,11 @@ export class MenuNavigator {
       const rect = el.getBoundingClientRect();
       const centerX = rect.left + rect.width / 2;
       const centerY = rect.top + rect.height / 2;
+      const elCard = el.closest('.card');
 
       let isValid = false;
       let score = Infinity;
+      const isSameCard = elCard === currentCard;
 
       if (direction === 'down') {
         // Element must be below current element
@@ -120,7 +124,16 @@ export class MenuNavigator {
 
       if (isValid) {
         candidates.push({ index: i, score });
+        if (isSameCard && el.tagName !== 'H3') {
+          sameCardCandidates.push({ index: i, score });
+        }
       }
+    }
+
+    // Prefer elements in the same card
+    if (sameCardCandidates.length > 0) {
+      sameCardCandidates.sort((a, b) => a.score - b.score);
+      return sameCardCandidates[0].index;
     }
 
     if (candidates.length > 0) {

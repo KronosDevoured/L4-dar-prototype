@@ -60,8 +60,10 @@ function findClosestElementInDirection(direction) {
   const currentCenterY = currentRect.top + currentRect.height / 2;
   const currentHeight = currentRect.height;
   const currentWidth = currentRect.width;
+  const currentCard = currentEl.closest('.card');
 
   let candidates = [];
+  let sameCardCandidates = [];
 
   // Find all elements in the target direction with their distances
   for (let i = 0; i < menuFocusableElements.length; i++) {
@@ -71,9 +73,11 @@ function findClosestElementInDirection(direction) {
     const rect = el.getBoundingClientRect();
     const centerX = rect.left + rect.width / 2;
     const centerY = rect.top + rect.height / 2;
+    const elCard = el.closest('.card');
 
     let isValid = false;
     let score = Infinity;
+    const isSameCard = elCard === currentCard;
 
     if (direction === 'down') {
       // Element must be below current element
@@ -82,7 +86,6 @@ function findClosestElementInDirection(direction) {
         const verticalDist = centerY - currentCenterY;
         
         // Only consider if it's clearly more vertical than horizontal
-        // Require vertical distance to be at least 1/3 of horizontal span to avoid picking side elements
         if (verticalDist > Math.max(currentHeight * 0.1, 10)) {
           isValid = true;
           // Strong penalty for horizontal misalignment
@@ -132,7 +135,16 @@ function findClosestElementInDirection(direction) {
 
     if (isValid) {
       candidates.push({ index: i, score });
+      if (isSameCard && el.tagName !== 'H3') {
+        sameCardCandidates.push({ index: i, score });
+      }
     }
+  }
+
+  // Prefer elements in the same card for up/down navigation
+  if ((direction === 'down' || direction === 'up') && sameCardCandidates.length > 0) {
+    sameCardCandidates.sort((a, b) => a.score - b.score);
+    return sameCardCandidates[0].index;
   }
 
   // If candidates found, return the one with the best score
