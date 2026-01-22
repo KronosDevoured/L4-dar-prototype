@@ -281,11 +281,17 @@ export function onPointerDown(e, callbacks) {
   // INDEPENDENT CHECK: Two-finger boost relocation (runs regardless of other checks)
   // This must run separately from the else-if chain above
   if (activePointers.size === 2 && boostSecondFingerId === null && showBoostButton) {
-    // If joystick is only "reserved" for relocation (not active), free it so boost relocation can win
-    if (joyPointerId !== null && !joyActive && !relocating) {
+    // If joystick has a pending or active pointer, release it so boost relocation can win
+    if (joyPointerId !== null) {
+      if (hudElement && hudElement.releasePointerCapture) {
+        try { hudElement.releasePointerCapture(joyPointerId); } catch (e) { /* ignore */ }
+      }
       clearTimeout(holdTimer);
       holdTimer = null;
       joyPointerId = null;
+      joyActive = false;
+      relocating = false;
+      joyVec.set(0, 0);
     }
 
     // Second finger detected - check if both fingers are in open space (not on controls)
