@@ -18,15 +18,15 @@ export class MenuNavigator {
 
   /**
    * Update focusable elements based on current DOM state
-   * Only includes visible elements
+   * Only includes visible elements (excluding card headers)
    */
   updateFocusableElements() {
     this.focusableElements = Array.from(document.querySelectorAll(
-      '#menuPanel .card h3, #menuPanel button, #menuPanel input[type="range"], #menuPanel select'
+      '#menuPanel button, #menuPanel input[type="range"], #menuPanel select'
     )).filter(el => {
       // Only include visible elements
       const card = el.closest('.card');
-      if (card && card.classList.contains('collapsed') && el.tagName !== 'H3') {
+      if (card && card.classList.contains('collapsed')) {
         return false; // Don't include elements in collapsed cards
       }
       return el.offsetParent !== null;
@@ -35,6 +35,7 @@ export class MenuNavigator {
 
   /**
    * Navigate in a direction (up, down, left, right)
+   * Sequential card-based navigation
    * @param {string} direction - Direction to navigate ('up', 'down', 'left', 'right')
    * @param {boolean} ignoreReduced - If true, navigate regardless of cooldown
    * @returns {boolean} - Whether navigation was successful
@@ -59,6 +60,11 @@ export class MenuNavigator {
       this.focusIndex = newIndex;
       this.setFocus(this.focusableElements[this.focusIndex]);
       this.navigationCooldown = now + this.cooldownDuration;
+      
+      // Update active card visual
+      const card = this.focusableElements[this.focusIndex].closest('.card');
+      this.updateActiveCard(card);
+      
       return true;
     }
 
@@ -66,148 +72,106 @@ export class MenuNavigator {
   }
 
   /**
-   * Find next/previous element vertically (up/down) using grid-based logic with card awareness
+   * Find next/previous element vertically (up/down) with sequential card flow
    * @private
    */
   findVerticalElement(direction) {
     const currentEl = this.focusableElements[this.focusIndex];
-    const currentRect = currentEl.getBoundingClientRect();
-    const currentCenterX = currentRect.left + currentRect.width / 2;
-    const currentCenterY = currentRect.top + currentRect.height / 2;
-    const currentHeight = currentRect.height;
     const currentCard = currentEl.closest('.card');
 
-    let candidates = [];
-    let sameCardCandidates = [];
-
-    // Find all elements in the target direction
-    for (let i = 0; i < this.focusableElements.length; i++) {
-      if (i === this.focusIndex) continue; // Skip self
-
-      const el = this.focusableElements[i];
-      const rect = el.getBoundingClientRect();
-      const centerX = rect.left + rect.width / 2;
-      const centerY = rect.top + rect.height / 2;
-      const elCard = el.closest('.card');
-
-      let isValid = false;
-      let score = Infinity;
-      const isSameCard = elCard === currentCard;
-
-      if (direction === 'down') {
-        // Element must be below current element
-        if (centerY > currentCenterY) {
-          const horizontalDist = Math.abs(centerX - currentCenterX);
-          const verticalDist = centerY - currentCenterY;
-          
-          // Only consider if it's clearly more vertical than horizontal
-          if (verticalDist > Math.max(currentHeight * 0.1, 10)) {
-            isValid = true;
-            // Strong penalty for horizontal misalignment
-            score = horizontalDist * 3 + verticalDist * 0.5;
-          }
-        }
-      } else if (direction === 'up') {
-        // Element must be above current element
-        if (centerY < currentCenterY) {
-          const horizontalDist = Math.abs(centerX - currentCenterX);
-          const verticalDist = currentCenterY - centerY;
-          
-          // Only consider if it's clearly more vertical than horizontal
-          if (verticalDist > Math.max(currentHeight * 0.1, 10)) {
-            isValid = true;
-            // Strong penalty for horizontal misalignment
-            score = horizontalDist * 3 + verticalDist * 0.5;
-          }
+    if (direction === 'down') {
+      // Find next element in current card
+      for (let i = this.focusIndex + 1; i < this.focusableElements.length; i++) {
+        const el = this.focusableElements[i];
+        if (el.closest('.card') === currentCard) {
+          return i; // Found next element in same card
         }
       }
-
-      if (isValid) {
-        candidates.push({ index: i, score });
-        if (isSameCard && el.tagName !== 'H3') {
-          sameCardCandidates.push({ index: i, score });
+      // Reached end of current card, try next card
+      for (let i = this.focusIndex + 1; i < this.focusableElements.length; i++) {
+        const el = this.focusableElements[i];
+        const elCard = el.closest('.card');
+        if (elCard !== currentCard) {
+          return i; // First element of next card
         }
       }
-    }
-
-    // Prefer elements in the same card
-    if (sameCardCandidates.length > 0) {
-      sameCardCandidates.sort((a, b) => a.score - b.score);
-      return sameCardCandidates[0].index;
-    }
-
-    if (candidates.length > 0) {
-      candidates.sort((a, b) => a.score - b.score);
-      return candidates[0].index;
+    } else if (direction === 'up') {
+      // Find previous element in current card
+      for (let i = this.focusIndex - 1; i >= 0; i--) {
+        const el = this.focusableElements[i];
+        if (el.closest('.card') === currentCard) {
+          return i; // Found previous element in same card
+        }
+      }
+      // Reached start of current card, try previous card
+      for (let i = this.focusIndex - 1; i >= 0; i--) {
+        const el = this.focusableElements[i];
+        const elCard = el.closest('.card');
+        if (elCard !== currentCard) {
+          return i; // Last element of previous card
+        }
+      }
     }
 
     return this.focusIndex;
   }
 
   /**
-   * Find next/previous element horizontally (left/right) using grid-based logic
+   * Find next/previous element horizontally (left/right) within same row
    * @private
    */
   findHorizontalElement(direction) {
     const currentEl = this.focusableElements[this.focusIndex];
     const currentRect = currentEl.getBoundingClientRect();
-    const currentCenterX = currentRect.left + currentRect.width / 2;
-    const currentCenterY = currentRect.top + currentRect.height / 2;
-    const currentWidth = currentRect.width;
+    const currentY = currentRect.top + currentRect.height / 2;
+    const rowThreshold = currentRect.height * 0.5;
+    const currentCard = currentEl.closest('.card');
 
-    let candidates = [];
-
-    // Find all elements in the target direction
+    // Find all elements in same row (same Y position) and same card
+    let rowElements = [];
     for (let i = 0; i < this.focusableElements.length; i++) {
-      if (i === this.focusIndex) continue; // Skip self
-
       const el = this.focusableElements[i];
       const rect = el.getBoundingClientRect();
-      const centerX = rect.left + rect.width / 2;
-      const centerY = rect.top + rect.height / 2;
+      const elY = rect.top + rect.height / 2;
 
-      let isValid = false;
-      let score = Infinity;
-
-      if (direction === 'right') {
-        // Element must be to the right of current element
-        if (centerX > currentCenterX) {
-          const verticalDist = Math.abs(centerY - currentCenterY);
-          const horizontalDist = centerX - currentCenterX;
-          
-          // Only consider if it's clearly more horizontal than vertical
-          if (horizontalDist > Math.max(currentWidth * 0.1, 10)) {
-            isValid = true;
-            // Strong penalty for vertical misalignment
-            score = verticalDist * 3 + horizontalDist * 0.5;
-          }
-        }
-      } else if (direction === 'left') {
-        // Element must be to the left of current element
-        if (centerX < currentCenterX) {
-          const verticalDist = Math.abs(centerY - currentCenterY);
-          const horizontalDist = currentCenterX - centerX;
-          
-          // Only consider if it's clearly more horizontal than vertical
-          if (horizontalDist > Math.max(currentWidth * 0.1, 10)) {
-            isValid = true;
-            // Strong penalty for vertical misalignment
-            score = verticalDist * 3 + horizontalDist * 0.5;
-          }
-        }
-      }
-
-      if (isValid) {
-        candidates.push({ index: i, score });
+      if (Math.abs(elY - currentY) < rowThreshold && el.closest('.card') === currentCard) {
+        rowElements.push(i);
       }
     }
 
-    if (candidates.length > 0) {
-      candidates.sort((a, b) => a.score - b.score);
-      return candidates[0].index;
+    // Sort by X position (left to right)
+    rowElements.sort((a, b) => {
+      const rectA = this.focusableElements[a].getBoundingClientRect();
+      const rectB = this.focusableElements[b].getBoundingClientRect();
+      return rectA.left - rectB.left;
+    });
+
+    // Find current position in row
+    const currentPosInRow = rowElements.indexOf(this.focusIndex);
+    if (currentPosInRow !== -1) {
+      if (direction === 'right' && currentPosInRow < rowElements.length - 1) {
+        return rowElements[currentPosInRow + 1];
+      } else if (direction === 'left' && currentPosInRow > 0) {
+        return rowElements[currentPosInRow - 1];
+      }
     }
 
     return this.focusIndex;
+  }
+
+  /**
+   * Update visual active card indicator
+   * @private
+   */
+  updateActiveCard(card) {
+    // Remove active class from all cards
+    document.querySelectorAll('#menuPanel .card').forEach(c => {
+      c.classList.remove('active-card');
+    });
+    // Add active class to current card
+    if (card) {
+      card.classList.add('active-card');
+    }
   }
 
   /**

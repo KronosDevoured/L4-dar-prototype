@@ -102,7 +102,9 @@ export function drawJoystick(state) {
   const { JOY_CENTER, JOY_BASE_R, JOY_KNOB_R, joyVec } = state;
   const cx = JOY_CENTER.x, cy = JOY_CENTER.y, r = JOY_BASE_R;
   const t = performance.now();
-  const pulse = 1 + 0.06 * Math.sin(t * 0.008), halo = r * pulse + 10;
+  // Pulse synced to car 360° roll: 2π / (2π / DAR_ROLL_SPEED) = DAR_ROLL_SPEED / 1000
+  // With DAR_ROLL_SPEED = 5.5 rad/s, one full roll takes ~1.14 seconds
+  const pulse = 1 + 0.06 * Math.sin(t * 0.0055), halo = r * pulse + 10;
 
   Hcircle(cx, cy, halo, 'rgba(76,141,255,0.28)', 8);
   Harc(cx, cy, r, -Math.PI / 4, Math.PI / 4, COLS.RIGHT, 12);

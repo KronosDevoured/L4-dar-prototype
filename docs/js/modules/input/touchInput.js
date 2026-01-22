@@ -179,56 +179,8 @@ export function onPointerDown(e, callbacks) {
 
   activePointers.set(id, { x, y });
 
-  // Check joystick - handle both inside and outside touches
-  if (joyPointerId === null) {
-    const insideJoy = inJoyLoose(x, y);
-    
-    if (insideJoy) {
-      // Touch inside joystick: activate normally
-      joyPointerId = id;
-      joyActive = true;
-      joyVec.copy(vecFromJoyPx(x, y));
-      joyPressStartPos.set(x, y);
-
-      // Capture pointer to ensure we receive move/up/cancel events even if finger leaves HUD
-      if (hudElement && hudElement.setPointerCapture) {
-        try {
-          hudElement.setPointerCapture(id);
-        } catch (e) {
-          // Ignore errors - some browsers may not support this
-        }
-      }
-    } else {
-      // Touch outside joystick: start hold timer to relocate
-      joyPointerId = id;
-      joyActive = false; // Not active yet, just holding
-      joyPressStartPos.set(x, y);
-
-      // Capture pointer
-      if (hudElement && hudElement.setPointerCapture) {
-        try {
-          hudElement.setPointerCapture(id);
-        } catch (e) {
-          // Ignore errors
-        }
-      }
-
-      clearTimeout(holdTimer);
-      holdTimer = setTimeout(() => {
-        // After hold duration, relocate joystick and activate
-        if (joyPointerId === id && !relocating) {
-          relocating = true;
-          JOY_CENTER.set(x, y);
-          clampJoyCenter();
-          joyActive = true;
-          joyVec.set(0, 0); // Start at center
-          callbacks?.showJoyHint?.();
-        }
-      }, RELOCATE_HOLD_MS);
-    }
-  }
-  // Check DAR button
-  else if (darPointerId === null && inDAR(x, y)) {
+  // Check DAR button first (higher priority than joystick relocation)
+  if (darPointerId === null && inDAR(x, y)) {
     darPointerId = id;
     darPressT = performance.now();
     darOn = true;
@@ -268,14 +220,61 @@ export function onPointerDown(e, callbacks) {
     // Note: No hold-to-relocate in free flight - use two-finger gesture instead
   }
   // Check Retry button (only when Ring Mode is active and game over)
-  else {
+  else if ((() => {
     const ringModeActive = callbacks?.getRingModeActive?.() || false;
     const ringModeLives = typeof callbacks?.getRingModeLives === 'function' ? callbacks.getRingModeLives() : 0;
     const chromeShown = typeof callbacks?.getChromeShown === 'function' ? callbacks.getChromeShown() : false;
+    return ringModeActive && ringModeLives <= 0 && !chromeShown && inRetryButton(x, y);
+  })()) {
+    callbacks?.onRetryPress?.();
+  }
+  // Check joystick - handle both inside and outside touches
+  // This has lowest priority so other controls are checked first
+  else if (joyPointerId === null) {
+    const insideJoy = inJoyLoose(x, y);
+    
+    if (insideJoy) {
+      // Touch inside joystick: activate normally
+      joyPointerId = id;
+      joyActive = true;
+      joyVec.copy(vecFromJoyPx(x, y));
+      joyPressStartPos.set(x, y);
 
-    // Only handle retry button if it's visible on-screen and no modal overlays are open
-    if (ringModeActive && ringModeLives <= 0 && !chromeShown && inRetryButton(x, y)) {
-      callbacks?.onRetryPress?.();
+      // Capture pointer to ensure we receive move/up/cancel events even if finger leaves HUD
+      if (hudElement && hudElement.setPointerCapture) {
+        try {
+          hudElement.setPointerCapture(id);
+        } catch (e) {
+          // Ignore errors - some browsers may not support this
+        }
+      }
+    } else {
+      // Touch outside joystick (and outside all other controls): start hold timer to relocate
+      joyPointerId = id;
+      joyActive = false; // Not active yet, just holding
+      joyPressStartPos.set(x, y);
+
+      // Capture pointer
+      if (hudElement && hudElement.setPointerCapture) {
+        try {
+          hudElement.setPointerCapture(id);
+        } catch (e) {
+          // Ignore errors
+        }
+      }
+
+      clearTimeout(holdTimer);
+      holdTimer = setTimeout(() => {
+        // After hold duration, relocate joystick and activate
+        if (joyPointerId === id && !relocating) {
+          relocating = true;
+          JOY_CENTER.set(x, y);
+          clampJoyCenter();
+          joyActive = true;
+          joyVec.set(0, 0); // Start at center
+          callbacks?.showJoyHint?.();
+        }
+      }, RELOCATE_HOLD_MS);
     }
   }
 
