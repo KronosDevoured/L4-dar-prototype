@@ -28,7 +28,7 @@ if %errorlevel% neq 0 (
 )
 
 REM Check if test runner exists
-curl -s http://localhost:8000/tests/test-runner.html >nul 2>&1
+curl -s http://localhost:8000/docs/test-runner.html >nul 2>&1
 if %errorlevel% neq 0 (
     echo ❌ Test runner not accessible
     goto :error
@@ -60,7 +60,7 @@ echo ========================================
 echo.
 echo Next steps:
 echo 1. Open http://localhost:8000/docs/index.html to test the application
-echo 2. Open http://localhost:8000/tests/test-runner.html to run automated tests
+echo 2. Open http://localhost:8000/docs/test-runner.html to run automated tests
 echo 3. Check browser console for any errors
 echo.
 goto :end

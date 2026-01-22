@@ -55,6 +55,12 @@ const GP_PRESETS = {
   xinput: defaultGpBindings
 };
 
+function ensureBindings() {
+  if (!gpBindings) {
+    gpBindings = { ...defaultGpBindings };
+  }
+}
+
 // ============================================================================
 // INITIALIZATION
 // ============================================================================
@@ -449,6 +455,7 @@ export function getGpEnabled() {
 }
 
 export function getGpBindings() {
+  ensureBindings();
   return { ...gpBindings };
 }
 

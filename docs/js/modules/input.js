@@ -19,8 +19,10 @@ import { MenuSystem } from './menuSystem.js';
  * =========================== */
 
 // Detect if on mobile/tablet or desktop
-const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-  || (navigator.maxTouchPoints && navigator.maxTouchPoints > 2);
+const ua = (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent : '';
+const touchPoints = (typeof navigator !== 'undefined' && typeof navigator.maxTouchPoints === 'number') ? navigator.maxTouchPoints : 0;
+const isMobile = !!(/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua)
+  || (touchPoints && touchPoints > 2));
 const isDesktop = !isMobile;
 
 /* ===========================

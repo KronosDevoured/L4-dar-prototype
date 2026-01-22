@@ -14,6 +14,7 @@ import { saveSettings } from '../settings.js';
 let airRoll = 0; // Currently active air roll
 let selectedAirRoll = -1; // User's selection from menu (Left/Right/Free)
 let airRollIsToggle = false; // Default: hold mode (for gamepad)
+let lastActiveAirRoll = 0; // Remember last non-zero roll selection
 
 // ============================================================================
 // CORE FUNCTIONS
@@ -21,8 +22,11 @@ let airRollIsToggle = false; // Default: hold mode (for gamepad)
 
 export function setRoll(dir, skipSave = false) {
   airRoll = dir;
+  if (dir !== 0) {
+    lastActiveAirRoll = dir;
+  }
   if (!skipSave) {
-    saveSettings({ airRoll });
+    saveSettings({ airRoll, lastActiveAirRoll });
   }
   return dir;
 }
@@ -62,6 +66,7 @@ export function loadAirRollState(savedState) {
     airRoll = savedState.airRoll ?? 0;
     selectedAirRoll = savedState.selectedAirRoll ?? -1;
     airRollIsToggle = savedState.airRollIsToggle ?? false;
+    lastActiveAirRoll = savedState.lastActiveAirRoll ?? 0;
   }
 }
 
@@ -81,6 +86,10 @@ export function getAirRollIsToggle() {
   return airRollIsToggle;
 }
 
+export function getLastActiveAirRoll() {
+  return lastActiveAirRoll;
+}
+
 // ============================================================================
 // CLEANUP AND MEMORY MANAGEMENT
 // ============================================================================
@@ -94,4 +103,5 @@ export function cleanup() {
   airRoll = 0;
   selectedAirRoll = -1;
   airRollIsToggle = false;
+  lastActiveAirRoll = 0;
 }
