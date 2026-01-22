@@ -179,30 +179,53 @@ export function onPointerDown(e, callbacks) {
 
   activePointers.set(id, { x, y });
 
-  // Check joystick
-  if (joyPointerId === null && inJoyLoose(x, y)) {
-    joyPointerId = id;
-    joyActive = true;
-    joyVec.copy(vecFromJoyPx(x, y));
-    joyPressStartPos.set(x, y);
+  // Check joystick - handle both inside and outside touches
+  if (joyPointerId === null) {
+    const insideJoy = inJoyLoose(x, y);
+    
+    if (insideJoy) {
+      // Touch inside joystick: activate normally
+      joyPointerId = id;
+      joyActive = true;
+      joyVec.copy(vecFromJoyPx(x, y));
+      joyPressStartPos.set(x, y);
 
-    // Capture pointer to ensure we receive move/up/cancel events even if finger leaves HUD
-    if (hudElement && hudElement.setPointerCapture) {
-      try {
-        hudElement.setPointerCapture(id);
-      } catch (e) {
-        // Ignore errors - some browsers may not support this
+      // Capture pointer to ensure we receive move/up/cancel events even if finger leaves HUD
+      if (hudElement && hudElement.setPointerCapture) {
+        try {
+          hudElement.setPointerCapture(id);
+        } catch (e) {
+          // Ignore errors - some browsers may not support this
+        }
       }
+    } else {
+      // Touch outside joystick: start hold timer to relocate
+      joyPointerId = id;
+      joyActive = false; // Not active yet, just holding
+      joyPressStartPos.set(x, y);
+
+      // Capture pointer
+      if (hudElement && hudElement.setPointerCapture) {
+        try {
+          hudElement.setPointerCapture(id);
+        } catch (e) {
+          // Ignore errors
+        }
+      }
+
+      clearTimeout(holdTimer);
+      holdTimer = setTimeout(() => {
+        // After hold duration, relocate joystick and activate
+        if (joyPointerId === id && !relocating) {
+          relocating = true;
+          JOY_CENTER.set(x, y);
+          clampJoyCenter();
+          joyActive = true;
+          joyVec.set(0, 0); // Start at center
+          callbacks?.showJoyHint?.();
+        }
+      }, RELOCATE_HOLD_MS);
     }
-
-    clearTimeout(holdTimer);
-    holdTimer = setTimeout(() => {
-      // Only enable relocate if still active and timer wasn't cancelled by movement
-      if (joyActive && !relocating) {
-        relocating = true;
-        callbacks?.showJoyHint?.();
-      }
-    }, RELOCATE_HOLD_MS);
   }
   // Check DAR button
   else if (darPointerId === null && inDAR(x, y)) {
@@ -312,18 +335,29 @@ export function onPointerMove(e, callbacks) {
 
   // Joystick movement
   if (id === joyPointerId) {
-    // Cancel relocate timer if pointer has moved significantly
-    const moved = joyPressStartPos.distanceTo(new THREE.Vector2(x, y));
-    if (moved > 10 && holdTimer) {
-      clearTimeout(holdTimer);
-      holdTimer = null;
+    // If not yet active (holding outside to relocate), cancel timer if moved too much
+    if (!joyActive && !relocating) {
+      const moved = joyPressStartPos.distanceTo(new THREE.Vector2(x, y));
+      if (moved > 10 && holdTimer) {
+        clearTimeout(holdTimer);
+        holdTimer = null;
+        // Release the pointer since hold was cancelled
+        joyPointerId = null;
+        if (hudElement && hudElement.releasePointerCapture) {
+          try {
+            hudElement.releasePointerCapture(id);
+          } catch (e) {}
+        }
+      }
     }
-
-    if (relocating) {
+    // If relocating, move the joystick center
+    else if (relocating) {
       JOY_CENTER.set(x, y);
       clampJoyCenter();
       callbacks?.positionHints?.();
-    } else {
+    }
+    // Normal joystick input
+    else if (joyActive) {
       joyVec.copy(vecFromJoyPx(x, y));
     }
   }
