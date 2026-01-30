@@ -210,24 +210,13 @@ export function drawRingModeHUD(state) {
   // Scale text down on mobile/tablet for less distraction
   const textScale = isMobile ? 0.65 : 1.0;
 
-  // Get safe area inset by reading fullscreen button's actual top position
-  // Fullscreen button is positioned at calc(.6rem + var(--safe-top))
-  // So we can derive the safe area by subtracting the base offset
-  let safeTop = 0;
-  const fullscreenBtn = document.getElementById('fullscreenBtn');
-  if (fullscreenBtn) {
-    const btnTop = parseFloat(getComputedStyle(fullscreenBtn).top);
-    const baseOffset = 9.6; // .6rem = 9.6px (at 16px base)
-    safeTop = Math.max(0, btnTop - baseOffset); // Safe area = total top - base offset
-  }
-
   // Ring count - top center (just the number, no label)
   ctx.fillStyle = '#ffffff';
   ctx.font = `bold ${Math.floor(32 * textScale)}px system-ui`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
   // Buttons are 44px + padding, give extra room on mobile (textScale reduces size)
-  const hudTop = safeTop + (isMobile ? 95 : 72); 
+  const hudTop = isMobile ? 95 : 72; 
   ctx.fillText(`${ringModeRingCount}`, innerWidth / 2, hudTop);
 
   // Lives - top left with heart symbols (below fullscreen button)
@@ -235,7 +224,7 @@ export function drawRingModeHUD(state) {
   ctx.textAlign = 'left';
   ctx.font = `bold ${Math.floor(28 * textScale)}px system-ui`;
   const heartSpacing = 35 * textScale;
-  const heartStartY = safeTop + (isMobile ? 110 : 88); // More space on mobile
+  const heartStartY = isMobile ? 110 : 88; // More space on mobile
   for (let i = 0; i < Math.min(ringModeLives, 10); i++) {
     ctx.fillStyle = '#ff5c5c';
     ctx.fillText('♥', 20, heartStartY + i * heartSpacing);
