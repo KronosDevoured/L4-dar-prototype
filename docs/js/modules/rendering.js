@@ -210,10 +210,16 @@ export function drawRingModeHUD(state) {
   // Scale text down on mobile/tablet for less distraction
   const textScale = isMobile ? 0.65 : 1.0;
 
-  // Get safe area inset from CSS variables (for mobile notches/safe zones)
-  const root = document.documentElement;
-  const safeTopStr = getComputedStyle(root).getPropertyValue('--safe-top').trim();
-  const safeTop = parseFloat(safeTopStr) || 0; // Fallback to 0 if not set
+  // Get safe area inset by reading fullscreen button's actual top position
+  // Fullscreen button is positioned at calc(.6rem + var(--safe-top))
+  // So we can derive the safe area by subtracting the base offset
+  let safeTop = 0;
+  const fullscreenBtn = document.getElementById('fullscreenBtn');
+  if (fullscreenBtn) {
+    const btnTop = parseFloat(getComputedStyle(fullscreenBtn).top);
+    const baseOffset = 9.6; // .6rem = 9.6px (at 16px base)
+    safeTop = Math.max(0, btnTop - baseOffset); // Safe area = total top - base offset
+  }
 
   // Ring count - top center (just the number, no label)
   ctx.fillStyle = '#ffffff';
