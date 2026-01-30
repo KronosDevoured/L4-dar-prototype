@@ -210,21 +210,26 @@ export function drawRingModeHUD(state) {
   // Scale text down on mobile/tablet for less distraction
   const textScale = isMobile ? 0.65 : 1.0;
 
+  // Get safe area inset from CSS variables (for mobile notches/safe zones)
+  const root = document.documentElement;
+  const safeTopStr = getComputedStyle(root).getPropertyValue('--safe-top').trim();
+  const safeTop = parseFloat(safeTopStr) || 0; // Fallback to 0 if not set
+
   // Ring count - top center (just the number, no label)
   ctx.fillStyle = '#ffffff';
   ctx.font = `bold ${Math.floor(32 * textScale)}px system-ui`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
-  const hudTop = 72 * textScale; // leave room for top buttons
+  const hudTop = safeTop + 72 * textScale; // leave room for top buttons + safe area
   ctx.fillText(`${ringModeRingCount}`, innerWidth / 2, hudTop);
 
   // Lives - top left with heart symbols (below fullscreen button)
-  // Fullscreen button is 44px tall + 10px margin from top = ~54px total
-  // Start hearts at 65px to stack below the fullscreen button
+  // Fullscreen button is 44px tall + safe area + padding = ~54px total + safe area
+  // Start hearts well below the fullscreen button to avoid overlap
   ctx.textAlign = 'left';
   ctx.font = `bold ${Math.floor(28 * textScale)}px system-ui`;
   const heartSpacing = 35 * textScale;
-  const heartStartY = 88 * textScale; // Start well below fullscreen button
+  const heartStartY = safeTop + 88 * textScale; // Start well below fullscreen button + safe area
   for (let i = 0; i < Math.min(ringModeLives, 10); i++) {
     ctx.fillStyle = '#ff5c5c';
     ctx.fillText('♥', 20, heartStartY + i * heartSpacing);
