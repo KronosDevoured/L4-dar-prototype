@@ -236,21 +236,21 @@ export const RING_CLOSE_RING_SIMPLIFIED_TIME = 0.1; // Additional time for very 
 export const RING_SKILL_START_COUNT = 100; // Ring count where skill scaling starts
 export const RING_SKILL_END_COUNT = 200; // Ring count where skill scaling reaches maximum
 
-// Easy mode efficiency: 40% -> 55% (most forgiving, lots of extra time)
-export const RING_SKILL_EASY_START_EFFICIENCY = 0.40;
-export const RING_SKILL_EASY_END_EFFICIENCY = 0.55;
+// Easy mode efficiency: 30% → 50% (most forgiving, lots of extra time)
+export const RING_SKILL_EASY_START_EFFICIENCY = 0.30;
+export const RING_SKILL_EASY_END_EFFICIENCY = 0.50;
 
-// Normal mode efficiency: 40% → 60% (moderate challenge, more forgiving)
-export const RING_SKILL_NORMAL_START_EFFICIENCY = 0.40;
-export const RING_SKILL_NORMAL_END_EFFICIENCY = 0.60;
+// Normal mode efficiency: 50% → 70% (moderate challenge)
+export const RING_SKILL_NORMAL_START_EFFICIENCY = 0.50;
+export const RING_SKILL_NORMAL_END_EFFICIENCY = 0.70;
 
-// Hard mode efficiency: 60% -> 80% (challenging, less margin for error)
-export const RING_SKILL_HARD_START_EFFICIENCY = 0.60;
-export const RING_SKILL_HARD_END_EFFICIENCY = 0.80;
+// Hard mode efficiency: 70% → 90% (challenging, less margin for error)
+export const RING_SKILL_HARD_START_EFFICIENCY = 0.70;
+export const RING_SKILL_HARD_END_EFFICIENCY = 0.90;
 
-// Expert mode efficiency: 100% -> 120% (exceeds perfect physics - player is faster)
-export const RING_SKILL_EXPERT_START_EFFICIENCY = 1.0;
-export const RING_SKILL_EXPERT_MAX_EFFICIENCY = 1.2;
+// Expert mode efficiency: 90% → 110% (tight, requires near-perfect play)
+export const RING_SKILL_EXPERT_START_EFFICIENCY = 0.90;
+export const RING_SKILL_EXPERT_MAX_EFFICIENCY = 1.10;
 export const RING_MIN_ARRIVAL_SEPARATION_HARD = 2.5; // Minimum seconds between ring arrivals (hard)
 export const RING_MIN_ARRIVAL_SEPARATION_NORMAL = 2.0; // Minimum seconds between ring arrivals (normal/easy)
 export const RING_MOMENTUM_COMMITMENT_TIME = 3.0; // Seconds when player is committed to reaching next ring
