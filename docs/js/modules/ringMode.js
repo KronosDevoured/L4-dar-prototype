@@ -917,8 +917,10 @@ function selectNewPattern() {
 
   // Progressive amplitude and frequency increase (affected by difficulty)
   // Expert mode starts with wider spreads immediately (baseAmplitude boosted by +400)
+  // Easy mode gets even wider spread to force player movement
   const expertBoost = currentDifficulty === 'expert' ? 400 : 0;
-  const baseAmplitude = (200 + expertBoost + (difficultyLevel * 100)) * difficultySettings.patternAmplitudeMultiplier;
+  const easyBoost = currentDifficulty === 'easy' ? 300 : 0; // Extra spread for easy mode
+  const baseAmplitude = (200 + expertBoost + easyBoost + (difficultyLevel * 100)) * difficultySettings.patternAmplitudeMultiplier;
   const amplitudeVariance = (200 + (difficultyLevel * 50)) * difficultySettings.patternAmplitudeMultiplier;
   patternAmplitude = Math.min(baseAmplitude + Math.random() * amplitudeVariance, CONST.RING_GRID_BOUNDS * 0.9);
 
