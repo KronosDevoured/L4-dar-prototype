@@ -228,28 +228,27 @@ export function onPointerDown(e, callbacks) {
   })()) {
     callbacks?.onRetryPress?.();
   }
-  // Check joystick - handle both inside and outside touches
-  // This has lowest priority so other controls are checked first
-  else if (joyPointerId === null) {
-    const insideJoy = inJoyLoose(x, y);
-    
-    if (insideJoy) {
-      // Touch inside joystick: activate normally
-      joyPointerId = id;
-      joyActive = true;
-      joyVec.copy(vecFromJoyPx(x, y));
-      joyPressStartPos.set(x, y);
+  // Check joystick - only handle touches inside joystick area
+  else if (joyPointerId === null && inJoyLoose(x, y)) {
+    // Touch inside joystick: activate normally
+    joyPointerId = id;
+    joyActive = true;
+    joyVec.copy(vecFromJoyPx(x, y));
+    joyPressStartPos.set(x, y);
 
-      // Capture pointer to ensure we receive move/up/cancel events even if finger leaves HUD
-      if (hudElement && hudElement.setPointerCapture) {
-        try {
-          hudElement.setPointerCapture(id);
-        } catch (e) {
-          // Ignore errors - some browsers may not support this
-        }
+    // Capture pointer to ensure we receive move/up/cancel events even if finger leaves HUD
+    if (hudElement && hudElement.setPointerCapture) {
+      try {
+        hudElement.setPointerCapture(id);
+      } catch (e) {
+        // Ignore errors - some browsers may not support this
       }
-    } else {
-      // Touch outside joystick (and outside all other controls): start hold timer to relocate
+    }
+  }
+  // Check for open space touch (not on any control) for joystick relocation
+  else if (joyPointerId === null && !inDAR(x, y) && !inBoost(x, y) && !inRetryButton(x, y) && !inJoyLoose(x, y)) {
+    // Touch in open space: start hold timer to relocate joystick (only if we don't have 2 fingers yet)
+    if (activePointers.size < 2) {
       joyPointerId = id;
       joyActive = false; // Not active yet, just holding
       joyPressStartPos.set(x, y);
@@ -266,7 +265,7 @@ export function onPointerDown(e, callbacks) {
       clearTimeout(holdTimer);
       holdTimer = setTimeout(() => {
         // After hold duration, relocate joystick and activate
-        if (joyPointerId === id && !relocating) {
+        if (joyPointerId === id && !relocating && activePointers.size === 1) {
           relocating = true;
           JOY_CENTER.set(x, y);
           clampJoyCenter();
@@ -281,19 +280,6 @@ export function onPointerDown(e, callbacks) {
   // INDEPENDENT CHECK: Two-finger boost relocation (runs regardless of other checks)
   // This must run separately from the else-if chain above
   if (activePointers.size === 2 && boostSecondFingerId === null && showBoostButton) {
-    // If joystick has a pending or active pointer, release it so boost relocation can win
-    if (joyPointerId !== null) {
-      if (hudElement && hudElement.releasePointerCapture) {
-        try { hudElement.releasePointerCapture(joyPointerId); } catch (e) { /* ignore */ }
-      }
-      clearTimeout(holdTimer);
-      holdTimer = null;
-      joyPointerId = null;
-      joyActive = false;
-      relocating = false;
-      joyVec.set(0, 0);
-    }
-
     // Second finger detected - check if both fingers are in open space (not on controls)
     let firstPointer = null;
     let firstId = null;
@@ -308,14 +294,28 @@ export function onPointerDown(e, callbacks) {
     }
 
     if (firstPointer) {
-      // Check that neither finger is assigned to a control OR touching a control
-      const firstAssignedToControl = (firstId === joyPointerId || firstId === darPointerId || firstId === boostPointerId);
-      const secondAssignedToControl = (id === joyPointerId || id === darPointerId || id === boostPointerId);
+      // Check that neither finger is assigned to an ACTIVE control OR touching a control
+      // Note: joyPointerId might be set for pending relocation, only count it if joyActive
+      const firstAssignedToControl = (firstId === darPointerId || firstId === boostPointerId || (firstId === joyPointerId && joyActive));
+      const secondAssignedToControl = (id === darPointerId || id === boostPointerId || (id === joyPointerId && joyActive));
       const firstInControl = inJoyLoose(firstPointer.x, firstPointer.y) || inDAR(firstPointer.x, firstPointer.y) || inBoost(firstPointer.x, firstPointer.y);
       const secondInControl = inJoyLoose(x, y) || inDAR(x, y) || inBoost(x, y);
 
       // Only allow relocation if BOTH fingers are completely free (not assigned and not touching controls)
       if (!firstAssignedToControl && !secondAssignedToControl && !firstInControl && !secondInControl) {
+        // BOTH fingers in open space - cancel joystick relocation and enable boost relocation
+        if (joyPointerId !== null) {
+          if (hudElement && hudElement.releasePointerCapture) {
+            try { hudElement.releasePointerCapture(joyPointerId); } catch (e) { /* ignore */ }
+          }
+          clearTimeout(holdTimer);
+          holdTimer = null;
+          joyPointerId = null;
+          joyActive = false;
+          relocating = false;
+          joyVec.set(0, 0);
+        }
+
         // Two fingers in open space - enable boost button relocation
         boostSecondFingerId = id;
         boostTwoFingerMode = true;
