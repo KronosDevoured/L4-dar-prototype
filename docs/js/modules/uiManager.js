@@ -202,7 +202,7 @@ export class UIManager {
       {tag: wmaxPitchTag, slider: wmaxPitchRange, setter: (v) => settings.wMaxPitch = Math.max(0, Math.min(50, parseFloat(v) || 8.5))},
       {tag: wmaxYawTag, slider: wmaxYawRange, setter: (v) => settings.wMaxYaw = Math.max(0, Math.min(50, parseFloat(v) || 9))},
       {tag: wmaxRollTag, slider: wmaxRollRange, setter: (v) => settings.wMaxRoll = Math.max(0, Math.min(50, parseFloat(v) || 6))},
-      {tag: zoomVal, slider: zoomSlider, setter: (v) => { settings.zoom = Math.max(0.2, Math.min(4.0, parseFloat(v) || 1)); applyZoom(); }},
+      {tag: zoomVal, slider: zoomSlider, setter: (v) => { settings.zoom = Math.max(0.67, Math.min(1.78, parseFloat(v) || 1)); applyZoom(); }},
       {tag: arrowVal, slider: arrowSlider, setter: (v) => settings.arrowScale = Math.max(0.6, Math.min(4, parseFloat(v) || 4))}
     ];
 

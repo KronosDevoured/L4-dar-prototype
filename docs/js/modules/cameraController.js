@@ -72,10 +72,10 @@ export class CameraController {
 
   /**
    * Set zoom level
-   * @param {number} zoom - Zoom multiplier (0.2 - 4.0)
+   * @param {number} zoom - Zoom multiplier (0.67 - 1.78)
    */
   setZoom(zoom) {
-    this.zoom = Math.max(0.2, Math.min(4.0, zoom));
+    this.zoom = Math.max(0.67, Math.min(1.78, zoom));
     this.applyZoom();
   }
 

@@ -150,7 +150,10 @@ export function validateSetting(key, value) {
       return false;
     }
     // Clamp zoom and scale values
-    if (['zoom', 'circleScale', 'arrowScale'].includes(key) && (value < 0.1 || value > 10)) {
+    if (key === 'zoom' && (value < 0.67 || value > 1.78)) {
+      return false;
+    }
+    if (['circleScale', 'arrowScale'].includes(key) && (value < 0.1 || value > 10)) {
       return false;
     }
     return true;
