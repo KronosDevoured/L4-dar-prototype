@@ -32,6 +32,10 @@ const isDesktop = !isMobile;
 // Menu state (controlled externally but needed for input blocking)
 let chromeShown = false;
 
+// Short cooldown to prevent menu-close inputs from triggering gameplay actions
+let menuInputCooldownUntil = 0;
+const MENU_INPUT_COOLDOWN_MS = 150;
+
 // MenuSystem reference (set by main app via initInput)
 let menuSystem = null;
 
@@ -295,6 +299,9 @@ function handleGamepadAirRollButtons(rollStates) {
  * Execute a binding action (from gamepad or keyboard)
  */
 function handleBindingExecution(action) {
+  if (chromeShown || performance.now() < menuInputCooldownUntil) {
+    return;
+  }
   const airRollIsToggle = AirRollController.getAirRollIsToggle();
 
   // Handle air roll actions
@@ -513,8 +520,17 @@ function handleMenuNavigate(direction) {
   menuSystem.navigate(direction);
 }
 
+function handleMenuClose() {
+  // Suppress gameplay inputs briefly so the close button press doesn't trigger actions
+  menuInputCooldownUntil = performance.now() + MENU_INPUT_COOLDOWN_MS;
+  if (closeMenuCallback) {
+    closeMenuCallback();
+  }
+}
+
 export function updateInput(dt) {
   const airRollIsToggle = AirRollController.getAirRollIsToggle();
+  const suppressGameplay = chromeShown || performance.now() < menuInputCooldownUntil;
 
   // Update keyboard input
   KeyboardInput.updateKeyboard(chromeShown, RingMode.getRingModePaused(), {
@@ -524,11 +540,11 @@ export function updateInput(dt) {
     onKeyboardAirRoll: handleKeyboardAirRoll,
     onBoostChange: handleKeyboardBoostChange,
     openMenu: openMenuCallback,
-    closeMenu: closeMenuCallback
+    closeMenu: handleMenuClose
   });
 
   // Update gamepad input (gameplay)
-  GamepadInput.updateGamepad(chromeShown, {
+  GamepadInput.updateGamepad(suppressGameplay, {
     execBinding: handleBindingExecution,
     onGamepadStick: handleGamepadStick,
     onGamepadAirRoll: handleGamepadAirRollButtons,
@@ -541,7 +557,7 @@ export function updateInput(dt) {
     GamepadInput.updateGamepadMenuNavigation({
       onMenuNavigate: handleMenuNavigate,
       onMenuActivate: activateMenuElement,
-      onMenuClose: closeMenuCallback
+      onMenuClose: handleMenuClose
     });
   }
 
