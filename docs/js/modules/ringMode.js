@@ -763,13 +763,24 @@ function createRing(x, y, z, size, speed, spawnIndex) {
 
   scene.add(ring);
 
+  // Timing data for debugging
+  const spawnTime = performance.now() / 1000; // Convert to seconds
+  console.log(`[SPAWN] Ring spawned at (${x.toFixed(0)}, ${y.toFixed(0)}, ${z.toFixed(0)}) | Speed: ${speed.toFixed(1)} u/s | Est. arrival: ${(Math.abs(z) / speed).toFixed(2)}s`);
+  
   return {
     mesh: ring,
     size: size,
     speed: speed,
     passed: false,
+    spawnTime: spawnTime,
+    spawnZ: z,
+    spawnX: x,
+    spawnY: y,
+    spawnDistance: Math.abs(z),
     missed: false,
-    spawnIndex: spawnIndex // Track when this ring was spawned
+    spawnIndex: spawnIndex, // Track when this ring was spawned
+    playerReachedTime: null, // Will be set when player reaches ring XY
+    ringPassedTime: null // Will be set when ring reaches z=0
   };
 }
 
@@ -1077,9 +1088,26 @@ function getPatternPosition(progress) {
 }
 
 /**
- * Calculate minimum time needed to reach a ring position
- * Based on physics: reaction time + orientation time + travel time + stabilization time
- * Properly accounts for gravity, current momentum, and direction changes
+ * Calculate minimum time needed to reach a ring position on the 2D grid
+ * Physics-based calculation using realistic car acceleration with gravity strategy
+ * 
+ * CORE MODEL: 2D grid-based movement
+ * - Player is always at Z=0 on the grid
+ * - Target ring is at (ringX, ringY, 0) on the grid
+ * - Ring travels 1100 units from spawn point to reach grid
+ * - Player must reach ring center simultaneously with ring arrival
+ * 
+ * GRAVITY STRATEGY:
+ * - X-axis: Full boost available (1300 units/s²), angled slightly up to fight gravity
+ * - Y-axis (up): Boost (1300) - Gravity (650) = 650 units/s²
+ * - Y-axis (down): Boost (1300) + Gravity (650) = 1950 units/s² (gravity assists)
+ * 
+ * TIME COMPONENTS:
+ * - Reaction time: Difficulty-dependent (100-250ms)
+ * - Orientation time: Angle-based rotation to face target
+ * - Travel time: Physics calculation for X and Y distances (using max time for both axes)
+ * - Stabilization time: Buffer to settle in ring (200ms)
+ * - Efficiency scaling: Difficulty-based player ability curve
  *
  * @param {number} targetX - Ring X position
  * @param {number} targetY - Ring Y position
@@ -1088,157 +1116,143 @@ function getPatternPosition(progress) {
  * @param {number} currentVelX - Current car X velocity
  * @param {number} currentVelY - Current car Y velocity
  * @param {number} ringCount - Current ring count for progressive skill scaling
+ * @param {string} difficulty - Difficulty level for reaction time and efficiency
  * @returns {number} Minimum time in seconds to reach the ring
  */
 function calculateMinimumTimeToReach(targetX, targetY, currentX, currentY, currentVelX, currentVelY, ringCount = 0, difficulty = 'normal') {
-  // Time components (based on user requirements)
-  const REACTION_TIME = CONST.RING_PLAYER_REACTION_TIME; // Time for player to see and react to new ring
-  const ORIENTATION_TIME = CONST.RING_PLAYER_ORIENTATION_TIME; // Time to orient car toward ring
-  const STABILIZATION_TIME = CONST.RING_PLAYER_STABILIZATION_TIME; // Time to stabilize and wait for ring to pass
-
-  // Calculate distance components
+  // Physics constants
+  const BOOST_ACCEL = CONST.RING_BOOST_ACCEL; // 1300 units/s²
+  const GRAVITY = Math.abs(CONST.RING_GRAVITY); // 650 units/s²
+  const TURN_SPEED = CONST.DAR_ROLL_SPEED; // 5.5 rad/s
+  
+  // Time components - difficulty-dependent reaction time
+  let REACTION_TIME;
+  if (difficulty === 'easy') {
+    REACTION_TIME = 0.25; // 250ms - novice players need more time to react
+  } else if (difficulty === 'normal') {
+    REACTION_TIME = 0.20; // 200ms - moderate reaction time
+  } else if (difficulty === 'hard') {
+    REACTION_TIME = 0.15; // 150ms - experienced players
+  } else if (difficulty === 'expert') {
+    REACTION_TIME = 0.10; // 100ms - expert players react fast
+  }
+  const STABILIZATION_TIME = 0.20; // 200ms to stabilize in ring
+  
+  // Calculate 2D distance and direction
   const dx = targetX - currentX;
   const dy = targetY - currentY;
-  const distance = Math.sqrt(dx * dx + dy * dy);
-
-  // If very close, use simplified timing
-  if (distance < CONST.RING_CLOSE_DISTANCE_THRESHOLD) {
-    return REACTION_TIME + ORIENTATION_TIME + CONST.RING_CLOSE_RING_SIMPLIFIED_TIME + STABILIZATION_TIME;
+  const distance2D = Math.sqrt(dx * dx + dy * dy);
+  
+  // PROGRESSIVE SKILL SCALING - Each difficulty has its own efficiency curve
+  const SKILL_START_RING = CONST.RING_SKILL_START_COUNT;
+  const SKILL_END_RING = CONST.RING_SKILL_END_COUNT;
+  let efficiency;
+  
+  // Determine efficiency range based on difficulty
+  let startEfficiency, endEfficiency;
+  if (difficulty === 'easy') {
+    startEfficiency = CONST.RING_SKILL_EASY_START_EFFICIENCY;
+    endEfficiency = CONST.RING_SKILL_EASY_END_EFFICIENCY;
+  } else if (difficulty === 'normal') {
+    startEfficiency = CONST.RING_SKILL_NORMAL_START_EFFICIENCY;
+    endEfficiency = CONST.RING_SKILL_NORMAL_END_EFFICIENCY;
+  } else if (difficulty === 'hard') {
+    startEfficiency = CONST.RING_SKILL_HARD_START_EFFICIENCY;
+    endEfficiency = CONST.RING_SKILL_HARD_END_EFFICIENCY;
+  } else if (difficulty === 'expert') {
+    startEfficiency = CONST.RING_SKILL_EXPERT_START_EFFICIENCY;
+    endEfficiency = CONST.RING_SKILL_EXPERT_MAX_EFFICIENCY;
   }
-
-  // Physics constants
-  const BOOST_ACCEL = CONST.RING_BOOST_ACCEL; // 1200 units/s²
-  const GRAVITY = Math.abs(CONST.RING_GRAVITY); // 600 units/s² (downward)
-
-  // PROGRESSIVE SKILL SCALING: Transition from human play to skilled play
-  // Normal/Hard modes:
-  //   Rings 0-100: 50% boost efficiency (human play - lots of corrections)
-  //   Rings 100-200: Gradually increase from 50% to 75% (mastery progression)
-  //   Rings 200+: 75% boost efficiency (skilled/perfect play expected)
-  // Expert mode:
-  //   Rings 0+: Start at 92% (near-perfect play required from the start)
-  //   Rings 0-200: Gradually increase from 92% to 100% (approaching theoretical perfection)
-  //   Rings 200+: 100% boost efficiency (perfect play - theoretical limit)
-  const SKILL_START_RING = CONST.RING_SKILL_START_COUNT; // Start increasing skill requirement (normal/hard)
-  const SKILL_END_RING = CONST.RING_SKILL_END_COUNT;   // Reach max skill requirement
-  let skillFactor = CONST.RING_SKILL_HUMAN_EFFICIENCY; // Default: 50% boost efficiency (human play)
-
-  if (difficulty === 'expert') {
-    // Expert mode: 92% -> 100% over 200 rings
-    if (ringCount >= SKILL_END_RING) {
-      skillFactor = CONST.RING_SKILL_EXPERT_MAX_EFFICIENCY; // Perfect play - theoretical limit
-    } else {
-      // Linear interpolation from 0.92 to 1.0 over 200 rings
-      const progress = Math.min(ringCount / SKILL_END_RING, 1.0);
-      const efficiencyRange = CONST.RING_SKILL_EXPERT_MAX_EFFICIENCY - CONST.RING_SKILL_EXPERT_START_EFFICIENCY;
-      skillFactor = CONST.RING_SKILL_EXPERT_START_EFFICIENCY + (progress * efficiencyRange);
-    }
-  } else {
-    // Normal/Hard modes: 50% -> 75% scaling
-    if (ringCount >= SKILL_END_RING) {
-      skillFactor = CONST.RING_SKILL_SKILLED_EFFICIENCY; // Skilled play
-    } else if (ringCount > SKILL_START_RING) {
-      // Linear interpolation from 0.5 to 0.75
-      const progress = (ringCount - SKILL_START_RING) / (SKILL_END_RING - SKILL_START_RING);
-      const efficiencyRange = CONST.RING_SKILL_SKILLED_EFFICIENCY - CONST.RING_SKILL_HUMAN_EFFICIENCY;
-      skillFactor = CONST.RING_SKILL_HUMAN_EFFICIENCY + (progress * efficiencyRange);
-    }
-  }
-
-  // Calculate travel time separately for X and Y axes, then use the max
-  // This accounts for gravity affecting Y differently than X
-
-  // === HORIZONTAL (X) MOVEMENT ===
-  const absX = Math.abs(dx);
-  let timeX = 0;
-
-  if (absX > 10) {
-    // Apply progressive skill scaling
-    // Early rings: 50% boost efficiency (human play)
-    // Late rings: 75% boost efficiency (skilled play)
-    const accelX = Math.max(100, BOOST_ACCEL * skillFactor); // Prevent divide-by-zero
-
-    // Current velocity in X direction (considering if we're going toward or away from target)
-    const velTowardX = dx > 0 ? currentVelX : -currentVelX;
-
-    if (velTowardX < 0) {
-      // Moving away from target - need to stop first, then accelerate toward it
-      const timeToStop = Math.abs(velTowardX) / accelX;
-      const distanceWhileStopping = 0.5 * accelX * timeToStop * timeToStop;
-      const remainingX = absX + distanceWhileStopping; // Extra distance because we moved away
-
-      // Time to cover remaining distance from stopped position
-      const timeAfterStop = Math.sqrt(2 * remainingX / accelX);
-      timeX = timeToStop + timeAfterStop;
-    } else {
-      // Moving toward target or stationary
-      // Simple kinematic: d = v₀*t + 0.5*a*t²
-      // Solve for t using quadratic formula
-      const a = 0.5 * accelX;
-      const b = velTowardX;
-      const c = -absX;
-      const discriminant = b * b - 4 * a * c;
-      timeX = (-b + Math.sqrt(Math.max(0, discriminant))) / (2 * a);
-    }
-  }
-
-  // === VERTICAL (Y) MOVEMENT WITH GRAVITY ===
-  const absY = Math.abs(dy);
-  let timeY = 0;
-
-  if (absY > 10) {
-    // Going UP: boost acceleration minus gravity (fighting gravity)
-    // Going DOWN: boost acceleration plus gravity (gravity helps)
-    const isGoingUp = dy > 0;
-    const effectiveAccelY = isGoingUp
-      ? (BOOST_ACCEL - GRAVITY) * skillFactor  // Progressive skill scaling
-      : (BOOST_ACCEL + GRAVITY) * skillFactor; // Progressive skill scaling
-
-    // Current velocity in Y direction (considering direction to target)
-    const velTowardY = dy > 0 ? currentVelY : -currentVelY;
-
-    if (velTowardY < 0) {
-      // Moving away from target - need to stop first
-      const decelY = isGoingUp ? (BOOST_ACCEL + GRAVITY) : (BOOST_ACCEL - GRAVITY);
-      const timeToStop = Math.abs(velTowardY) / Math.max(100, decelY);
-      const distanceWhileStopping = 0.5 * decelY * timeToStop * timeToStop;
-      const remainingY = absY + distanceWhileStopping;
-
-      // Time to cover remaining distance from stopped position
-      const timeAfterStop = Math.sqrt(2 * remainingY / Math.max(100, effectiveAccelY));
-      timeY = timeToStop + timeAfterStop;
-    } else {
-      // Moving toward target or stationary
-      const a = 0.5 * Math.max(100, effectiveAccelY);
-      const b = velTowardY;
-      const c = -absY;
-      const discriminant = b * b - 4 * a * c;
-      timeY = (-b + Math.sqrt(Math.max(0, discriminant))) / (2 * a);
-    }
-
-    // Extra time penalty for going upward against gravity
-    if (isGoingUp) {
-      timeY *= 1.25; // 25% more time when fighting gravity
-    }
-  }
-
-  // Use the MAXIMUM of X and Y times (can't reach target until both axes align)
-  // Progressive buffer scaling: More forgiving early, tighter late
-  // Rings 0-100: 1.5× buffer (50% extra time for human corrections)
-  // Rings 100-200: Gradually reduce to 1.2× buffer
-  // Rings 200+: 1.2× buffer (20% extra time for skilled play)
-  let bufferMultiplier = 1.5; // Default: human play buffer
+  
+  // Calculate progressive efficiency based on ring count
   if (ringCount >= SKILL_END_RING) {
-    bufferMultiplier = 1.2; // Skilled play buffer
+    efficiency = endEfficiency;
   } else if (ringCount > SKILL_START_RING) {
     const progress = (ringCount - SKILL_START_RING) / (SKILL_END_RING - SKILL_START_RING);
-    bufferMultiplier = 1.5 - (progress * 0.3); // 1.5 -> 1.2
+    efficiency = startEfficiency + (progress * (endEfficiency - startEfficiency));
+  } else {
+    efficiency = startEfficiency;
   }
-  const travelTime = Math.max(timeX, timeY) * bufferMultiplier;
-
-  // Total time = reaction + orientation + travel + stabilization
-  const totalTime = REACTION_TIME + ORIENTATION_TIME + travelTime + STABILIZATION_TIME;
-
+  
+  // Close-range simplified calculation
+  if (distance2D < CONST.RING_CLOSE_DISTANCE_THRESHOLD) {
+    const perfectCloseTime = REACTION_TIME + 0.1 + CONST.RING_CLOSE_RING_SIMPLIFIED_TIME + STABILIZATION_TIME;
+    return perfectCloseTime / Math.max(0.01, efficiency);
+  }
+  
+  // === CALCULATE ORIENTATION TIME ===
+  // Calculate actual angle needed to face the target
+  const carFacingAngle = 0; // Car faces +X direction
+  const angleToTarget = Math.atan2(dy, dx);
+  let angleDifference = angleToTarget - carFacingAngle;
+  
+  // Normalize to shortest rotation path (-π to π)
+  while (angleDifference > Math.PI) angleDifference -= 2 * Math.PI;
+  while (angleDifference < -Math.PI) angleDifference += 2 * Math.PI;
+  
+  const actualTurnAngle = Math.abs(angleDifference);
+  const orientationTime = actualTurnAngle / TURN_SPEED;
+  
+  // === CALCULATE TRAVEL TIME FOR EACH AXIS INDEPENDENTLY ===
+  // The player must reach both the X and Y targets simultaneously
+  // This means we calculate time for each axis and use the maximum
+  
+  const absX = Math.abs(dx);
+  const absY = Math.abs(dy);
+  
+  // X-AXIS CALCULATION: Full boost available (need to angle slightly up to fight gravity)
+  // Effective acceleration: BOOST_ACCEL * cos(θ) where sin(θ) = GRAVITY/BOOST_ACCEL
+  const horizontalBoostAccel = BOOST_ACCEL * Math.sqrt(1 - Math.pow(GRAVITY / BOOST_ACCEL, 2)); // ≈1126 units/s²
+  
+  let travelTimeX = 0;
+  if (absX > 10) {
+    // Simple acceleration from current velocity to reach distance
+    // Using kinematic equation: d = v₀t + 0.5at²
+    // Solve for t: 0.5at² + v₀t - d = 0
+    const a = 0.5 * horizontalBoostAccel;
+    const b = currentVelX; // Start with current velocity in X direction
+    const c = -absX; // Distance to cover
+    
+    const discriminant = b * b - 4 * a * c;
+    if (discriminant >= 0) {
+      travelTimeX = (-b + Math.sqrt(discriminant)) / (2 * a);
+      travelTimeX = Math.max(0, travelTimeX); // Ensure non-negative
+    } else {
+      // Fallback: constant velocity if discriminant fails
+      travelTimeX = absX / Math.max(1, Math.abs(currentVelX));
+    }
+  }
+  
+  // Y-AXIS CALCULATION: Boost with gravity assistance/hindrance
+  const isGoingUp = dy > 0;
+  const verticalAccel = isGoingUp ? (BOOST_ACCEL - GRAVITY) : (BOOST_ACCEL + GRAVITY); // 650 or 1950 units/s²
+  
+  let travelTimeY = 0;
+  if (absY > 10) {
+    // Same kinematic approach as X-axis, but with different acceleration
+    const a = 0.5 * verticalAccel;
+    const b = currentVelY; // Start with current velocity in Y direction
+    const c = -absY; // Distance to cover
+    
+    const discriminant = b * b - 4 * a * c;
+    if (discriminant >= 0) {
+      travelTimeY = (-b + Math.sqrt(discriminant)) / (2 * a);
+      travelTimeY = Math.max(0, travelTimeY); // Ensure non-negative
+    } else {
+      // Fallback: constant velocity if discriminant fails
+      travelTimeY = absY / Math.max(1, Math.abs(currentVelY));
+    }
+  }
+  
+  // Player must cover both X and Y distances - use maximum time
+  const perfectTravelTime = Math.max(travelTimeX, travelTimeY);
+  
+  // Scale by player efficiency
+  const scaledTravelTime = perfectTravelTime / Math.max(0.01, efficiency);
+  
+  // Total time: reaction + turn + travel + stabilization
+  const totalTime = REACTION_TIME + orientationTime + scaledTravelTime + STABILIZATION_TIME;
+  
   return totalTime;
 }
 
@@ -1292,18 +1306,17 @@ function calculateRingSize(ringCount) {
 }
 
 /**
- * Calculate ring speed with all difficulty and progression modifiers
+ * Calculate ring speed based on physics-based timing
  * @param {number} spawnX - Ring spawn X position
  * @param {number} spawnY - Ring spawn Y position
- * @param {number} ringSize - Ring size in units
- * @param {number} distanceRatio - Distance ratio (0-1) relative to max bounds
+ * @param {number} ringSize - Ring size in units (unused, kept for compatibility)
+ * @param {number} distanceRatio - Distance ratio (unused, kept for compatibility)
  * @returns {number} Ring speed in units per second
  */
 function calculateRingSpeed(spawnX, spawnY, ringSize, distanceRatio) {
-  const difficultySettings = CONST.DIFFICULTY_SETTINGS[currentDifficulty];
-  const progressionLevel = Math.min(Math.floor(ringModeRingCount / 10 * difficultySettings.progressionRate), 5);
-
   // PHYSICS-BASED TIMING CALCULATION
+  // This calculates how long it takes for the player to realistically reach the ring position
+  // accounting for: reaction time, turn speed, acceleration with gravity, deceleration, and stabilization
   const minTimeToReach = calculateMinimumTimeToReach(
     spawnX, spawnY,
     ringModePosition.x, ringModePosition.y,
@@ -1312,65 +1325,15 @@ function calculateRingSpeed(spawnX, spawnY, ringSize, distanceRatio) {
     currentDifficulty
   );
 
-  // Ring needs to travel from spawn point to pass-through point
+  // Ring travels from spawn distance to pass-through point (z=0)
   const ringTravelDistance = Math.abs(CONST.RING_SPAWN_DISTANCE);
-  let ringSpeed = ringTravelDistance / minTimeToReach;
+  
+  // Speed = distance / time
+  // The minTimeToReach already includes all difficulty scaling via efficiency factors
+  // No additional multipliers needed - the physics calculation is the difficulty
+  const ringSpeed = ringTravelDistance / minTimeToReach;
 
-  // Apply difficulty multiplier
-  let difficultyMultiplier = 1.0;
-
-  if (currentDifficulty === 'easy') {
-    difficultyMultiplier = CONST.RING_DIFFICULTY_MULTIPLIER_EASY;
-  } else if (currentDifficulty === 'hard') {
-    // For close rings (< 40% distance), apply full hard multiplier
-    // For far rings (> 40% distance), scale down the multiplier
-    if (distanceRatio < 0.4) {
-      difficultyMultiplier = 1.10;
-    } else {
-      // Gradually reduce multiplier for far rings
-      const farRingFactor = (distanceRatio - 0.4) / 0.5;
-      difficultyMultiplier = 1.10 - (farRingFactor * 0.15);
-    }
-  }
-
-  ringSpeed *= difficultyMultiplier;
-
-  // Light progression (only in hard mode, only for close rings)
-  if (currentDifficulty === 'hard' && distanceRatio < 0.5) {
-    const progressionBonus = Math.min(progressionLevel * 0.015, 0.075);
-    ringSpeed *= (1 + progressionBonus);
-  }
-
-  // Hard mode section multipliers (only for close-medium rings)
-  if (currentDifficulty === 'hard' && currentSection && distanceRatio < 0.6) {
-    const scaledSectionSpeed = 1.0 + (sectionSpeed - 1.0) * 0.4;
-    ringSpeed *= scaledSectionSpeed;
-  }
-
-  // EXPERT MODE: Speed boost for rings spawning near current target ring
-  if (currentDifficulty === 'expert') {
-    const upcomingRings = rings.filter(r => !r.passed && !r.missed && r.mesh.position.z < 0);
-    if (upcomingRings.length > 0) {
-      upcomingRings.sort((a, b) => {
-        const aTime = Math.abs(a.mesh.position.z) / a.speed;
-        const bTime = Math.abs(b.mesh.position.z) / b.speed;
-        return aTime - bTime;
-      });
-
-      const targetRing = upcomingRings[0];
-      const dx = spawnX - targetRing.mesh.position.x;
-      const dy = spawnY - targetRing.mesh.position.y;
-      const distanceToTargetRing = Math.sqrt(dx * dx + dy * dy);
-      const targetRingRadius = targetRing.size / 2 + CONST.RING_TUBE_RADIUS;
-      const edgeProximityThreshold = targetRingRadius + ringSize;
-
-      if (distanceToTargetRing <= edgeProximityThreshold) {
-        ringSpeed *= CONST.RING_EXPERT_SPEED_BOOST;
-      }
-    }
-  }
-
-  // Clamp ring speed to reasonable bounds
+  // Clamp to reasonable bounds (prevent extreme cases)
   return Math.max(80, Math.min(350, ringSpeed));
 }
 
@@ -2010,9 +1973,39 @@ export function updateRingModeRendering(dt) {
         ring.mesh.children[0].intensity = lightIntensity;
       }
 
+      // Track when player reaches ring's XY position (before ring reaches z=0)
+      // Only track ONCE per ring, and only if player enters the ring radius (not already inside)
+      if (!ring.playerReachedTime && ring.mesh.position.z < 0) {
+        const carX = ringModePosition.x;
+        const carY = ringModePosition.y;
+        const ringX = ring.mesh.position.x;
+        const ringY = ring.mesh.position.y;
+        const dx = carX - ringX;
+        const dy = carY - ringY;
+        const distanceToCenter = Math.sqrt(dx * dx + dy * dy);
+        const ringOuterRadius = ring.size / 2 + CONST.RING_TUBE_RADIUS;
+        
+        // Only set if this is the CLOSEST upcoming ring to the player
+        const upcomingRings = rings.filter(r => !r.passed && !r.missed && r.mesh.position.z < 0);
+        if (upcomingRings.length > 0) {
+          upcomingRings.sort((a, b) => Math.abs(a.mesh.position.z) - Math.abs(b.mesh.position.z));
+          const nextRing = upcomingRings[0];
+          
+          if (ring === nextRing && distanceToCenter <= ringOuterRadius) {
+            const currentTime = performance.now() / 1000;
+            ring.playerReachedTime = currentTime;
+            const elapsedSinceSpawn = currentTime - ring.spawnTime;
+            console.log(`[PLAYER REACHED] Ring spawned at (${ring.spawnX.toFixed(0)}, ${ring.spawnY.toFixed(0)}) | Player time: ${elapsedSinceSpawn.toFixed(2)}s`);
+          }
+        }
+      }
+
       // Check if car passed through the ring's plane (Z=0, where car is locked)
       if (prevZ < 0 && newZ >= 0 && !ring.passed && !ring.missed) {
         // Ring crossed the car's Z plane - check for collision
+        const currentTime = performance.now() / 1000;
+        ring.ringPassedTime = currentTime;
+        
         const carX = ringModePosition.x;
         const carY = ringModePosition.y;
         const ringX = ring.mesh.position.x;
@@ -2041,6 +2034,11 @@ export function updateRingModeRendering(dt) {
           ring.passed = true;
           ringModeScore++;
           ringModeRingCount++;
+          
+          // Timing analysis - log all three events
+          const playerReachTime = ring.playerReachedTime ? (ring.playerReachedTime - ring.spawnTime).toFixed(2) : 'not reached';
+          const ringPassTime = (currentTime - ring.spawnTime).toFixed(2);
+          console.log(`[PASSED] Ring spawned at (${ring.spawnX.toFixed(0)}, ${ring.spawnY.toFixed(0)}) | Player: ${playerReachTime}s | Ring: ${ringPassTime}s | Gap: ${(parseFloat(ringPassTime) - parseFloat(playerReachTime || 0)).toFixed(2)}s`);
 
           // Bonus life for passing rings that grant lives
           if (ring.grantsLife) {
@@ -2067,7 +2065,11 @@ export function updateRingModeRendering(dt) {
           ringModeLives--;
           // Audio feedback - play miss sound
           Audio.playRingMissSound();
-          // TODO: Check if game over
+          
+          // Timing analysis - log when we missed
+          const playerReachTime = ring.playerReachedTime ? (ring.playerReachedTime - ring.spawnTime).toFixed(2) : 'not reached';
+          const ringPassTime = (currentTime - ring.spawnTime).toFixed(2);
+          console.log(`[MISSED] Ring spawned at (${ring.spawnX.toFixed(0)}, ${ring.spawnY.toFixed(0)}) | Player: ${playerReachTime}s | Ring: ${ringPassTime}s | Gap: ${(parseFloat(ringPassTime) - parseFloat(playerReachTime || 0)).toFixed(2)}s`);
         }
       }
 

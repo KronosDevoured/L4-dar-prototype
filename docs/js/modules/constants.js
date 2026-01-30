@@ -192,7 +192,7 @@ export const DIFFICULTY_SETTINGS = {
   hard: {
     // Ring properties
     sizeMultiplier: 0.75,        // 25% smaller rings (harder to pass through)
-    speedMultiplier: 1.1,        // 10% faster (reduced from 30% - more reaction time)
+    speedMultiplier: 1.35,       // 35% faster - rings arrive quicker
     spawnIntervalMultiplier: 0.9, // 10% less time between rings (was 25% - more breathing room)
 
     // Progression
@@ -208,7 +208,7 @@ export const DIFFICULTY_SETTINGS = {
   expert: {
     // Ring properties
     sizeMultiplier: 0.55,        // Much smaller rings - 45% smaller than normal
-    speedMultiplier: 1.1,        // Same speed as hard mode
+    speedMultiplier: 1.5,        // 50% faster - rings arrive much quicker
     spawnIntervalMultiplier: 0.9, // Same interval as hard mode
 
     // Progression
@@ -232,13 +232,25 @@ export const RING_PLAYER_REACTION_TIME = 0.2; // Seconds for player to react to 
 export const RING_PLAYER_ORIENTATION_TIME = 0.5; // Time to orient car toward ring
 export const RING_PLAYER_STABILIZATION_TIME = 1.0; // Time to stabilize and wait for ring to pass
 export const RING_CLOSE_DISTANCE_THRESHOLD = 100; // Distance threshold for "very close" rings
-export const RING_CLOSE_RING_SIMPLIFIED_TIME = 0.5; // Additional time for very close ring calculations
-export const RING_SKILL_START_COUNT = 100; // Ring count where skill scaling starts (normal/hard)
+export const RING_CLOSE_RING_SIMPLIFIED_TIME = 0.1; // Additional time for very close ring calculations
+export const RING_SKILL_START_COUNT = 100; // Ring count where skill scaling starts
 export const RING_SKILL_END_COUNT = 200; // Ring count where skill scaling reaches maximum
-export const RING_SKILL_HUMAN_EFFICIENCY = 0.5; // Boost efficiency for human play (50%)
-export const RING_SKILL_SKILLED_EFFICIENCY = 0.75; // Boost efficiency for skilled play (75%)
-export const RING_SKILL_EXPERT_START_EFFICIENCY = 0.92; // Expert mode starting efficiency (92%)
-export const RING_SKILL_EXPERT_MAX_EFFICIENCY = 1.0; // Expert mode max efficiency (100% - perfect play)
+
+// Easy mode efficiency: 40% -> 55% (most forgiving, lots of extra time)
+export const RING_SKILL_EASY_START_EFFICIENCY = 0.40;
+export const RING_SKILL_EASY_END_EFFICIENCY = 0.55;
+
+// Normal mode efficiency: 50% -> 70% (moderate challenge)
+export const RING_SKILL_NORMAL_START_EFFICIENCY = 0.50;
+export const RING_SKILL_NORMAL_END_EFFICIENCY = 0.70;
+
+// Hard mode efficiency: 60% -> 80% (challenging, less margin for error)
+export const RING_SKILL_HARD_START_EFFICIENCY = 0.60;
+export const RING_SKILL_HARD_END_EFFICIENCY = 0.80;
+
+// Expert mode efficiency: 100% -> 120% (exceeds perfect physics - player is faster)
+export const RING_SKILL_EXPERT_START_EFFICIENCY = 1.0;
+export const RING_SKILL_EXPERT_MAX_EFFICIENCY = 1.2;
 export const RING_MIN_ARRIVAL_SEPARATION_HARD = 2.5; // Minimum seconds between ring arrivals (hard)
 export const RING_MIN_ARRIVAL_SEPARATION_NORMAL = 2.0; // Minimum seconds between ring arrivals (normal/easy)
 export const RING_MOMENTUM_COMMITMENT_TIME = 3.0; // Seconds when player is committed to reaching next ring
