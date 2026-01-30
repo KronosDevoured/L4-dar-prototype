@@ -226,16 +226,16 @@ export function drawRingModeHUD(state) {
   ctx.font = `bold ${Math.floor(32 * textScale)}px system-ui`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
-  const hudTop = safeTop + 72 * textScale; // leave room for top buttons + safe area
+  // Buttons are 44px + padding, give extra room on mobile (textScale reduces size)
+  const hudTop = safeTop + (isMobile ? 95 : 72); 
   ctx.fillText(`${ringModeRingCount}`, innerWidth / 2, hudTop);
 
   // Lives - top left with heart symbols (below fullscreen button)
-  // Fullscreen button is 44px tall + safe area + padding = ~54px total + safe area
-  // Start hearts well below the fullscreen button to avoid overlap
+  // Fullscreen button is 44px tall, add extra clearance on mobile
   ctx.textAlign = 'left';
   ctx.font = `bold ${Math.floor(28 * textScale)}px system-ui`;
   const heartSpacing = 35 * textScale;
-  const heartStartY = safeTop + 88 * textScale; // Start well below fullscreen button + safe area
+  const heartStartY = safeTop + (isMobile ? 110 : 88); // More space on mobile
   for (let i = 0; i < Math.min(ringModeLives, 10); i++) {
     ctx.fillStyle = '#ff5c5c';
     ctx.fillText('♥', 20, heartStartY + i * heartSpacing);
