@@ -740,11 +740,14 @@ export function init() {
   // Stop music when page loses focus (tab switching, app backgrounding)
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
-      // Page is hidden - stop all audio
-      Audio.stopBackgroundMusic();
+      // Page is hidden - pause audio (keep state so it can resume)
+      Audio.pauseBackgroundMusic();
       Audio.stopBoostRumble();
     } else {
-      // Do not auto-restart here to avoid autoplay prompts; player will press Start
+      // Resume music if enabled; will fallback to gesture if autoplay is blocked
+      if (settings.gameMusicEnabled) {
+        Audio.resumeBackgroundMusic();
+      }
     }
   });
 
