@@ -751,6 +751,29 @@ export function init() {
     }
   });
 
+  // Extra lifecycle hooks for tab switches / screen off-on
+  window.addEventListener('pagehide', () => {
+    Audio.pauseBackgroundMusic();
+    Audio.stopBoostRumble();
+  });
+
+  window.addEventListener('pageshow', () => {
+    if (settings.gameMusicEnabled) {
+      Audio.resumeBackgroundMusic();
+    }
+  });
+
+  window.addEventListener('blur', () => {
+    Audio.pauseBackgroundMusic();
+    Audio.stopBoostRumble();
+  });
+
+  window.addEventListener('focus', () => {
+    if (settings.gameMusicEnabled) {
+      Audio.resumeBackgroundMusic();
+    }
+  });
+
   // Arrow and Circle toggles
   document.getElementById('arrowToggle').addEventListener('click',()=>{
     settings.showArrow = !settings.showArrow;
