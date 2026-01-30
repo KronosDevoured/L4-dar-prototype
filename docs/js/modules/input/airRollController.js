@@ -47,9 +47,15 @@ export function toggleRoll(dir, skipSave = false) {
 }
 
 export function selectAirRoll(dir) {
-  // Menu selection - just remember the choice, don't activate
+  // Menu selection - remember the choice
   selectedAirRoll = dir;
   saveSettings({ selectedAirRoll });
+
+  // If toggle mode is active and an air roll is currently on,
+  // switch immediately to the newly selected direction.
+  if (airRollIsToggle && airRoll !== 0) {
+    setRoll(dir, true);
+  }
 }
 
 // ============================================================================
