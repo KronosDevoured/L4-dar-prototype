@@ -240,9 +240,9 @@ export const RING_SKILL_END_COUNT = 200; // Ring count where skill scaling reach
 export const RING_SKILL_EASY_START_EFFICIENCY = 0.40;
 export const RING_SKILL_EASY_END_EFFICIENCY = 0.55;
 
-// Normal mode efficiency: 50% -> 70% (moderate challenge)
-export const RING_SKILL_NORMAL_START_EFFICIENCY = 0.50;
-export const RING_SKILL_NORMAL_END_EFFICIENCY = 0.70;
+// Normal mode efficiency: 40% → 60% (moderate challenge, more forgiving)
+export const RING_SKILL_NORMAL_START_EFFICIENCY = 0.40;
+export const RING_SKILL_NORMAL_END_EFFICIENCY = 0.60;
 
 // Hard mode efficiency: 60% -> 80% (challenging, less margin for error)
 export const RING_SKILL_HARD_START_EFFICIENCY = 0.60;

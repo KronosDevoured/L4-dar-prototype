@@ -763,9 +763,7 @@ function createRing(x, y, z, size, speed, spawnIndex) {
 
   scene.add(ring);
 
-  // Timing data for debugging
   const spawnTime = performance.now() / 1000; // Convert to seconds
-  console.log(`[SPAWN] Ring spawned at (${x.toFixed(0)}, ${y.toFixed(0)}, ${z.toFixed(0)}) | Speed: ${speed.toFixed(1)} u/s | Est. arrival: ${(Math.abs(z) / speed).toFixed(2)}s`);
   
   return {
     mesh: ring,
@@ -1994,8 +1992,6 @@ export function updateRingModeRendering(dt) {
           if (ring === nextRing && distanceToCenter <= ringOuterRadius) {
             const currentTime = performance.now() / 1000;
             ring.playerReachedTime = currentTime;
-            const elapsedSinceSpawn = currentTime - ring.spawnTime;
-            console.log(`[PLAYER REACHED] Ring spawned at (${ring.spawnX.toFixed(0)}, ${ring.spawnY.toFixed(0)}) | Player time: ${elapsedSinceSpawn.toFixed(2)}s`);
           }
         }
       }
@@ -2034,11 +2030,6 @@ export function updateRingModeRendering(dt) {
           ring.passed = true;
           ringModeScore++;
           ringModeRingCount++;
-          
-          // Timing analysis - log all three events
-          const playerReachTime = ring.playerReachedTime ? (ring.playerReachedTime - ring.spawnTime).toFixed(2) : 'not reached';
-          const ringPassTime = (currentTime - ring.spawnTime).toFixed(2);
-          console.log(`[PASSED] Ring spawned at (${ring.spawnX.toFixed(0)}, ${ring.spawnY.toFixed(0)}) | Player: ${playerReachTime}s | Ring: ${ringPassTime}s | Gap: ${(parseFloat(ringPassTime) - parseFloat(playerReachTime || 0)).toFixed(2)}s`);
 
           // Bonus life for passing rings that grant lives
           if (ring.grantsLife) {
@@ -2065,11 +2056,6 @@ export function updateRingModeRendering(dt) {
           ringModeLives--;
           // Audio feedback - play miss sound
           Audio.playRingMissSound();
-          
-          // Timing analysis - log when we missed
-          const playerReachTime = ring.playerReachedTime ? (ring.playerReachedTime - ring.spawnTime).toFixed(2) : 'not reached';
-          const ringPassTime = (currentTime - ring.spawnTime).toFixed(2);
-          console.log(`[MISSED] Ring spawned at (${ring.spawnX.toFixed(0)}, ${ring.spawnY.toFixed(0)}) | Player: ${playerReachTime}s | Ring: ${ringPassTime}s | Gap: ${(parseFloat(ringPassTime) - parseFloat(playerReachTime || 0)).toFixed(2)}s`);
         }
       }
 
