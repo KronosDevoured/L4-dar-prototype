@@ -1311,16 +1311,23 @@ function calculateRingSize(ringCount) {
  * @param {number} spawnY - Ring spawn Y position
  * @param {number} ringSize - Ring size in units (unused, kept for compatibility)
  * @param {number} distanceRatio - Distance ratio (unused, kept for compatibility)
+ * @param {number} sourceX - Source X position (where player is coming from - usually previous ring)
+ * @param {number} sourceY - Source Y position (where player is coming from - usually previous ring)
  * @returns {number} Ring speed in units per second
  */
-function calculateRingSpeed(spawnX, spawnY, ringSize, distanceRatio) {
+function calculateRingSpeed(spawnX, spawnY, ringSize, distanceRatio, sourceX, sourceY) {
+  // Use provided source position (previous ring), or fall back to player position
+  const calcSourceX = sourceX !== undefined ? sourceX : ringModePosition.x;
+  const calcSourceY = sourceY !== undefined ? sourceY : ringModePosition.y;
+  
   // PHYSICS-BASED TIMING CALCULATION
   // This calculates how long it takes for the player to realistically reach the ring position
   // accounting for: reaction time, turn speed, acceleration with gravity, deceleration, and stabilization
+  // Starting from the previous ring's position (or player position if no previous ring)
   const minTimeToReach = calculateMinimumTimeToReach(
     spawnX, spawnY,
-    ringModePosition.x, ringModePosition.y,
-    ringModeVelocity.x, ringModeVelocity.y,
+    calcSourceX, calcSourceY,
+    0, 0,  // Assume starting from rest at previous ring (velocity = 0)
     ringModeRingCount,
     currentDifficulty
   );
@@ -1473,8 +1480,22 @@ function spawnRing() {
     : CONST.RING_BONUS_THRESHOLD_NORMAL;
   const isBonusRing = distanceRatio >= BONUS_RING_THRESHOLD;
 
-  // Calculate ring speed with all modifiers
-  const ringSpeed = calculateRingSpeed(spawnX, spawnY, ringSize, distanceRatio);
+  // Find the previous ring (most recently spawned) to calculate timing from
+  // This ensures each ring is timed from the previous ring's position, not player's current position
+  let sourceX = ringModePosition.x;
+  let sourceY = ringModePosition.y;
+  
+  if (rings.length > 0) {
+    // Use the last ring in the array as the source position
+    const lastRing = rings[rings.length - 1];
+    if (lastRing && lastRing.mesh) {
+      sourceX = lastRing.mesh.position.x;
+      sourceY = lastRing.mesh.position.y;
+    }
+  }
+
+  // Calculate ring speed based on time from previous ring (or player start if no previous ring)
+  const ringSpeed = calculateRingSpeed(spawnX, spawnY, ringSize, distanceRatio, sourceX, sourceY);
 
   // SAFEGUARD 2 & 3: Check arrival time and momentum conflicts
   if (!checkSpawnSafeguards(spawnX, spawnY, spawnZ, ringSpeed)) {
