@@ -1452,6 +1452,13 @@ function checkSpawnSafeguards(spawnX, spawnY, spawnZ, ringSpeed) {
  * we ensure fair, sequential challenges rather than simultaneous impossible scenarios.
  */
 function spawnRing() {
+  // SAFEGUARD 0: Check if there's an active far ring (bonus ring) that hasn't been resolved
+  // Don't spawn next ring until player deals with the far ring to prevent unfair momentum scenarios
+  const activeFarRing = rings.find(r => !r.passed && !r.missed && r.isBonusRing);
+  if (activeFarRing) {
+    return; // Wait for far ring to be resolved before spawning next ring
+  }
+
   // SAFEGUARD 1: Z-Spacing Check
   if (checkZSpacingSafeguard()) {
     return; // Skip spawning, try again next interval
