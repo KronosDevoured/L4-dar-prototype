@@ -250,6 +250,11 @@ let keyboardBoostActive = false;
 let gamepadBoostActive = false;
 let touchBoostActive = false;
 
+// Dual stick mode: right stick input and state tracking
+let rightStickInput = { x: 0, y: 0 };
+let rightStickWasActive = false;
+let airRollBeforeRightStick = 0; // Store air roll state before right stick takes over
+
 // Toggle DAR active state (X button on gamepad)
 let toggleDARActive = false;
 let toggleDARPressTime = 0; // Track when button was pressed to prevent immediate release
@@ -278,19 +283,46 @@ let ringModeActiveState = false;
 function handleGamepadAirRollButtons(rollStates) {
   const airRollIsToggle = AirRollController.getAirRollIsToggle();
 
+  // Right stick ALWAYS has absolute priority, regardless of toggle mode
+  if (rollStates.rightStickActive) {
+    // Right stick just became active - save the current air roll state
+    if (!rightStickWasActive) {
+      airRollBeforeRightStick = AirRollController.getAirRoll();
+      rightStickWasActive = true;
+    }
+    
+    // Right stick is active - use its assignment exclusively (always in hold mode)
+    if (rollStates.rollFree) {
+      AirRollController.setRoll(2, true);
+    } else if (rollStates.rollLeft) {
+      AirRollController.setRoll(-1, true);
+    } else if (rollStates.rollRight) {
+      AirRollController.setRoll(1, true);
+    }
+    return; // Right stick handled - done
+  }
+
+  // Right stick just became inactive - restore previous air roll state
+  if (rightStickWasActive) {
+    AirRollController.setRoll(airRollBeforeRightStick, true);
+    rightStickWasActive = false;
+    return;
+  }
+
+  // Right stick not active - handle button presses based on mode
   if (!airRollIsToggle) {
-    // Hold mode: directional buttons have priority
+    // Hold mode: check buttons
     if (rollStates.rollLeft) {
       AirRollController.setRoll(-1, true);
     } else if (rollStates.rollRight) {
       AirRollController.setRoll(1, true);
     } else if (rollStates.rollFree) {
       AirRollController.setRoll(2, true);
-    } else if (!toggleDARActive) {
-      // No directional buttons held AND toggleDAR is not active - deactivate
+    } else if (!toggleDARActive && !TouchInput.getDarOn()) {
+      // No directional buttons held AND toggleDAR button not active AND menu DAR not active - deactivate
       AirRollController.setRoll(0, true);
     }
-    // If toggleDAR is active and no directional buttons held, leave it alone
+    // If toggleDAR button is active or menu DAR is on, leave it alone
   }
   // In toggle mode, air roll is handled by execBinding callback
 }
@@ -469,8 +501,8 @@ export function initInput(hud, callbacks = {}) {
   // Initialize touch input
   TouchInput.initTouch(hud, touchCallbacks);
 
-  // Initialize keyboard input
-  KeyboardInput.initKeyboard();
+  // Initialize keyboard input with saved bindings
+  KeyboardInput.initKeyboard(callbacks.savedKbBindings);
 
   // Initialize gamepad input
   GamepadInput.initGamepad(callbacks.savedGpBindings, callbacks.savedGpEnabled, callbacks.savedGpPreset);
@@ -547,6 +579,7 @@ export function updateInput(dt) {
   GamepadInput.updateGamepad(suppressGameplay, {
     execBinding: handleBindingExecution,
     onGamepadStick: handleGamepadStick,
+    onRightStick: (stick) => { rightStickInput = stick; },
     onGamepadAirRoll: handleGamepadAirRollButtons,
     onBoostChange: handleGamepadBoostChange,
     onToggleDARState: handleToggleDARState
@@ -690,6 +723,10 @@ export function getBoostCenter() {
 
 export function getBoostR() {
   return TouchInput.getBoostR();
+}
+
+export function getRightStickInput() {
+  return rightStickInput;
 }
 
 export function getShowBoostButton() {

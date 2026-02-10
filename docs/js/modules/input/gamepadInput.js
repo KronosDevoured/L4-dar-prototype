@@ -3,7 +3,7 @@
  * Gamepad input handling with button remapping and presets
  */
 
-import { saveSettings } from '../settings.js';
+import { saveSettings, getSetting } from '../settings.js';
 
 // ============================================================================
 // STATE
@@ -178,9 +178,17 @@ export function updateGamepad(chromeShown, callbacks) {
   // The physics module will handle deadzone processing
   callbacks?.onGamepadStick?.({ x: lx, y: ly });
 
-  // Process button bindings
-  Object.keys(gpBindings).forEach(action => {
+  // List of valid actions that are in the Controls menu
+  const validActions = ['pitchForward', 'pitchBackward', 'turnLeft', 'turnRight', 
+                        'rollLeft', 'rollRight', 'rollFree', 'toggleDAR',
+                        'boost', 'pause', 'openMenu',
+                        'restart', 'retry', 'orbitCW', 'orbitCCW', 'toggleTheme'];
+
+  // Process only valid button bindings (ignore legacy bindings like toggleTheme, restart, etc.)
+  validActions.forEach(action => {
     const binding = gpBindings[action];
+    if (!binding) return; // Skip if no binding for this action
+    
     const pressed = isPressedForBinding(binding, pad);
     const prevPressed = gpPrevActionPressed[action] || false;
 
@@ -197,15 +205,48 @@ export function updateGamepad(chromeShown, callbacks) {
   const toggleDARPressed = isPressedForBinding(gpBindings.toggleDAR, pad);
   callbacks?.onToggleDARState?.(toggleDARPressed);
 
-  // Check if any air roll button is pressed
-  const rollLeftPressed = isPressedForBinding(gpBindings.rollLeft, pad);
-  const rollRightPressed = isPressedForBinding(gpBindings.rollRight, pad);
-  const rollFreePressed = isPressedForBinding(gpBindings.rollFree, pad);
+  // === DUAL STICK MODE: Check right stick FIRST and give it absolute priority ===
+  const isDualStickMode = getSetting('dualStickMode');
+  const rightStickAssignment = getSetting('rightStickAssignment');
+  
+  // Check if right stick is active (same deadzone as left stick)
+  const rightStickMag = Math.sqrt(rx * rx + ry * ry);
+  const rightStickActive = isDualStickMode && rightStickAssignment !== 'none' && rightStickMag > GP_DEADZONE;
+
+  // Send right stick position ONLY when active, otherwise send zeros
+  // This ensures physics doesn't try to use right stick when it's below deadzone
+  if (rightStickActive) {
+    callbacks?.onRightStick?.({ x: rx, y: ry });
+  } else {
+    callbacks?.onRightStick?.({ x: 0, y: 0 });
+  }
+
+  // Determine air roll state
+  let rollLeft = false;
+  let rollRight = false;
+  let rollFree = false;
+
+  if (rightStickActive && rightStickAssignment !== 'none') {
+    // RIGHT STICK HAS ABSOLUTE PRIORITY - use only its assignment
+    if (rightStickAssignment === 'rollFree') {
+      rollFree = true;
+    } else if (rightStickAssignment === 'rollLeft') {
+      rollLeft = true;
+    } else if (rightStickAssignment === 'rollRight') {
+      rollRight = true;
+    }
+  } else {
+    // Right stick not active - check button presses
+    rollLeft = isPressedForBinding(gpBindings.rollLeft, pad);
+    rollRight = isPressedForBinding(gpBindings.rollRight, pad);
+    rollFree = isPressedForBinding(gpBindings.rollFree, pad);
+  }
 
   callbacks?.onGamepadAirRoll?.({
-    rollLeft: rollLeftPressed,
-    rollRight: rollRightPressed,
-    rollFree: rollFreePressed
+    rollLeft: rollLeft,
+    rollRight: rollRight,
+    rollFree: rollFree,
+    rightStickActive: rightStickActive
   });
 
   // Boost button
@@ -422,9 +463,8 @@ export function setupGamepadUI() {
   }
 
   if (gpPresetSel) {
-    gpPresetSel.addEventListener('change', () => {
-      setBindingPreset(gpPresetSel.value);
-    });
+    // Preset is now read-only - users customize bindings via Controls menu instead
+    gpPresetSel.disabled = true;
   }
 
   if (gpActionSel) {
@@ -457,6 +497,19 @@ export function getGpEnabled() {
 export function getGpBindings() {
   ensureBindings();
   return { ...gpBindings };
+}
+
+export function setGpBinding(action, binding) {
+  ensureBindings();
+  if (gpBindings) {
+    gpBindings[action] = binding;
+    saveSettings({ gpBindings });
+  }
+}
+
+export function resetBindingsToDefaults() {
+  gpBindings = { ...defaultGpBindings };
+  saveSettings({ gpBindings });
 }
 
 export function isGamepadPressingAirRoll() {

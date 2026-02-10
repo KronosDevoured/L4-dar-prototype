@@ -3,6 +3,27 @@
  * Keyboard input handling for movement and air roll controls
  */
 
+import { getSetting, saveSettings } from '../settings.js';
+
+// ============================================================================
+// DEFAULT BINDINGS & STATE
+// ============================================================================
+
+const defaultKbBindings = {
+  pitchForward: 'KeyW',
+  pitchBackward: 'KeyS',
+  turnLeft: 'KeyA',
+  turnRight: 'KeyD',
+  rollLeft: 'KeyQ',
+  rollRight: 'KeyE',
+  rollFree: 'ShiftLeft',
+  boost: 'Space',
+  pause: 'KeyP',
+  openMenu: 'Escape'
+};
+
+let kbBindings = null;
+
 // ============================================================================
 // STATE
 // ============================================================================
@@ -26,7 +47,14 @@ function onKeyUp(e) {
 // INITIALIZATION
 // ============================================================================
 
-export function initKeyboard() {
+export function initKeyboard(savedBindings) {
+  // Use saved bindings if available, otherwise use defaults
+  if (savedBindings) {
+    kbBindings = { ...savedBindings };
+  } else {
+    kbBindings = { ...defaultKbBindings };
+  }
+
   document.addEventListener('keydown', onKeyDown);
   document.addEventListener('keyup', onKeyUp);
 }
@@ -41,8 +69,8 @@ export function cleanupKeyboard() {
 // ============================================================================
 
 export function updateKeyboard(chromeShown, ringModePaused, callbacks) {
-  // Menu toggle (Escape key)
-  if (keyJustPressed('Escape')) {
+  // Menu toggle (configurable binding)
+  if (keyJustPressed(kbBindings.openMenu)) {
     if (chromeShown) {
       callbacks?.closeMenu?.();
     } else {
@@ -50,8 +78,8 @@ export function updateKeyboard(chromeShown, ringModePaused, callbacks) {
     }
   }
 
-  // Pause (P key) - only in Ring Mode
-  if (keyJustPressed('KeyP') && callbacks?.ringModeActive) {
+  // Pause - only in Ring Mode (configurable binding)
+  if (keyJustPressed(kbBindings.pause) && callbacks?.ringModeActive) {
     callbacks?.execBinding?.('pause');
   }
 
@@ -61,37 +89,37 @@ export function updateKeyboard(chromeShown, ringModePaused, callbacks) {
     return;
   }
 
-  // WASD Movement
+  // Movement - uses configurable bindings
   const input = {
     pitch: 0,
     yaw: 0
   };
 
-  if (keyHeld('KeyW')) input.pitch += 1;
-  if (keyHeld('KeyS')) input.pitch -= 1;
-  if (keyHeld('KeyA')) input.yaw += 1;
-  if (keyHeld('KeyD')) input.yaw -= 1;
+  if (keyHeld(kbBindings.pitchForward)) input.pitch += 1;
+  if (keyHeld(kbBindings.pitchBackward)) input.pitch -= 1;
+  if (keyHeld(kbBindings.turnLeft)) input.yaw += 1;
+  if (keyHeld(kbBindings.turnRight)) input.yaw -= 1;
 
-  // Air roll controls (Q = left, E = right, Shift = free)
+  // Air roll controls - uses configurable bindings
   // In toggle mode: toggle on keypress
   if (callbacks?.airRollIsToggle) {
-    if (keyJustPressed('KeyQ')) callbacks?.execBinding?.('rollLeft');
-    if (keyJustPressed('KeyE')) callbacks?.execBinding?.('rollRight');
-    if (keyJustPressed('ShiftLeft') || keyJustPressed('ShiftRight')) callbacks?.execBinding?.('rollFree');
+    if (keyJustPressed(kbBindings.rollLeft)) callbacks?.execBinding?.('rollLeft');
+    if (keyJustPressed(kbBindings.rollRight)) callbacks?.execBinding?.('rollRight');
+    if (keyJustPressed(kbBindings.rollFree)) callbacks?.execBinding?.('rollFree');
   } else {
     // In hold mode: activate while held
     // Note: Deactivation is complex (needs to check if gamepad/DAR also pressing)
     // For now, report which keys are held and let orchestrator handle it
     const airRollKeys = {
-      rollLeft: keyHeld('KeyQ'),
-      rollRight: keyHeld('KeyE'),
-      rollFree: keyHeld('ShiftLeft') || keyHeld('ShiftRight')
+      rollLeft: keyHeld(kbBindings.rollLeft),
+      rollRight: keyHeld(kbBindings.rollRight),
+      rollFree: keyHeld(kbBindings.rollFree)
     };
     callbacks?.onKeyboardAirRoll?.(airRollKeys);
   }
 
-  // Boost (Space)
-  const boostPressed = keyHeld('Space');
+  // Boost (configurable binding)
+  const boostPressed = keyHeld(kbBindings.boost);
   callbacks?.onBoostChange?.(boostPressed);
 
   // Notify callback with keyboard input
@@ -121,18 +149,30 @@ function updatePrevState() {
 }
 
 // ============================================================================
-// CLEANUP AND MEMORY MANAGEMENT
+// KEYBOARD BINDINGS MANAGEMENT
 // ============================================================================
 
-/**
- * Cleanup keyboard input resources
- * Call this when shutting down the application to prevent memory leaks
- */
-export function cleanup() {
-  // Remove event listeners
-  cleanupKeyboard();
+export function getKbBindings() {
+  return { ...kbBindings };
+}
 
-  // Clear key state maps
-  keyState.clear();
-  keyPrevState.clear();
+export function setKbBindings(newBindings) {
+  kbBindings = { ...newBindings };
+  saveSettings({ kbBindings });
+}
+
+export function setKbBinding(action, keyCode) {
+  if (kbBindings) {
+    kbBindings[action] = keyCode;
+    saveSettings({ kbBindings });
+  }
+}
+
+export function getDefaultKbBindings() {
+  return { ...defaultKbBindings };
+}
+
+export function resetKbBindings() {
+  kbBindings = { ...defaultKbBindings };
+  saveSettings({ kbBindings });
 }

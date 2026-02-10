@@ -366,6 +366,10 @@ export function updatePhysics(dt, settings, chromeShown) {
   try {
     frameCounter++;
 
+    // Apply game speed multiplier to dt
+    const gameSpeed = Settings.getSetting('gameSpeed') || 1.0;
+    const adjustedDt = dt * gameSpeed;
+
     // Skip physics when menu is open OR when Ring Mode is paused
     // EXCEPT during automated measurement mode
     const allowMeasurement = window.measurementState && window.measurementState.active;
@@ -413,6 +417,25 @@ export function updatePhysics(dt, settings, chromeShown) {
   let eff = 0;
   let ux = 0, uy = 0;
 
+  // Get right stick input for dual stick mode
+  const rightStick = Input.getRightStickInput();
+  const rightStickX = rightStick ? rightStick.x : 0;
+  const rightStickY = rightStick ? rightStick.y : 0;
+
+  // Process right stick with same magnitude shaping as left stick
+  let rightStickMag = Math.hypot(rightStickX, rightStickY);
+  let rightEff = 0;
+  let rightUx = 0, rightUy = 0;
+
+  if (rightStickMag > Input.STICK_DEADZONE) {
+    const clampedMag = Math.min(rightStickMag, 1.0);
+    const m2 = (clampedMag - Input.STICK_DEADZONE) / (1 - Input.STICK_DEADZONE);
+    const shaped = Math.pow(Math.max(0, m2), inputPow || 1.0);
+    rightEff = shaped * (stickRange || 1.0);
+    rightUx = -rightStickX; // right = +ux
+    rightUy = -rightStickY; // up = +uy (invert Y like left stick)
+  }
+
   if (mag > Input.STICK_DEADZONE) {
     // Clamp mag to max 1.0, then apply shaping
     const clampedMag = Math.min(mag, 1.0);
@@ -441,14 +464,14 @@ export function updatePhysics(dt, settings, chromeShown) {
   // === RING MODE: Calculate movement forces (normal rotation physics will run below) ===
   if (gameState.getRingModeActive() && RingMode && Car.car) {
     // Always call updateRingModePhysics so it can handle game-over logic (like stopping boost sound)
-    RingMode.updateRingModePhysics(dt, {
+    RingMode.updateRingModePhysics(adjustedDt, {
       boostActive: Input.getRingModeBoostActive()
     }, Car.car.quaternion);
   }
 
   // === RHYTHM MODE: Calculate movement forces (normal rotation physics will run below) ===
   if (gameState.getRhythmModeActive() && RingMode && Car.car) {
-    RingMode.updateRingModePhysics(dt, {
+    RingMode.updateRingModePhysics(adjustedDt, {
       boostActive: Input.getRingModeBoostActive()
     }, Car.car.quaternion);
   }
@@ -507,11 +530,19 @@ export function updatePhysics(dt, settings, chromeShown) {
   // stick → desired spin rates
   let wx_des, wy_des, wz_des;
 
+  // Check if right stick should be used (dual stick mode)
+  const useRightStick = rightStickMag > Input.STICK_DEADZONE;
+  
+  // Determine which stick inputs to use for control
+  const controlX = useRightStick ? rightUx : ux;
+  const controlY = useRightStick ? rightUy : uy;
+  const controlEff = useRightStick ? rightEff : eff;
+
   if (isAirRollFree) {
     // Air Roll (Free): horizontal stick controls roll, vertical controls pitch
-    wx_des = maxPitchSpeed * eff * uy; // pitch (up/down)
-    wy_des = 0;                         // no yaw
-    wz_des = wMaxRoll * eff * (-ux);   // roll (left stick = roll left, right stick = roll right)
+    wx_des = maxPitchSpeed * controlEff * controlY; // pitch (up/down)
+    wy_des = 0;                                      // no yaw
+    wz_des = wMaxRoll * controlEff * (-controlX);   // roll (left/right)
   } else {
     // Directional Air Roll (tornado spin) vs Normal flight
     if (isDirectionalAirRoll || Input.getDarOn()) {
@@ -521,8 +552,8 @@ export function updatePhysics(dt, settings, chromeShown) {
       const maxPitchSpeedDar = Math.min(maxPitchSpeed, darPitchYawCap);
       const maxYawSpeedDar   = Math.min(maxYawSpeed,   darPitchYawCap);
 
-      const wx_raw = maxPitchSpeedDar * eff * uy;  // pitch
-      const wy_raw = maxYawSpeedDar   * eff * ux;  // yaw
+      const wx_raw = maxPitchSpeedDar * controlEff * controlY;  // pitch
+      const wy_raw = maxYawSpeedDar   * controlEff * controlX;  // yaw
       const wz_raw = targetRollSpeed;     // roll
 
       // Normalize full vector to the global cap so pitch/yaw trade off smoothly
@@ -539,8 +570,8 @@ export function updatePhysics(dt, settings, chromeShown) {
       }
     } else {
       // Normal flight (no DAR): independent pitch/yaw control
-      wx_des = maxPitchSpeed * eff * uy; // pitch
-      wy_des = maxYawSpeed * eff * ux;   // yaw
+      wx_des = maxPitchSpeed * controlEff * controlY; // pitch
+      wy_des = maxYawSpeed * controlEff * controlX;   // yaw
       wz_des = 0; // no roll command
     }
   }
@@ -941,7 +972,7 @@ export function updatePhysics(dt, settings, chromeShown) {
   }
 
   // --- 9. Quaternion integration ---
-  const wx = w.x, wy = w.y, wz = w.z, halfdt = 0.5 * dt;
+  const wx = w.x, wy = w.y, wz = w.z, halfdt = 0.5 * adjustedDt;
 
   const q = Car.car.quaternion;
   const rw = -q.x * wx - q.y * wy - q.z * wz;
@@ -958,7 +989,7 @@ export function updatePhysics(dt, settings, chromeShown) {
   // (Previously locked to align with green line)
 
   // === RING MODE: Override car position and update rings ===
-  RingMode.updateRingModeRendering(dt);
+  RingMode.updateRingModeRendering(adjustedDt);
   } catch (error) {
     console.error('[Physics] Error in updatePhysics:', error);
     // Reset angular velocity on physics error to prevent unstable state

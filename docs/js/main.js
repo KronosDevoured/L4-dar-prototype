@@ -18,6 +18,7 @@ import * as RingMode from './modules/ringMode.js';
 import * as RhythmMode from './modules/rhythmMode.js';
 import * as RhythmModeUI from './modules/rhythmModeUI.js';
 import * as Physics from './modules/physics.js';
+import * as ControlsMenu from './modules/controlsMenu.js';
 import { MenuSystem } from './modules/menuSystem.js';
 import { GameState } from './modules/gameState.js';
 import { SceneManager } from './modules/sceneManager.js';
@@ -515,6 +516,21 @@ export function init() {
     ringCameraSpeedVal.textContent = speed.toFixed(2);
   });
 
+  // Game speed slider
+  const gameSpeedSlider = document.getElementById('gameSpeedMenu');
+  const gameSpeedVal = document.getElementById('gameSpeedMenuVal');
+  
+  // Initialize slider from saved value
+  const savedGameSpeed = Settings.getSetting('gameSpeed') || 1.0;
+  gameSpeedSlider.value = savedGameSpeed;
+  gameSpeedVal.textContent = Math.round(savedGameSpeed * 100) + '%';
+  
+  gameSpeedSlider.addEventListener('input', () => {
+    const speed = parseFloat(gameSpeedSlider.value);
+    Settings.updateSetting('gameSpeed', speed);
+    gameSpeedVal.textContent = Math.round(speed * 100) + '%';
+  });
+
   // Ring Mode difficulty selector (Menu version is now primary)
   const ringDifficultySelector = document.getElementById('ringDifficultyMenu');
   ringDifficultySelector.addEventListener('change', () => {
@@ -810,8 +826,17 @@ export function init() {
     saveSettings();
   });
 
+  // Add Controls button listener
+  const controlsBtn = document.getElementById('controlsBtn');
+  if (controlsBtn) {
+    controlsBtn.addEventListener('click', () => {
+      ControlsMenu.openControlsMenu();
+    });
+  }
+
   // Initialize Input module with callbacks
   Input.initInput(hud, {
+    savedKbBindings: savedSettings.kbBindings,
     savedGpBindings: savedSettings.gpBindings,
     savedGpEnabled: savedSettings.gpEnabled,
     savedGpPreset: savedSettings.gpPreset,
@@ -1007,6 +1032,22 @@ export function init() {
   // Restore Ring Mode difficulty selector
   if (ringDifficultySelector) {
     ringDifficultySelector.value = RingMode.getCurrentDifficulty();
+  }
+
+  // Initialize Controls Menu
+  ControlsMenu.initControlsMenu();
+
+  // Setup Dual Stick Mode toggle
+  const dualStickToggle = document.getElementById('dualStickToggle');
+  if (dualStickToggle) {
+    dualStickToggle.classList.toggle('active', savedSettings.dualStickMode);
+    dualStickToggle.addEventListener('click', () => {
+      settings.dualStickMode = !settings.dualStickMode;
+      dualStickToggle.classList.toggle('active', settings.dualStickMode);
+      saveSettings();
+      // Refresh controls menu to show/hide right stick assignment
+      ControlsMenu.initControlsMenu();
+    });
   }
 
   // Resize handler

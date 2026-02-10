@@ -52,6 +52,11 @@ let _settings = {
   gpEnabled: true,
   gpBindings: null,
   gpPreset: 'ps5',
+  dualStickMode: false,
+  rightStickAssignment: 'none', // 'none', 'rollFree', 'rollLeft', 'rollRight'
+
+  // Keyboard
+  kbBindings: null,
 
   // Car
   selectedCarBody: 'octane',
@@ -66,7 +71,10 @@ let _settings = {
   ringModeHighScoreNormal: 0,
   ringModeHighScoreHard: 0,
   ringDifficulty: 'normal',
-  ringCameraSpeed: 0.1
+  ringCameraSpeed: 0.1,
+
+  // Game Speed
+  gameSpeed: 1.0 // 0.5 = 50%, 1.0 = 100%
 };
 
 // ============================================================================

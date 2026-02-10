@@ -175,6 +175,229 @@
   #joyHint,#darHint{position:fixed; z-index:2; pointer-events:none;background:rgba(24,26,32,.92); border:1px solid #3a3d45; color:#cfd3dc;
     padding:.35rem .55rem; border-radius:10px; font-size:.85rem; white-space:nowrap; transform:translate(-50%,-50%); opacity:0; transition:opacity .25s ease;}
   #joyHint.show,#darHint.show{opacity:1;}
+
+  /* Controls Modal */
+  #controlsModal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .modal-backdrop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: -1;
+  }
+
+  .modal-content {
+    background: #181a20;
+    border: 1px solid #3a3d45;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 900px;
+    max-height: 80vh;
+    overflow-y: auto;
+    z-index: 1001;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .modal-content.controls-modal {
+    max-width: 1000px;
+  }
+
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    border-bottom: 1px solid #3a3d45;
+  }
+
+  .modal-header h2 {
+    margin: 0;
+    color: #e8e8ea;
+    font-size: 1.5rem;
+  }
+
+  .modal-close-btn {
+    background: none;
+    border: none;
+    color: #e8e8ea;
+    font-size: 28px;
+    cursor: pointer;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+  }
+
+  .modal-close-btn:hover {
+    background-color: rgba(232, 232, 234, 0.1);
+  }
+
+  .controls-layout {
+    display: flex;
+    gap: 20px;
+    padding: 15px;
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  .controls-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .controls-section-title {
+    color: #4CAF50;
+    font-size: 1.1rem;
+    margin: 0 0 10px 0;
+    font-weight: bold;
+  }
+
+  .controls-divider {
+    width: 1px;
+    background: #3a3d45;
+  }
+
+  .controls-content {
+    padding: 15px;
+    overflow-y: auto;
+    flex: 1;
+    max-height: 400px;
+  }
+
+  .controls-category {
+    margin-bottom: 15px;
+  }
+
+  .controls-category-label {
+    color: #4CAF50;
+    font-weight: bold;
+    margin-bottom: 8px;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .controls-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(58, 61, 69, 0.3);
+    gap: 10px;
+  }
+
+  .controls-row:last-child {
+    border-bottom: none;
+  }
+
+  .controls-action-label {
+    color: #cfd3dc;
+    font-size: 0.9rem;
+    flex: 1;
+    min-width: 120px;
+  }
+
+  .controls-binding-cell {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .binding-label {
+    color: #999;
+    font-size: 0.8rem;
+    min-width: 80px;
+    text-align: right;
+    font-family: monospace;
+    padding: 2px 6px;
+    background: rgba(232, 232, 234, 0.05);
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+
+  .controls-remap-btn {
+    background: rgba(76, 175, 80, 0.2);
+    color: #4CAF50;
+    border: 1px solid #4CAF50;
+    padding: 2px 6px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 0.75rem;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .controls-remap-btn:hover {
+    background: rgba(76, 175, 80, 0.3);
+  }
+
+  .controls-remap-btn:active {
+    background: rgba(76, 175, 80, 0.4);
+  }
+
+  .controls-binding-cell.remapping .binding-label {
+    color: #FFD700;
+    animation: pulse 0.6s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  .btn-secondary {
+    width: 100%;
+    background: rgba(100, 100, 100, 0.3);
+    color: #cfd3dc;
+    border: 1px solid #666;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+    margin-top: 10px;
+  }
+
+  .btn-secondary:hover {
+    background: rgba(100, 100, 100, 0.5);
+    color: #e8e8ea;
+  }
+
+  .right-stick-select {
+    background: #181a20;
+    color: #e8e8ea;
+    border: 1px solid #3a3d45;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+
+  .right-stick-select:hover {
+    border-color: #4CAF50;
+  }
+
 </style>
 </head>
 <body>
@@ -305,6 +528,12 @@
             <button id="lockRoll" class="btn" type="button">Lock Roll</button>
           </div>
 
+          <div class="row sl">
+            <label for="gameSpeedMenu">Game Speed</label>
+            <input id="gameSpeedMenu" type="range" min="0.5" max="1.0" step="0.05" value="1.0" />
+            <span class="tag" id="gameSpeedMenuVal">100%</span>
+          </div>
+
           <div class="tip">
             <b>Tip:</b> With Air Roll Right, rotate the stick clockwise. With Air Roll Left, rotate the stick counter-clockwise.
           </div>
@@ -317,36 +546,18 @@
             <button id="gpEnable" class="btn active" type="button">Enable</button>
             <span class="tag" id="gpStatus">Enabled (waiting for gamepad)</span>
           </div>
+          <div class="row">
+            <button id="controlsBtn" class="btn" type="button">⌨ Controls</button>
+          </div>
+          <div class="row">
+            <button id="dualStickToggle" class="btn" type="button">Dual Stick Mode</button>
+          </div>
           <div class="row sl">
             <label for="gpPreset">Preset</label>
             <select id="gpPreset">
               <option value="ps5" selected>PS5 / DualSense</option>
               <option value="xinput">Generic XInput</option>
             </select>
-          </div>
-          <div class="row">
-            <button id="gpRemap" class="btn" type="button">Remap Action…</button>
-            <select id="gpAction" aria-label="Select action to remap">
-              <option value="toggleDAR">Toggle DAR</option>
-              <option value="rollLeft">Air Roll Left</option>
-              <option value="rollRight">Air Roll Right</option>
-              <option value="rollFree">Air Roll (Free)</option>
-              <option value="boost">Boost (Ring Mode)</option>
-              <option value="pause">Pause (Ring Mode)</option>
-              <option value="restart">Restart</option>
-              <option value="retry">Retry</option>
-              <option value="orbitCW">Orbit Clockwise</option>
-              <option value="orbitCCW">Orbit Counter-Clockwise</option>
-              <option value="toggleTheme">Toggle Day/Night Mode</option>
-              <option value="openMenu">Open/Close Menu</option>
-            </select>
-            <span class="tag" id="gpBindLabel">—</span>
-          </div>
-          <div class="row">
-            <button id="gpResetDefaults" class="btn" type="button">Reset to Defaults</button>
-          </div>
-          <div class="tip">
-            <b>Tip:</b> Left stick moves the on-screen stick. Remap any action, then press a button or push an axis to bind.
           </div>
         </div>
 
@@ -765,6 +976,31 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 </script>
+
+<!-- Controls Menu Modal -->
+<div id="controlsModal" class="modal" style="display: none;">
+  <div class="modal-backdrop"></div>
+  <div class="modal-content controls-modal">
+    <div class="modal-header">
+      <h2>Controls</h2>
+      <button id="controlsCloseBtn" class="modal-close-btn">×</button>
+    </div>
+    
+    <div class="controls-layout">
+      <div class="controls-section">
+        <h3 class="controls-section-title">⌨ Keyboard</h3>
+        <div id="controlsKBContent" class="controls-content"></div>
+        <button id="resetKBBindings" class="btn-secondary">Reset Keyboard</button>
+      </div>
+      <div class="controls-divider"></div>
+      <div class="controls-section">
+        <h3 class="controls-section-title">🎮 Controller</h3>
+        <div id="controlsGPContent" class="controls-content"></div>
+        <button id="resetGPBindings" class="btn-secondary">Reset Controller</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script type="module">
 // L4 DAR Prototype - Main Application Entry Point
