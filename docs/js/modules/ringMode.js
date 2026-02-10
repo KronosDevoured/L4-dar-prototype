@@ -32,6 +32,7 @@ let ringModeHighScore = 0; // Current difficulty high score (loaded based on dif
 let ringModeLives = 5;
 let ringModeRingCount = 0;
 let ringCameraSpeed = getSetting('ringCameraSpeed') ?? 0.02;
+let inverseGravity = getSetting('inverseGravity') ?? false; // Inverse gravity toggle
 
 // Ring Mode physics
 let ringModeVelocity = new THREE.Vector2(0, 0); // XY velocity only
@@ -186,6 +187,10 @@ export function setCurrentDifficulty(diff) {
   saveSettings({ ringDifficulty: diff });
   // Load the high score for the new difficulty
   loadHighScoreForDifficulty();
+}
+export function setInverseGravity(enabled) {
+  inverseGravity = enabled;
+  saveSettings({ inverseGravity: enabled });
 }
 export function setRingModeLives(lives) { ringModeLives = lives; }
 export function setRingModePosition(x, y) { ringModePosition.set(x, y); }
@@ -1224,7 +1229,8 @@ function calculateMinimumTimeToReach(targetX, targetY, currentX, currentY, curre
   }
   
   // Y-AXIS CALCULATION: Boost with gravity assistance/hindrance
-  const isGoingUp = dy > 0;
+  // Inverse gravity flips the gravity direction
+  const isGoingUp = inverseGravity ? (dy < 0) : (dy > 0); // Flip direction if inverse gravity
   const verticalAccel = isGoingUp ? (BOOST_ACCEL - GRAVITY) : (BOOST_ACCEL + GRAVITY); // 650 or 1950 units/s²
   
   let travelTimeY = 0;
@@ -1675,7 +1681,9 @@ export function updateRingModePhysics(dt, inputState, carQuaternion) {
   // Apply forces
   let accelX = 0;
   // Easy difficulty: no vertical movement (no gravity)
-  let accelY = (ringModeStarted && currentDifficulty !== 'easy') ? CONST.RING_GRAVITY : 0;
+  // Inverse gravity flips the gravity direction (positive becomes negative)
+  const gravityDirection = inverseGravity ? -1 : 1;
+  let accelY = (ringModeStarted && currentDifficulty !== 'easy') ? (CONST.RING_GRAVITY * gravityDirection) : 0;
 
   if (effectiveBoostActive) {
     // Boost in the direction car's nose is facing
