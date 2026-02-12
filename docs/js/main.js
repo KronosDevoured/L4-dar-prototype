@@ -905,9 +905,6 @@ export function init() {
 
     minimalUiToggle.addEventListener('click', () => {
       settings.minimalUi = !settings.minimalUi;
-      if (settings.minimalUi) {
-        alert('Minimal UI hides the fullscreen button. Re-enable UI to access fullscreen.');
-      }
       document.body.classList.toggle('minimal-ui', settings.minimalUi);
       minimalUiToggle.classList.toggle('active', settings.minimalUi);
       minimalUiStatus.textContent = settings.minimalUi ? 'On' : 'Off';
