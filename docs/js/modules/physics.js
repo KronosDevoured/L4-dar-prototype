@@ -524,7 +524,9 @@ export function updatePhysics(dt, settings, chromeShown) {
   // 2. DAR button is active with a selected direction in the menu
   if ((isDirectionalAirRoll || Input.getDarOn()) && !isAirRollFree) {
     // DAR roll speed: 5.5 rad/s (one full roll every ~1.14 seconds)
-    targetRollSpeed = Input.getAirRoll() * CONST.DAR_ROLL_SPEED;  // rad/s
+    // Multiply by analog intensity for trigger support (0.0 to 1.0)
+    const intensity = Input.getAirRollIntensity();
+    targetRollSpeed = Input.getAirRoll() * CONST.DAR_ROLL_SPEED * intensity;  // rad/s
   }
 
   // stick → desired spin rates

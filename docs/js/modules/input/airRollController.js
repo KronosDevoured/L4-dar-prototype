@@ -15,13 +15,15 @@ let airRoll = 0; // Currently active air roll
 let selectedAirRoll = -1; // User's selection from menu (Left/Right/Free)
 let airRollIsToggle = false; // Default: hold mode (for gamepad)
 let lastActiveAirRoll = 0; // Remember last non-zero roll selection
+let airRollIntensity = 1.0; // Analog intensity (0.0 to 1.0) for triggers
 
 // ============================================================================
 // CORE FUNCTIONS
 // ============================================================================
 
-export function setRoll(dir, skipSave = false) {
+export function setRoll(dir, skipSave = false, intensity = 1.0) {
   airRoll = dir;
+  airRollIntensity = Math.max(0, Math.min(1, intensity)); // Clamp to 0-1 range
   if (dir !== 0) {
     lastActiveAirRoll = dir;
   }
@@ -31,18 +33,18 @@ export function setRoll(dir, skipSave = false) {
   return dir;
 }
 
-export function toggleRoll(dir, skipSave = false) {
+export function toggleRoll(dir, skipSave = false, intensity = 1.0) {
   // For toggle mode: tap to activate, tap again to deactivate
   // For hold mode: directly set the direction
   if (airRollIsToggle) {
     if (airRoll === dir) {
-      setRoll(0, skipSave); // Turn off if already active
+      setRoll(0, skipSave, 1.0); // Turn off if already active
     } else {
-      setRoll(dir, skipSave); // Switch to this direction
+      setRoll(dir, skipSave, intensity); // Switch to this direction
     }
   } else {
     // For hold mode: handled by button state
-    setRoll(dir, skipSave);
+    setRoll(dir, skipSave, intensity);
   }
 }
 
@@ -84,6 +86,10 @@ export function getAirRoll() {
   return airRoll;
 }
 
+export function getAirRollIntensity() {
+  return airRollIntensity;
+}
+
 export function getSelectedAirRoll() {
   return selectedAirRoll;
 }
@@ -110,4 +116,5 @@ export function cleanup() {
   selectedAirRoll = -1;
   airRollIsToggle = false;
   lastActiveAirRoll = 0;
+  airRollIntensity = 1.0;
 }

@@ -202,7 +202,8 @@ export function drawRingModeHUD(state) {
     ringModePosition,
     rings,
     isMobile,
-    currentDifficulty
+    currentDifficulty,
+    minimalUi
   } = state;
 
   const ctx = hctx;
@@ -451,27 +452,29 @@ export function drawRingModeHUD(state) {
 export function renderHUD(state) {
   Hclear();
 
-  // Draw joystick
-  drawJoystick({
-    JOY_CENTER: state.JOY_CENTER,
-    JOY_BASE_R: state.JOY_BASE_R,
-    JOY_KNOB_R: state.JOY_KNOB_R,
-    joyVec: state.joyVec
-  });
+  if (!state.minimalUi) {
+    // Draw joystick
+    drawJoystick({
+      JOY_CENTER: state.JOY_CENTER,
+      JOY_BASE_R: state.JOY_BASE_R,
+      JOY_KNOB_R: state.JOY_KNOB_R,
+      joyVec: state.joyVec
+    });
 
-  // Draw DAR button
-  drawDAR({
-    DAR_CENTER: state.DAR_CENTER,
-    DAR_R: state.DAR_R,
-    darOn: state.darOn,
-    airRoll: state.airRoll,
-    selectedAirRoll: state.selectedAirRoll,
-    airRollIsToggle: state.airRollIsToggle
-  });
+    // Draw DAR button
+    drawDAR({
+      DAR_CENTER: state.DAR_CENTER,
+      DAR_R: state.DAR_R,
+      darOn: state.darOn,
+      airRoll: state.airRoll,
+      selectedAirRoll: state.selectedAirRoll,
+      airRollIsToggle: state.airRollIsToggle
+    });
+  }
 
   // Draw Ring Mode HUD if active
   if (state.ringModeActive) {
-    if (state.showBoostButton) {
+    if (state.showBoostButton && !state.minimalUi) {
       drawBoost({
         BOOST_CENTER: state.BOOST_CENTER,
         BOOST_R: state.BOOST_R,

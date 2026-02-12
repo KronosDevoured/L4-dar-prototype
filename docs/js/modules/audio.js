@@ -11,6 +11,8 @@
 let audioContext = null;
 let gameSoundsEnabled = true;
 let gameMusicEnabled = true;
+let gameMusicVolume = 0.3;
+let gameSfxVolume = 1.0;
 
 // Boost rumble
 let boostRumbleOscillator = null;
@@ -23,6 +25,11 @@ let musicSourceNode = null;
 let musicGain = null;
 let musicStopTimeout = null; // Pending stop timer when fading out
 let pendingMusicStart = false; // True when autoplay blocked; waits for user gesture
+
+function clamp01(value) {
+  if (typeof value !== 'number' || !isFinite(value)) return 1.0;
+  return Math.min(1, Math.max(0, value));
+}
 /**
  * Initialize audio context (call on first user interaction)
  */
@@ -90,8 +97,8 @@ export function playRingPassSound() {
     oscillator.type = 'triangle'; // Warmer, less harsh than sine
 
     // Quick attack and decay for "thunk" effect
-    gainNode.gain.setValueAtTime(0.25, audioContext.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
+    gainNode.gain.setValueAtTime(0.25 * gameSfxVolume, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01 * gameSfxVolume, audioContext.currentTime + 0.15);
 
     oscillator.start(audioContext.currentTime);
     oscillator.stop(audioContext.currentTime + 0.15);
@@ -120,8 +127,8 @@ export function playRingMissSound() {
     oscillator.type = 'sine'; // Bright, sharp tone
 
     // Sharp attack and longer decay for "ding" effect
-    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+    gainNode.gain.setValueAtTime(0.3 * gameSfxVolume, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01 * gameSfxVolume, audioContext.currentTime + 0.3);
 
     oscillator.start(audioContext.currentTime);
     oscillator.stop(audioContext.currentTime + 0.3);
@@ -159,7 +166,7 @@ export function startBoostRumble() {
     oscillator.type = 'sawtooth'; // Rough, engine-like sound
 
     // Low volume so it doesn't drown out ring sounds
-    gain.gain.setValueAtTime(0.03, audioContext.currentTime);
+    gain.gain.setValueAtTime(0.03 * gameSfxVolume, audioContext.currentTime);
 
     oscillator.start(audioContext.currentTime);
 
@@ -262,9 +269,9 @@ export async function startBackgroundMusic() {
       if (musicGain) {
         try { musicGain.gain.cancelScheduledValues(0); } catch {}
         if (audioContext && audioContext.state === 'running') {
-          musicGain.gain.setValueAtTime(1.0, audioContext.currentTime);
+          musicGain.gain.setValueAtTime(gameMusicVolume, audioContext.currentTime);
         } else {
-          try { musicGain.gain.value = 1.0; } catch {}
+          try { musicGain.gain.value = gameMusicVolume; } catch {}
         }
       }
       try {
@@ -286,12 +293,12 @@ export async function startBackgroundMusic() {
     // Path is relative to index.html location (docs/), not this JS file
     musicAudioElement = new Audio('songs/Video%20Game%20Synthwave%20Rock%20Full%20Version.wav');
     musicAudioElement.loop = true; // Loop the music
-    musicAudioElement.volume = 0.3; // Set volume (0.0 to 1.0)
+    musicAudioElement.volume = 1.0; // Use gain node for volume control
 
     // Create MediaElementSource to connect to Web Audio API (for volume control)
     musicSourceNode = audioContext.createMediaElementSource(musicAudioElement);
     musicGain = audioContext.createGain();
-    musicGain.gain.setValueAtTime(1.0, audioContext.currentTime);
+    musicGain.gain.setValueAtTime(gameMusicVolume, audioContext.currentTime);
     musicSourceNode.connect(musicGain);
     musicGain.connect(audioContext.destination);
 
@@ -323,10 +330,10 @@ export function forceStartBackgroundMusic() {
     if (!musicAudioElement) {
       musicAudioElement = new Audio('songs/Video%20Game%20Synthwave%20Rock%20Full%20Version.wav');
       musicAudioElement.loop = true;
-      musicAudioElement.volume = 0.3;
+      musicAudioElement.volume = 1.0;
       musicSourceNode = audioContext.createMediaElementSource(musicAudioElement);
       musicGain = audioContext.createGain();
-      musicGain.gain.setValueAtTime(1.0, audioContext.currentTime);
+      musicGain.gain.setValueAtTime(gameMusicVolume, audioContext.currentTime);
       musicSourceNode.connect(musicGain);
       musicGain.connect(audioContext.destination);
     } else {
@@ -335,12 +342,12 @@ export function forceStartBackgroundMusic() {
         // Recreate gain chain if it was cleaned up
         musicSourceNode = audioContext.createMediaElementSource(musicAudioElement);
         musicGain = audioContext.createGain();
-        musicGain.gain.setValueAtTime(1.0, audioContext.currentTime);
+        musicGain.gain.setValueAtTime(gameMusicVolume, audioContext.currentTime);
         musicSourceNode.connect(musicGain);
         musicGain.connect(audioContext.destination);
       } else {
         try { musicGain.gain.cancelScheduledValues(0); } catch {}
-        musicGain.gain.setValueAtTime(1.0, audioContext.currentTime);
+        musicGain.gain.setValueAtTime(gameMusicVolume, audioContext.currentTime);
       }
     }
     musicAudioElement.pause();
@@ -440,6 +447,30 @@ export function setGameMusicEnabled(enabled) {
   if (!enabled) {
     // For toggle-off, just pause so re-enabling is fast and avoids reloading
     pauseBackgroundMusic();
+  }
+}
+
+/**
+ * Set background music volume (0.0 to 1.0)
+ */
+export function setGameMusicVolume(volume) {
+  gameMusicVolume = clamp01(volume);
+  if (musicGain) {
+    if (audioContext && audioContext.state === 'running') {
+      musicGain.gain.setValueAtTime(gameMusicVolume, audioContext.currentTime);
+    } else {
+      try { musicGain.gain.value = gameMusicVolume; } catch {}
+    }
+  }
+}
+
+/**
+ * Set sound effects volume (0.0 to 1.0)
+ */
+export function setGameSfxVolume(volume) {
+  gameSfxVolume = clamp01(volume);
+  if (boostRumbleGain && audioContext && audioContext.state === 'running') {
+    boostRumbleGain.gain.setValueAtTime(0.03 * gameSfxVolume, audioContext.currentTime);
   }
 }
 

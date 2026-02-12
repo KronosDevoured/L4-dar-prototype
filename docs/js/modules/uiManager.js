@@ -280,7 +280,16 @@ export class UIManager {
     wmaxPitchRange.addEventListener('input', () => { settings.wMaxPitch = parseFloat(wmaxPitchRange.value) || 8.5; syncTags(); saveSettings(); });
     wmaxYawRange.addEventListener('input', () => { settings.wMaxYaw = parseFloat(wmaxYawRange.value) || 9.0; syncTags(); saveSettings(); });
     wmaxRollRange.addEventListener('input', () => { settings.wMaxRoll = parseFloat(wmaxRollRange.value) || 6.0; syncTags(); saveSettings(); });
-    sizeSlider.addEventListener('input', () => { setJoyBaseR(parseInt(sizeSlider.value, 10) || 100); setJoyKnobR(Math.round(getJoyBaseR() * 0.32)); clampJoyCenter(); positionHints(); syncTags(); });
+    sizeSlider.addEventListener('input', () => {
+      const size = parseInt(sizeSlider.value, 10) || 100;
+      settings.stickSize = size;
+      setJoyBaseR(size);
+      setJoyKnobR(Math.round(getJoyBaseR() * 0.32));
+      clampJoyCenter();
+      positionHints();
+      syncTags();
+      saveSettings();
+    });
     zoomSlider.addEventListener('input', () => { settings.zoom = parseFloat(zoomSlider.value) || 1.0; applyZoom(); syncTags(); saveSettings(); });
     arrowSlider.addEventListener('input', () => { settings.arrowScale = parseFloat(arrowSlider.value) || 4.0; syncTags(); saveSettings(); });
     presetSel.addEventListener('change', () => {

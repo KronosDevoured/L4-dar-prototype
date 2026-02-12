@@ -21,6 +21,7 @@ let _settings = {
   maxAccelRoll: PHYSICS_DEFAULTS.accelRoll,
   inputPow: PHYSICS_DEFAULTS.curve,
   stickRange: PHYSICS_DEFAULTS.stickRange,
+  stickSize: 100,
   damp: PHYSICS_DEFAULTS.damp,
   dampDAR: PHYSICS_DEFAULTS.dampDAR,
   brakeOnRelease: PHYSICS_DEFAULTS.brake,
@@ -37,6 +38,7 @@ let _settings = {
   arrowScale: 4.0,
   showArrow: true,
   showCircle: true,
+  minimalUi: false,
 
   // Theme
   isDarkMode: true,
@@ -64,6 +66,8 @@ let _settings = {
   // Audio
   gameSoundsEnabled: true,
   gameMusicEnabled: true,
+  gameMusicVolume: 0.3,
+  gameSfxVolume: 1.0,
 
   // Ring Mode
   ringModeHighScore: 0, // Legacy - kept for backwards compatibility
@@ -139,8 +143,8 @@ export function loadSettings() {
  * @returns {boolean} true if valid
  */
 export function validateSetting(key, value) {
-  // Type validation - allow null for gpBindings specifically
-  if (value === undefined || (value === null && key !== 'gpBindings')) return false;
+  // Type validation - allow null for bindings specifically
+  if (value === undefined || (value === null && !['gpBindings', 'kbBindings'].includes(key))) return false;
 
   // Numeric settings validation
   const numericSettings = [
@@ -149,7 +153,8 @@ export function validateSetting(key, value) {
     'circleTiltAngle', 'circleTiltModifier', 'circleScale', 'zoom', 'arrowScale',
     'brightnessDark', 'brightnessLight', 'airRoll', 'lastActiveAirRoll',
     'ringModeHighScore', 'ringModeHighScoreEasy', 'ringModeHighScoreNormal',
-    'ringModeHighScoreHard', 'ringCameraSpeed'
+    'ringModeHighScoreHard', 'ringCameraSpeed', 'gameMusicVolume', 'gameSfxVolume',
+    'stickSize'
   ];
 
   if (numericSettings.includes(key)) {
@@ -165,12 +170,18 @@ export function validateSetting(key, value) {
     if (['circleScale', 'arrowScale'].includes(key) && (value < 0.1 || value > 10)) {
       return false;
     }
+    if (['gameMusicVolume', 'gameSfxVolume'].includes(key) && (value < 0 || value > 1)) {
+      return false;
+    }
+    if (key === 'stickSize' && (value < 60 || value > 180)) {
+      return false;
+    }
     return true;
   }
 
   // Boolean settings validation
   const booleanSettings = [
-    'showArrow', 'showCircle', 'isDarkMode', 'airRollIsToggle',
+    'showArrow', 'showCircle', 'minimalUi', 'isDarkMode', 'airRollIsToggle',
     'gpEnabled', 'gameSoundsEnabled', 'gameMusicEnabled', 'dualStickMode', 'inverseGravity'
   ];
 

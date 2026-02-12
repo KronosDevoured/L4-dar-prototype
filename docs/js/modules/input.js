@@ -292,35 +292,36 @@ function handleGamepadAirRollButtons(rollStates) {
     }
     
     // Right stick is active - use its assignment exclusively (always in hold mode)
+    // Right stick always has full intensity (1.0)
     if (rollStates.rollFree) {
-      AirRollController.setRoll(2, true);
+      AirRollController.setRoll(2, true, 1.0);
     } else if (rollStates.rollLeft) {
-      AirRollController.setRoll(-1, true);
+      AirRollController.setRoll(-1, true, 1.0);
     } else if (rollStates.rollRight) {
-      AirRollController.setRoll(1, true);
+      AirRollController.setRoll(1, true, 1.0);
     }
     return; // Right stick handled - done
   }
 
   // Right stick just became inactive - restore previous air roll state
   if (rightStickWasActive) {
-    AirRollController.setRoll(airRollBeforeRightStick, true);
+    AirRollController.setRoll(airRollBeforeRightStick, true, 1.0);
     rightStickWasActive = false;
     return;
   }
 
   // Right stick not active - handle button presses based on mode
   if (!airRollIsToggle) {
-    // Hold mode: check buttons
+    // Hold mode: check buttons and use analog intensity
     if (rollStates.rollLeft) {
-      AirRollController.setRoll(-1, true);
+      AirRollController.setRoll(-1, true, rollStates.rollLeftIntensity);
     } else if (rollStates.rollRight) {
-      AirRollController.setRoll(1, true);
+      AirRollController.setRoll(1, true, rollStates.rollRightIntensity);
     } else if (rollStates.rollFree) {
-      AirRollController.setRoll(2, true);
+      AirRollController.setRoll(2, true, rollStates.rollFreeIntensity);
     } else if (!toggleDARActive && !TouchInput.getDarOn()) {
       // No directional buttons held AND toggleDAR button not active AND menu DAR not active - deactivate
-      AirRollController.setRoll(0, true);
+      AirRollController.setRoll(0, true, 1.0);
     }
     // If toggleDAR button is active or menu DAR is on, leave it alone
   }
@@ -642,7 +643,6 @@ export function setChromeShown(shown) {
     menuSystem.reset();
     setTimeout(() => {
       menuSystem.updateFocusableElements();
-      console.log('[MenuSystem] focusable count:', menuSystem.getElements().length);
       if (menuSystem.getElements().length > 0) {
         menuSystem.reset();
       }
@@ -740,6 +740,10 @@ export function getRingModeBoostActive() {
 // Air roll state (delegated to AirRollController)
 export function getAirRoll() {
   return AirRollController.getAirRoll();
+}
+
+export function getAirRollIntensity() {
+  return AirRollController.getAirRollIntensity();
 }
 
 export function getSelectedAirRoll() {

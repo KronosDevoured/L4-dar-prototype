@@ -141,6 +141,19 @@ function isPressedForBinding(binding, pad) {
   return false;
 }
 
+function getAnalogValueForBinding(binding, pad) {
+  if (!binding || !pad) return 0;
+  if (binding.kind === 'button') {
+    // For buttons (including triggers), return the analog value (0.0 to 1.0)
+    return pad.buttons[binding.index]?.value || 0;
+  } else if (binding.kind === 'axis') {
+    // For axes, return the absolute value of the axis position
+    const val = pad.axes[binding.index] || 0;
+    return Math.abs(val);
+  }
+  return 0;
+}
+
 // ============================================================================
 // UPDATE LOOP
 // ============================================================================
@@ -225,27 +238,42 @@ export function updateGamepad(chromeShown, callbacks) {
   let rollLeft = false;
   let rollRight = false;
   let rollFree = false;
+  let rollLeftIntensity = 0;
+  let rollRightIntensity = 0;
+  let rollFreeIntensity = 0;
 
   if (rightStickActive) {
     // RIGHT STICK HAS ABSOLUTE PRIORITY - use only its assignment
+    // Right stick always has full intensity (1.0) when active
     if (rightStickAssignment === 'rollFree') {
       rollFree = true;
+      rollFreeIntensity = 1.0;
     } else if (rightStickAssignment === 'rollLeft') {
       rollLeft = true;
+      rollLeftIntensity = 1.0;
     } else if (rightStickAssignment === 'rollRight') {
       rollRight = true;
+      rollRightIntensity = 1.0;
     }
   } else {
-    // Right stick not active - check button presses
+    // Right stick not active - check button presses and get analog values
     rollLeft = isPressedForBinding(gpBindings.rollLeft, pad);
     rollRight = isPressedForBinding(gpBindings.rollRight, pad);
     rollFree = isPressedForBinding(gpBindings.rollFree, pad);
+    
+    // Get analog intensity values for triggers/buttons
+    rollLeftIntensity = rollLeft ? getAnalogValueForBinding(gpBindings.rollLeft, pad) : 0;
+    rollRightIntensity = rollRight ? getAnalogValueForBinding(gpBindings.rollRight, pad) : 0;
+    rollFreeIntensity = rollFree ? getAnalogValueForBinding(gpBindings.rollFree, pad) : 0;
   }
 
   callbacks?.onGamepadAirRoll?.({
     rollLeft: rollLeft,
     rollRight: rollRight,
     rollFree: rollFree,
+    rollLeftIntensity: rollLeftIntensity,
+    rollRightIntensity: rollRightIntensity,
+    rollFreeIntensity: rollFreeIntensity,
     rightStickActive: rightStickActive
   });
 

@@ -241,7 +241,8 @@ function renderHUD(){
     ringModePosition: RingMode.getRingModePosition(),
     rings: RingMode.getRings(),
     isMobile: Input.getIsMobile(),
-    currentDifficulty: RingMode.getCurrentDifficulty()
+    currentDifficulty: RingMode.getCurrentDifficulty(),
+    minimalUi: settings.minimalUi
   });
 }
 
@@ -371,8 +372,12 @@ export function init() {
   settings.arrowScale = savedSettings.arrowScale ?? 4.0;
   settings.showArrow = savedSettings.showArrow ?? true;
   settings.showCircle = savedSettings.showCircle ?? true;
+  settings.minimalUi = savedSettings.minimalUi ?? false;
+  settings.stickSize = savedSettings.stickSize ?? 100;
   settings.gameSoundsEnabled = savedSettings.gameSoundsEnabled ?? true;
   settings.gameMusicEnabled = savedSettings.gameMusicEnabled ?? true;
+  settings.gameMusicVolume = savedSettings.gameMusicVolume ?? 0.3;
+  settings.gameSfxVolume = savedSettings.gameSfxVolume ?? 1.0;
 
   // Clear initialization flag and save once
   isInitializing = false;
@@ -384,6 +389,8 @@ export function init() {
   // Sync audio settings with Audio module
   Audio.setGameSoundsEnabled(settings.gameSoundsEnabled);
   Audio.setGameMusicEnabled(settings.gameMusicEnabled);
+  Audio.setGameMusicVolume(settings.gameMusicVolume);
+  Audio.setGameSfxVolume(settings.gameSfxVolume);
 
   // ============================================================================
   // INITIALIZE GAME STATE (breaks circular dependencies)
@@ -423,6 +430,7 @@ export function init() {
   const wmaxPitchRange = document.getElementById('wmaxPitch');
   const wmaxYawRange = document.getElementById('wmaxYaw');
   const wmaxRollRange = document.getElementById('wmaxRoll');
+  const stickSizeSlider = document.getElementById('stickSizeSlider');
   const zoomSlider = document.getElementById('zoomSlider');
   const arrowSlider = document.getElementById('arrowSlider');
 
@@ -438,6 +446,9 @@ export function init() {
   wmaxPitchRange.value = settings.wMaxPitch;
   wmaxYawRange.value = settings.wMaxYaw;
   wmaxRollRange.value = settings.wMaxRoll;
+  if (stickSizeSlider) {
+    stickSizeSlider.value = settings.stickSize;
+  }
   zoomSlider.value = settings.zoom;
   arrowSlider.value = settings.arrowScale;
 
@@ -551,12 +562,70 @@ export function init() {
   const soundsStatusTag = document.getElementById('soundsStatusMenu');
   const toggleMusicBtn = document.getElementById('toggleMusicMenu');
   const musicStatusTag = document.getElementById('musicStatusMenu');
+  const musicVolumeSlider = document.getElementById('musicVolumeMenu');
+  const musicVolumeVal = document.getElementById('musicVolumeMenuVal');
+  const sfxVolumeSlider = document.getElementById('sfxVolumeMenu');
+  const sfxVolumeVal = document.getElementById('sfxVolumeMenuVal');
 
-  // Set initial button states
-  toggleSoundsBtn.classList.toggle('active', settings.gameSoundsEnabled);
-  soundsStatusTag.textContent = settings.gameSoundsEnabled ? 'Enabled' : 'Disabled';
-  toggleMusicBtn.classList.toggle('active', settings.gameMusicEnabled);
-  musicStatusTag.textContent = settings.gameMusicEnabled ? 'Enabled' : 'Disabled';
+  if (toggleSoundsBtn && soundsStatusTag && toggleMusicBtn && musicStatusTag) {
+    // Set initial button states
+    toggleSoundsBtn.classList.toggle('active', settings.gameSoundsEnabled);
+    soundsStatusTag.textContent = settings.gameSoundsEnabled ? 'Enabled' : 'Disabled';
+    toggleMusicBtn.classList.toggle('active', settings.gameMusicEnabled);
+    musicStatusTag.textContent = settings.gameMusicEnabled ? 'Enabled' : 'Disabled';
+
+    toggleSoundsBtn.addEventListener('click', () => {
+      settings.gameSoundsEnabled = !settings.gameSoundsEnabled;
+      toggleSoundsBtn.classList.toggle('active', settings.gameSoundsEnabled);
+      soundsStatusTag.textContent = settings.gameSoundsEnabled ? 'Enabled' : 'Disabled';
+
+      // Update Audio module settings
+      Audio.setGameSoundsEnabled(settings.gameSoundsEnabled);
+
+      saveSettings();
+    });
+
+    toggleMusicBtn.addEventListener('click', () => {
+      settings.gameMusicEnabled = !settings.gameMusicEnabled;
+      toggleMusicBtn.classList.toggle('active', settings.gameMusicEnabled);
+      musicStatusTag.textContent = settings.gameMusicEnabled ? 'Enabled' : 'Disabled';
+
+      // Update Audio module settings
+      Audio.setGameMusicEnabled(settings.gameMusicEnabled);
+
+      // Start music if enabled and Ring Mode is active
+      if (settings.gameMusicEnabled && RingMode.getRingModeActive()) {
+        // Start immediately when enabling during an active Ring Mode session
+        Audio.forceStartBackgroundMusic();
+      }
+
+      saveSettings();
+    });
+  }
+
+  if (musicVolumeSlider && musicVolumeVal) {
+    musicVolumeSlider.value = settings.gameMusicVolume ?? 0.3;
+    musicVolumeVal.textContent = Math.round((settings.gameMusicVolume ?? 0.3) * 100) + '%';
+    musicVolumeSlider.addEventListener('input', () => {
+      const volume = parseFloat(musicVolumeSlider.value);
+      settings.gameMusicVolume = volume;
+      musicVolumeVal.textContent = Math.round(volume * 100) + '%';
+      Audio.setGameMusicVolume(volume);
+      saveSettings();
+    });
+  }
+
+  if (sfxVolumeSlider && sfxVolumeVal) {
+    sfxVolumeSlider.value = settings.gameSfxVolume ?? 1.0;
+    sfxVolumeVal.textContent = Math.round((settings.gameSfxVolume ?? 1.0) * 100) + '%';
+    sfxVolumeSlider.addEventListener('input', () => {
+      const volume = parseFloat(sfxVolumeSlider.value);
+      settings.gameSfxVolume = volume;
+      sfxVolumeVal.textContent = Math.round(volume * 100) + '%';
+      Audio.setGameSfxVolume(volume);
+      saveSettings();
+    });
+  }
 
   // Inverse Gravity toggle
   const inverseGravityBtn = document.getElementById('inverseGravityMenu');
@@ -578,34 +647,6 @@ export function init() {
       saveSettings();
     });
   }
-
-  toggleSoundsBtn.addEventListener('click', () => {
-    settings.gameSoundsEnabled = !settings.gameSoundsEnabled;
-    toggleSoundsBtn.classList.toggle('active', settings.gameSoundsEnabled);
-    soundsStatusTag.textContent = settings.gameSoundsEnabled ? 'Enabled' : 'Disabled';
-
-    // Update Audio module settings
-    Audio.setGameSoundsEnabled(settings.gameSoundsEnabled);
-
-    saveSettings();
-  });
-
-  toggleMusicBtn.addEventListener('click', () => {
-    settings.gameMusicEnabled = !settings.gameMusicEnabled;
-    toggleMusicBtn.classList.toggle('active', settings.gameMusicEnabled);
-    musicStatusTag.textContent = settings.gameMusicEnabled ? 'Enabled' : 'Disabled';
-
-    // Update Audio module settings
-    Audio.setGameMusicEnabled(settings.gameMusicEnabled);
-
-    // Start music if enabled and Ring Mode is active
-    if (settings.gameMusicEnabled && RingMode.getRingModeActive()) {
-      // Start immediately when enabling during an active Ring Mode session
-      Audio.forceStartBackgroundMusic();
-    }
-
-    saveSettings();
-  });
 
   // NOTE: Ring Mode settings consolidated into Ring Mode menu only
   // Main menu Ring Mode card has been removed - all settings now in ringModePanel
@@ -680,25 +721,46 @@ export function init() {
   // Update fullscreen button icon when fullscreen state changes
   document.addEventListener('fullscreenchange', () => {
     const btn = document.getElementById('fullscreenBtn');
+    const isMobile = Input.getIsMobile();
     if (document.fullscreenElement) {
       btn.textContent = '⛶'; // Fullscreen exit icon
-      btn.title = 'Exit Fullscreen';
+      btn.title = isMobile ? 'Exit Fullscreen' : 'Exit Fullscreen (Esc)';
     } else {
       btn.textContent = '⛶'; // Fullscreen enter icon
       btn.title = 'Enter Fullscreen';
     }
   });
 
-  // Ring Mode button - opens menu instead of directly toggling
-  document.getElementById('ringModeBtn').addEventListener('click', () => {
-    const overlay = document.getElementById('ringModeOverlay');
-    overlay.style.display = 'block';
-
-    // Update START/END GAME button text based on current state
-    const startBtn = document.getElementById('startRingModeBtn');
-    const isActive = RingMode.getRingModeActive();
-    startBtn.textContent = isActive ? 'END GAME' : 'START GAME';
+  // Hard-coded ESC to exit fullscreen
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && document.fullscreenElement) {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
   });
+
+  // Ring Mode button - opens menu instead of directly toggling
+  const ringModeBtn = document.getElementById('ringModeBtn');
+  const updateRingModeButtonDim = () => {
+    if (ringModeBtn) {
+      ringModeBtn.classList.toggle('dimmed', RingMode.getRingModeActive());
+    }
+  };
+
+  if (ringModeBtn) {
+    updateRingModeButtonDim();
+
+    ringModeBtn.addEventListener('click', () => {
+      const overlay = document.getElementById('ringModeOverlay');
+      overlay.style.display = 'block';
+
+      // Update START/END GAME button text based on current state
+      const startBtn = document.getElementById('startRingModeBtn');
+      const isActive = RingMode.getRingModeActive();
+      startBtn.textContent = isActive ? 'END GAME' : 'START GAME';
+    });
+  }
 
   // Ring Mode menu close button
   document.getElementById('ringModeCloseBtn').addEventListener('click', () => {
@@ -721,8 +783,10 @@ export function init() {
       // End Ring Mode
       RingMode.toggleRingMode();
       startBtn.textContent = 'START GAME';
-      const btn = document.getElementById('ringModeBtn');
-      btn.classList.remove('active');
+      if (ringModeBtn) {
+        ringModeBtn.classList.remove('active');
+        updateRingModeButtonDim();
+      }
 
       // Snap back to default camera/car state (same as restart)
       resetToDefaultState();
@@ -730,8 +794,10 @@ export function init() {
       // Start Ring Mode
       RingMode.toggleRingMode();
       startBtn.textContent = 'END GAME';
-      const btn = document.getElementById('ringModeBtn');
-      btn.classList.add('active');
+      if (ringModeBtn) {
+        ringModeBtn.classList.add('active');
+        updateRingModeButtonDim();
+      }
     }
 
     // Close the menu
@@ -829,6 +895,25 @@ export function init() {
     btn.textContent = settings.showCircle ? 'Show Circle' : 'Hide Circle';
     saveSettings();
   });
+
+  const minimalUiToggle = document.getElementById('minimalUiToggle');
+  const minimalUiStatus = document.getElementById('minimalUiStatus');
+  if (minimalUiToggle && minimalUiStatus) {
+    document.body.classList.toggle('minimal-ui', settings.minimalUi);
+    minimalUiToggle.classList.toggle('active', settings.minimalUi);
+    minimalUiStatus.textContent = settings.minimalUi ? 'On' : 'Off';
+
+    minimalUiToggle.addEventListener('click', () => {
+      settings.minimalUi = !settings.minimalUi;
+      if (settings.minimalUi) {
+        alert('Minimal UI hides the fullscreen button. Re-enable UI to access fullscreen.');
+      }
+      document.body.classList.toggle('minimal-ui', settings.minimalUi);
+      minimalUiToggle.classList.toggle('active', settings.minimalUi);
+      minimalUiStatus.textContent = settings.minimalUi ? 'On' : 'Off';
+      saveSettings();
+    });
+  }
 
   // Add Controls button listener
   const controlsBtn = document.getElementById('controlsBtn');
@@ -976,12 +1061,16 @@ export function init() {
     getRingModeLives: () => RingMode.getRingModeLives()
   });
 
+  // Apply saved stick size after touch input is initialized
+  if (settings.stickSize) {
+    Input.setJoyBaseR(settings.stickSize);
+  }
+
   // Initialize MenuSystem for navigation
   const menuSystem = new MenuSystem('#menuPanel');
   menuSystem.init();
   Input.setMenuSystem(menuSystem);
   window.menuSystem = menuSystem; // expose for debugging
-  console.log('[MenuSystem] init focusable count:', menuSystem.getElements().length);
 
   // Restore saved car body or default to octane
   const presetSel = document.getElementById('presetSel');

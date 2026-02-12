@@ -71,6 +71,15 @@
   #ringModeBtn:hover{transform:translateX(-50%) scale(1.05);background:rgba(255,92,92,0.25);}
   #ringModeBtn:active{transform:translateX(-50%) scale(0.95)}
   #ringModeBtn.active{background:#ff5c5c;color:#0e0f12;border-color:#ff5c5c}
+  #ringModeBtn.dimmed{opacity:0.35;}
+
+  /* Minimal UI mode (hide HUD/buttons except hamburger) */
+  body.minimal-ui #fullscreenBtn,
+  body.minimal-ui #themeBtn,
+  body.minimal-ui #joyHint,
+  body.minimal-ui #darHint{
+    display:none !important;
+  }
 
   /* === RING MODE OVERLAY === */
   #ringModeOverlay{
@@ -421,7 +430,7 @@
   <div id="ringModeOverlay" style="display:none">
     <div id="ringModePanel">
       <div class="mp-header">
-        <div class="mp-title">Ring Mode</div>
+        <div class="mp-title">Rings Menu</div>
         <button class="mp-close" id="ringModeCloseBtn" type="button">Close</button>
       </div>
       <div class="mp-body">
@@ -447,46 +456,56 @@
           <h3>Settings</h3>
           <div class="card-content">
 
-            <div class="row">
-              <label for="ringDifficultyMenu">Difficulty</label>
-              <select id="ringDifficultyMenu">
-                <option value="easy">Easy</option>
-                <option value="normal" selected>Normal</option>
-                <option value="hard">Hard</option>
-                <option value="expert">Expert</option>
-              </select>
-            </div>
+            <details open>
+              <summary>Game</summary>
 
-            <div class="row sl">
-              <label for="ringCameraSpeedMenu">Camera Transition Speed</label>
-              <input id="ringCameraSpeedMenu" type="range" min="0.01" max="0.5" step="0.01" value="0.02" />
-              <span class="tag" id="ringCameraSpeedMenuVal">0.02</span>
-            </div>
+              <div class="row">
+                <label for="ringDifficultyMenu">Difficulty</label>
+                <select id="ringDifficultyMenu">
+                  <option value="easy">Easy</option>
+                  <option value="normal" selected>Normal</option>
+                  <option value="hard">Hard</option>
+                  <option value="expert">Expert</option>
+                </select>
+              </div>
 
-            <div class="row">
-              <button id="inverseGravityMenu" class="btn" type="button">Inverse Gravity</button>
-              <span class="tag" id="inverseGravityStatusMenu">Off</span>
-            </div>
+              <div class="row sl">
+                <button id="inverseGravityMenu" class="btn" type="button">Inverse Gravity</button>
+                <span class="tag" id="inverseGravityStatusMenu">Off</span>
+              </div>
 
-            <div class="row">
-              <button id="toggleSoundsMenu" class="btn active" type="button">Game Sounds</button>
-              <span class="tag" id="soundsStatusMenu">Enabled</span>
-            </div>
+              <div class="row sl">
+                <label for="ringCameraSpeedMenu">Camera Transition Speed</label>
+                <input id="ringCameraSpeedMenu" type="range" min="0.01" max="0.5" step="0.01" value="0.02" />
+                <span class="tag" id="ringCameraSpeedMenuVal">0.02</span>
+              </div>
+            </details>
 
-            <div class="row">
-              <button id="toggleMusicMenu" class="btn active" type="button">Background Music</button>
-              <span class="tag" id="musicStatusMenu">Enabled</span>
-            </div>
+            <details>
+              <summary>Audio</summary>
 
-            <div class="tip">
-              <b>Ring Mode:</b> Navigate through rings using boost. Lower camera speed = slower, smoother transitions to next ring.
-              <br><br>
-              <b>Difficulty:</b><br>
-              • Easy: Large rings, slower speed, simple patterns<br>
-              • Normal: Balanced challenge<br>
-              • Hard: Smaller rings, faster speed, complex patterns<br>
-              • Expert: Smallest rings, expert-level play required
-            </div>
+              <div class="row">
+                <button id="toggleSoundsMenu" class="btn active" type="button">Game Sounds</button>
+                <span class="tag" id="soundsStatusMenu">Enabled</span>
+              </div>
+
+              <div class="row">
+                <button id="toggleMusicMenu" class="btn active" type="button">Background Music</button>
+                <span class="tag" id="musicStatusMenu">Enabled</span>
+              </div>
+
+              <div class="row sl">
+                <label for="musicVolumeMenu">Music Volume</label>
+                <input id="musicVolumeMenu" type="range" min="0" max="1" step="0.01" value="0.3" />
+                <span class="tag" id="musicVolumeMenuVal">30%</span>
+              </div>
+
+              <div class="row sl">
+                <label for="sfxVolumeMenu">SFX Volume</label>
+                <input id="sfxVolumeMenu" type="range" min="0" max="1" step="0.01" value="1" />
+                <span class="tag" id="sfxVolumeMenuVal">100%</span>
+              </div>
+            </details>
 
           </div>
         </div>
@@ -678,6 +697,11 @@
             <label for="arrowSlider">Arrow Size</label>
             <input id="arrowSlider" type="range" min="0.60" max="4.00" step="0.01" value="4.00" />
             <span class="tag" id="arrowVal">4.00×</span>
+          </div>
+
+          <div class="row">
+            <button id="minimalUiToggle" class="btn" type="button">Minimal UI</button>
+            <span class="tag" id="minimalUiStatus">Off</span>
           </div>
 
         </div>
