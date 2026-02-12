@@ -226,7 +226,7 @@ export function updateGamepad(chromeShown, callbacks) {
   let rollRight = false;
   let rollFree = false;
 
-  if (rightStickActive && rightStickAssignment !== 'none') {
+  if (rightStickActive) {
     // RIGHT STICK HAS ABSOLUTE PRIORITY - use only its assignment
     if (rightStickAssignment === 'rollFree') {
       rollFree = true;

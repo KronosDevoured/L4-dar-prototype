@@ -520,16 +520,18 @@ export function init() {
   const gameSpeedSlider = document.getElementById('gameSpeedMenu');
   const gameSpeedVal = document.getElementById('gameSpeedMenuVal');
   
-  // Initialize slider from saved value
-  const savedGameSpeed = Settings.getSetting('gameSpeed') || 1.0;
-  gameSpeedSlider.value = savedGameSpeed;
-  gameSpeedVal.textContent = Math.round(savedGameSpeed * 100) + '%';
-  
-  gameSpeedSlider.addEventListener('input', () => {
-    const speed = parseFloat(gameSpeedSlider.value);
-    Settings.updateSetting('gameSpeed', speed);
-    gameSpeedVal.textContent = Math.round(speed * 100) + '%';
-  });
+  if (gameSpeedSlider && gameSpeedVal) {
+    // Initialize slider from saved value
+    const savedGameSpeed = Settings.getSetting('gameSpeed') || 1.0;
+    gameSpeedSlider.value = savedGameSpeed;
+    gameSpeedVal.textContent = Math.round(savedGameSpeed * 100) + '%';
+    
+    gameSpeedSlider.addEventListener('input', () => {
+      const speed = parseFloat(gameSpeedSlider.value);
+      Settings.updateSetting('gameSpeed', speed);
+      gameSpeedVal.textContent = Math.round(speed * 100) + '%';
+    });
+  }
 
   // Ring Mode difficulty selector (Menu version is now primary)
   const ringDifficultySelector = document.getElementById('ringDifficultyMenu');

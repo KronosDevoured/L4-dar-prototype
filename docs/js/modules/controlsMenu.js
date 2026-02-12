@@ -279,7 +279,10 @@ function buildDeviceControls(device, container) {
   // Update all binding displays
   for (const [categoryKey, category] of Object.entries(categories)) {
     for (const action of category.actions) {
-      updateBindingDisplay(action, device, document.getElementById(`binding-${device}-${action}`));
+      const element = document.getElementById(`binding-${device}-${action}`);
+      if (element) {
+        updateBindingDisplay(action, device, element);
+      }
     }
   }
 }
@@ -463,7 +466,7 @@ function startGamepadRemappingListener() {
       if (!gamepads[i]) continue;
 
       const gamepad = gamepads[i];
-      currentGamepadId = i;
+      currentGamepadId = gamepad.id;  // Store gamepad ID string, not index
 
       // Check buttons
       for (let j = 0; j < gamepad.buttons.length; j++) {

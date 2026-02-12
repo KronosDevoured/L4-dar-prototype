@@ -170,7 +170,7 @@ export function validateSetting(key, value) {
   // Boolean settings validation
   const booleanSettings = [
     'showArrow', 'showCircle', 'isDarkMode', 'airRollIsToggle',
-    'gpEnabled', 'gameSoundsEnabled', 'gameMusicEnabled'
+    'gpEnabled', 'gameSoundsEnabled', 'gameMusicEnabled', 'dualStickMode'
   ];
 
   if (booleanSettings.includes(key)) {
@@ -188,6 +188,16 @@ export function validateSetting(key, value) {
 
   if (key === 'ringDifficulty') {
     return typeof value === 'string' && ['easy', 'normal', 'hard', 'expert'].includes(value);
+  }
+
+  // Game speed validation (0.5 to 1.0)
+  if (key === 'gameSpeed') {
+    return typeof value === 'number' && value >= 0.5 && value <= 1.0;
+  }
+
+  // Right stick assignment validation
+  if (key === 'rightStickAssignment') {
+    return typeof value === 'string' && ['none', 'rollFree', 'rollLeft', 'rollRight'].includes(value);
   }
 
   // Object/null validation for gpBindings
