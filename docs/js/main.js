@@ -562,20 +562,22 @@ export function init() {
   const inverseGravityBtn = document.getElementById('inverseGravityMenu');
   const inverseGravityStatusTag = document.getElementById('inverseGravityStatusMenu');
   
-  // Set initial state
-  inverseGravityBtn.classList.toggle('active', settings.inverseGravity || false);
-  inverseGravityStatusTag.textContent = settings.inverseGravity ? 'On' : 'Off';
-
-  inverseGravityBtn.addEventListener('click', () => {
-    settings.inverseGravity = !settings.inverseGravity;
-    inverseGravityBtn.classList.toggle('active', settings.inverseGravity);
+  if (inverseGravityBtn && inverseGravityStatusTag) {
+    // Set initial state
+    inverseGravityBtn.classList.toggle('active', settings.inverseGravity || false);
     inverseGravityStatusTag.textContent = settings.inverseGravity ? 'On' : 'Off';
-    
-    // Update Ring Mode with new setting
-    RingMode.setInverseGravity(settings.inverseGravity);
-    
-    saveSettings();
-  });
+
+    inverseGravityBtn.addEventListener('click', () => {
+      settings.inverseGravity = !settings.inverseGravity;
+      inverseGravityBtn.classList.toggle('active', settings.inverseGravity);
+      inverseGravityStatusTag.textContent = settings.inverseGravity ? 'On' : 'Off';
+      
+      // Update Ring Mode with new setting
+      RingMode.setInverseGravity(settings.inverseGravity);
+      
+      saveSettings();
+    });
+  }
 
   toggleSoundsBtn.addEventListener('click', () => {
     settings.gameSoundsEnabled = !settings.gameSoundsEnabled;
