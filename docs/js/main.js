@@ -379,6 +379,9 @@ export function init() {
   settings.gameMusicVolume = savedSettings.gameMusicVolume ?? 0.3;
   settings.gameSfxVolume = savedSettings.gameSfxVolume ?? 1.0;
 
+  // Apply minimal UI class immediately on load
+  document.body.classList.toggle('minimal-ui', settings.minimalUi);
+
   // Clear initialization flag and save once
   isInitializing = false;
   Settings.saveSettings();
@@ -896,22 +899,6 @@ export function init() {
     saveSettings();
   });
 
-  const minimalUiToggle = document.getElementById('minimalUiToggle');
-  const minimalUiStatus = document.getElementById('minimalUiStatus');
-  if (minimalUiToggle && minimalUiStatus) {
-    document.body.classList.toggle('minimal-ui', settings.minimalUi);
-    minimalUiToggle.classList.toggle('active', settings.minimalUi);
-    minimalUiStatus.textContent = settings.minimalUi ? 'On' : 'Off';
-
-    minimalUiToggle.addEventListener('click', () => {
-      settings.minimalUi = !settings.minimalUi;
-      document.body.classList.toggle('minimal-ui', settings.minimalUi);
-      minimalUiToggle.classList.toggle('active', settings.minimalUi);
-      minimalUiStatus.textContent = settings.minimalUi ? 'On' : 'Off';
-      saveSettings();
-    });
-  }
-
   // Add Controls button listener
   const controlsBtn = document.getElementById('controlsBtn');
   if (controlsBtn) {
@@ -1063,6 +1050,9 @@ export function init() {
     Input.setJoyBaseR(settings.stickSize);
   }
 
+  // Apply minimal UI state after Input module is initialized
+  Input.setMinimalUiEnabled(settings.minimalUi);
+
   // Initialize MenuSystem for navigation
   const menuSystem = new MenuSystem('#menuPanel');
   menuSystem.init();
@@ -1137,6 +1127,23 @@ export function init() {
       saveSettings();
       // Refresh controls menu to show/hide right stick assignment
       ControlsMenu.initControlsMenu();
+    });
+  }
+
+  // Setup Minimal UI toggle
+  const minimalUiToggle = document.getElementById('minimalUiToggle');
+  const minimalUiStatus = document.getElementById('minimalUiStatus');
+  if (minimalUiToggle && minimalUiStatus) {
+    minimalUiToggle.classList.toggle('active', settings.minimalUi);
+    minimalUiStatus.textContent = settings.minimalUi ? 'On' : 'Off';
+
+    minimalUiToggle.addEventListener('click', () => {
+      settings.minimalUi = !settings.minimalUi;
+      document.body.classList.toggle('minimal-ui', settings.minimalUi);
+      minimalUiToggle.classList.toggle('active', settings.minimalUi);
+      minimalUiStatus.textContent = settings.minimalUi ? 'On' : 'Off';
+      Input.setMinimalUiEnabled(settings.minimalUi);
+      saveSettings();
     });
   }
 

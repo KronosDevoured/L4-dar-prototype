@@ -780,6 +780,11 @@ export function getChromeShown() {
 // Constants
 export const STICK_DEADZONE = TouchInput.STICK_DEADZONE;
 
+// Minimal UI state management
+export function setMinimalUiEnabled(enabled) {
+  TouchInput.setMinimalUiEnabled(enabled);
+}
+
 // ============================================================================
 // CLEANUP AND MEMORY MANAGEMENT
 // ============================================================================

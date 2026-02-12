@@ -60,6 +60,7 @@ const darHint = document.getElementById('darHint');
 let darPointerId = null;
 let boostPointerId = null;
 let activePointers = new Map();
+let minimalUiEnabled = false; // Track if minimal UI is active
 
 // ============================================================================
 // CONSTANTS
@@ -178,6 +179,22 @@ export function onPointerDown(e, callbacks) {
   const id = e.pointerId;
 
   activePointers.set(id, { x, y });
+
+  // Retry button is always active (even in minimal UI mode)
+  // Check Retry button (only when Ring Mode is active and game over)
+  const ringModeActive = callbacks?.getRingModeActive?.() || false;
+  const ringModeLives = callbacks?.getRingModeLives?.() || 0;
+  const chromeShown = callbacks?.getChromeShown?.() || false;
+  
+  if (ringModeActive && ringModeLives <= 0 && !chromeShown && inRetryButton(x, y)) {
+    callbacks?.onRetryPress?.();
+    return;
+  }
+
+  // Block other touch controls when minimal UI is enabled
+  if (minimalUiEnabled) {
+    return;
+  }
 
   // Check DAR button first (higher priority than joystick relocation)
   if (darPointerId === null && inDAR(x, y)) {
@@ -504,6 +521,26 @@ export function handleTouchResize() {
   clampJoyCenter();
   repositionDARCenter(); // Reposition to default on resize
   repositionBoostCenter(); // Reposition to default on resize
+}
+
+// ============================================================================
+// MINIMAL UI STATE
+// ============================================================================
+
+export function setMinimalUiEnabled(enabled) {
+  minimalUiEnabled = enabled;
+  
+  // If enabling minimal UI, release all active touches
+  if (enabled && activePointers.size > 0) {
+    joyPointerId = null;
+    darPointerId = null;
+    boostPointerId = null;
+    joyActive = false;
+    darOn = false;
+    joyVec.set(0, 0);
+    smJoy.set(0, 0);
+    activePointers.clear();
+  }
 }
 
 // ============================================================================

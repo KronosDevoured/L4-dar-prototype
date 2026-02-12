@@ -24,8 +24,8 @@ const GP_DEADZONE = 0.15;
 
 const defaultGpBindings = {
   toggleDAR: { kind: 'button', index: 1 },
-  rollLeft: { kind: 'button', index: 4 },
-  rollRight: { kind: 'button', index: 5 },
+  rollLeft: { kind: 'button', index: 5 },
+  rollRight: { kind: 'button', index: 4 },
   rollFree: { kind: 'button', index: 7 },
   boost: { kind: 'button', index: 0 },
   pause: { kind: 'button', index: 9 },
