@@ -201,9 +201,11 @@ export function drawRingModeHUD(state) {
     ringModePaused,
     ringModePosition,
     rings,
+    landingIndicatorPosition,
     isMobile,
     currentDifficulty,
-    minimalUi
+    minimalUi,
+    camera
   } = state;
 
   const ctx = hctx;
@@ -253,10 +255,27 @@ export function drawRingModeHUD(state) {
       const playerScreenX = innerWidth / 2;
       const playerScreenY = innerHeight / 2;
 
-      // Ring position relative to player (offset from center)
-      // Screen Y is inverted (positive = down), so negate dy
-      const ringScreenX = playerScreenX + dx;
-      const ringScreenY = playerScreenY - dy;
+      // Project the ring's GRID position (XY at Z=0) to screen coordinates
+      // This shows where the dashed circle indicator is on the grid (2D), not the ring's 3D position
+      // The landing indicator and arrow should point to where the player needs to be on the GRID,
+      // which is the ring's XY position at Z=0, NOT the ring's current 3D position in space
+      let ringScreenX, ringScreenY;
+      if (camera) {
+        // Project the ring's position on the GRID PLANE (Z=0) - this is 2D, not 3D
+        const gridWorldPos = new THREE.Vector3(
+          targetRing.mesh.position.x,  // Ring's X position on grid
+          targetRing.mesh.position.y,  // Ring's Y position on grid
+          0                             // ALWAYS Z=0 - on the grid plane, not in 3D space
+        );
+        const projected = gridWorldPos.clone().project(camera);
+        // Convert normalized device coordinates (-1 to 1) to screen pixels
+        ringScreenX = (projected.x * 0.5 + 0.5) * innerWidth;
+        ringScreenY = (-(projected.y * 0.5) + 0.5) * innerHeight;
+      } else {
+        // Fallback to 2D offset math if camera not available
+        ringScreenX = playerScreenX + dx;
+        ringScreenY = playerScreenY - dy;
+      }
 
       // Show arrow and distance for rings that started 1000+ units away
       // Keep showing until car reaches the dashed circle (landing zone)
@@ -267,8 +286,10 @@ export function drawRingModeHUD(state) {
       // Player is always at screen center; ringScreenX/Y are relative to that.
       const isOffscreen = (ringScreenX < 0 || ringScreenX > innerWidth || ringScreenY < 0 || ringScreenY > innerHeight);
 
-      // Distance-based rule (legacy behavior) and offscreen rule: show indicator if either applies
-      const distanceBased = wasInitiallyDistant ? distance2D > ringRadius : distance2D > 800;
+      // Distance-based rule: show indicator while car is still far from the landing zone
+      // For initially distant rings: hide when very close (within ring radius)
+      // For nearby rings: hide only when VERY close (within 200 units) to allow car to approach grid landing indicator
+      const distanceBased = wasInitiallyDistant ? distance2D > ringRadius : distance2D > 200;
       const showIndicator = isOffscreen || distanceBased;
 
       // Calculate arrow position (will be used for dashed line start point)
@@ -285,21 +306,14 @@ export function drawRingModeHUD(state) {
         const compassCenterY = innerHeight / 2;
 
         // Draw compass circle - large enough to not overlap the car
-        const compassRadius = 150;
+        const compassRadius = 170;
         const innerCutoutRadius = 130; // Larger cutout so car is fully visible
 
         ctx.save();
 
-        // Draw compass circle with transparent center (donut shape) so car shows through
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-        ctx.beginPath();
-        ctx.arc(compassCenterX, compassCenterY, compassRadius, 0, Math.PI * 2);
-        ctx.arc(compassCenterX, compassCenterY, innerCutoutRadius, 0, Math.PI * 2, true); // Inner cutout
-        ctx.fill();
-
-        // Draw circle outline
+        // Draw thin circle outline only (removed semi-transparent black fill)
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 1.5;
         ctx.beginPath();
         ctx.arc(compassCenterX, compassCenterY, compassRadius, 0, Math.PI * 2);
         ctx.stroke();
@@ -492,7 +506,8 @@ export function renderHUD(state) {
       ringModePosition: state.ringModePosition,
       rings: state.rings,
       isMobile: state.isMobile,
-      currentDifficulty: state.currentDifficulty
+      currentDifficulty: state.currentDifficulty,
+      camera: state.camera
     });
   }
 }

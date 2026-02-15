@@ -241,9 +241,12 @@ function renderHUD(){
     ringModeRingCount: RingMode.getRingModeRingCount(),
     ringModePosition: RingMode.getRingModePosition(),
     rings: RingMode.getRings(),
+    landingIndicatorPosition: RingMode.getLandingIndicatorPosition(),
     isMobile: Input.getIsMobile(),
     currentDifficulty: RingMode.getCurrentDifficulty(),
-    minimalUi: settings.minimalUi
+    minimalUi: settings.minimalUi,
+    // Camera for 3D projection
+    camera: sceneManager.getCamera()
   });
 }
 
@@ -645,6 +648,9 @@ export function init() {
     // Set initial state
     inverseGravityBtn.classList.toggle('active', settings.inverseGravity || false);
     inverseGravityStatusTag.textContent = settings.inverseGravity ? 'On' : 'Off';
+    
+    // Sync saved setting to Ring Mode module
+    RingMode.setInverseGravity(settings.inverseGravity || false);
 
     inverseGravityBtn.addEventListener('click', () => {
       settings.inverseGravity = !settings.inverseGravity;
@@ -653,6 +659,12 @@ export function init() {
       
       // Update Ring Mode with new setting
       RingMode.setInverseGravity(settings.inverseGravity);
+      
+      // Immediately update car orientation
+      if (Car.car) {
+        const yRotation = settings.inverseGravity ? Math.PI : 0;
+        Car.car.rotation.set(Math.PI * 1.5, yRotation, Math.PI);
+      }
       
       saveSettings();
     });
@@ -984,10 +996,11 @@ export function init() {
               }
               RingMode.setRingModeVelocity(0, 0);
 
-              // Reset car rotation
+              // Reset car rotation (respect gravity setting)
               if (Car.car) {
                 Car.car.quaternion.identity();
-                Car.car.rotation.set(Math.PI * 1.5, 0, Math.PI);
+                const yRotation = settings.inverseGravity ? Math.PI : 0;
+                Car.car.rotation.set(Math.PI * 1.5, yRotation, Math.PI);
               }
               Physics.resetAngularVelocity();
 
@@ -1003,7 +1016,8 @@ export function init() {
             // Normal mode: Full restart (reset car orientation, camera, orbit)
             if (Car.car) {
               Car.car.quaternion.identity();
-              Car.car.rotation.set(Math.PI * 1.5, 0, Math.PI);
+              const yRotation = settings.inverseGravity ? Math.PI : 0;
+              Car.car.rotation.set(Math.PI * 1.5, yRotation, Math.PI);
             }
             Physics.resetAngularVelocity();
             cameraController.resetCamera();
@@ -1082,10 +1096,11 @@ export function init() {
   // Set initial menu button styling based on saved selection
   updateMenuButtonStyling();
 
-  // Set initial rotation: roof facing camera, nose pointing up
-  // X: +270°, Y: 0°, Z: +180°
+  // Set initial rotation: roof facing camera, nose pointing up (or down if inverse gravity)
+  // X: +270°, Y: 0° or 180° (based on gravity), Z: +180°
   if (Car.car) {
-    Car.car.rotation.set(Math.PI * 1.5, 0, Math.PI); // X: +270°, Y: 0°, Z: +180°
+    const yRotation = savedSettings.inverseGravity ? Math.PI : 0;
+    Car.car.rotation.set(Math.PI * 1.5, yRotation, Math.PI);
   }
 
   // Initialize Ring Mode module with scene references

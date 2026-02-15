@@ -215,8 +215,7 @@ User: "Make the arrow point where the car's nose is facing"
 - **Quaternion order**: Three.js uses `w,x,y,z` not `x,y,z,w`
 - **DAR toggle**: State machine in [airRollController.js](docs/js/modules/input/airRollController.js), not simple boolean
 - **LocalStorage**: Settings save is deferred during app initialization to avoid 23+ writes
-- **Coordinate spaces**: Distinguish local (car-relative) vs world space - use `applyQuaternion()` to transform vectortroller.js), not simple boolean
-- **LocalStorage**: Settings save is deferred during app initialization to avoid 23+ writes
+- **Coordinate spaces**: Distinguish local (car-relative) vs world space - use `applyQuaternion()` to transform vectors
 
 ## Questions?
 

@@ -550,6 +550,23 @@ function handleKeyboardAirRoll(airRollKeys) {
  */
 function handleMenuNavigate(direction) {
   if (!menuSystem) return;
+  
+  // Handle left/right for sliders and selects
+  if (direction === 'left' || direction === 'right') {
+    // Try to adjust slider first
+    const focusedElement = menuSystem.focusableElements[menuSystem.currentIndex];
+    if (focusedElement) {
+      if (focusedElement.tagName === 'INPUT' && focusedElement.type === 'range') {
+        menuSystem.adjustSlider(direction);
+        return;
+      } else if (focusedElement.tagName === 'SELECT') {
+        menuSystem.adjustSelect(direction);
+        return;
+      }
+    }
+  }
+  
+  // Default navigation
   menuSystem.navigate(direction);
 }
 
@@ -780,7 +797,7 @@ export function getChromeShown() {
 // Constants - use functions to get current settings
 export const STICK_DEADZONE = TouchInput.STICK_DEADZONE; // Legacy constant
 export function getGamepadDeadzone() {
-  return GamepadInput.getDeadzone ? GamepadInput.getDeadzone() : 0.15;
+  return GamepadInput.getGamepadDeadzone ? GamepadInput.getGamepadDeadzone() : 0.15;
 }
 export function getTouchDeadzone() {
   return TouchInput.getStickDeadzone ? TouchInput.getStickDeadzone() : 0.09;

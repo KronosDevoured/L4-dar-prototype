@@ -314,7 +314,8 @@ function updateBindingDisplay(action, device, element) {
         displayText = ButtonMapper.getButtonName(binding.index, 'xbox');
       } else if (typeof binding === 'object' && binding.kind === 'axis') {
         const axisLabel = ButtonMapper.getAxisLabel(binding.index, 'xbox');
-        const directionSymbol = binding.direction === '+' ? '→' : '←';
+        const direction = binding.direction ?? '+';
+        const directionSymbol = direction === '+' ? '→' : '←';
         displayText = `${axisLabel} ${directionSymbol}`;
       } else if (typeof binding === 'string') {
         // Handle string format from ButtonMapper

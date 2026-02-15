@@ -133,6 +133,9 @@ export function getCurrentDifficulty() { return currentDifficulty; }
 export function getRings() { return rings; }
 export function getCameraTarget() { return { x: cameraTargetX, y: cameraTargetY }; }
 export function getBoostFlames() { return boostFlames; }
+export function getLandingIndicatorPosition() { 
+  return landingIndicator ? landingIndicator.position : null; 
+}
 
 // ============================================================================
 // HIGH SCORE HELPERS
@@ -522,10 +525,11 @@ export function resetRingModePhysicsOnly() {
   ringModeStarted = false;
   ignoreBoostUntilRelease = true;
   
-  // Also reset car to match ring mode starting position/rotation
+  // Also reset car to match ring mode starting position/rotation (respect gravity setting)
   if (Car.car) {
     Car.car.quaternion.identity();
-    Car.car.rotation.set(Math.PI * 1.5, 0, Math.PI);
+    const yRotation = inverseGravity ? Math.PI : 0;
+    Car.car.rotation.set(Math.PI * 1.5, yRotation, Math.PI);
     Car.car.position.set(0, 0, 0);
   }
   
@@ -564,7 +568,9 @@ export function resetRingMode() {
 
   if (Car.car) {
     Car.car.quaternion.identity();
-    Car.car.rotation.set(Math.PI * 1.5, 0, Math.PI);
+    // Respect gravity setting for car orientation
+    const yRotation = inverseGravity ? Math.PI : 0;
+    Car.car.rotation.set(Math.PI * 1.5, yRotation, Math.PI);
     Car.car.position.set(0, 0, 0);
   }
 
@@ -628,7 +634,14 @@ export function startRingMode() {
 
   if (Car.car) {
     Car.car.quaternion.identity();
-    Car.car.rotation.set(Math.PI * 1.5, 0, Math.PI);
+    // Set car orientation based on gravity mode
+    // Normal gravity: nose pointing up (default)
+    // Inverse gravity: nose pointing down (180° yaw rotation)
+    if (inverseGravity) {
+      Car.car.rotation.set(Math.PI * 1.5, Math.PI, Math.PI); // Rotate 180° around yaw axis
+    } else {
+      Car.car.rotation.set(Math.PI * 1.5, 0, Math.PI); // Normal orientation
+    }
     Car.car.position.set(0, 0, 0);
   }
 
@@ -1771,7 +1784,8 @@ export function updateRingModeRendering(dt) {
       if (lastRingModeActive) {
         if (Car.car) {
           Car.car.quaternion.identity();
-          Car.car.rotation.set(Math.PI * 1.5, 0, Math.PI); // Match Ring Mode start orientation
+          const yRotation = inverseGravity ? Math.PI : 0;
+          Car.car.rotation.set(Math.PI * 1.5, yRotation, Math.PI); // Match Ring Mode start orientation with gravity setting
           Car.car.position.set(0, 0, 0);
         }
         ringModePosition.set(0, 0);

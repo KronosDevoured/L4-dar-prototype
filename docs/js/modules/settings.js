@@ -158,7 +158,7 @@ export function validateSetting(key, value) {
     'brightnessDark', 'brightnessLight', 'airRoll', 'lastActiveAirRoll',
     'ringModeHighScore', 'ringModeHighScoreEasy', 'ringModeHighScoreNormal',
     'ringModeHighScoreHard', 'ringCameraSpeed', 'gameMusicVolume', 'gameSfxVolume',
-    'stickSize'
+    'stickSize', 'gpDeadzone', 'touchDeadzone'
   ];
 
   if (numericSettings.includes(key)) {
@@ -178,6 +178,10 @@ export function validateSetting(key, value) {
       return false;
     }
     if (key === 'stickSize' && (value < 60 || value > 180)) {
+      return false;
+    }
+    // Deadzone validation (0 to 0.5)
+    if (['gpDeadzone', 'touchDeadzone'].includes(key) && (value < 0 || value > 0.5)) {
       return false;
     }
     return true;
