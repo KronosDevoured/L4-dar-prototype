@@ -313,7 +313,9 @@ function updateBindingDisplay(action, device, element) {
       if (typeof binding === 'object' && binding.kind === 'button') {
         displayText = ButtonMapper.getButtonName(binding.index, 'xbox');
       } else if (typeof binding === 'object' && binding.kind === 'axis') {
-        displayText = ButtonMapper.getAxisLabel(binding.index, 'xbox');
+        const axisLabel = ButtonMapper.getAxisLabel(binding.index, 'xbox');
+        const directionSymbol = binding.direction === '+' ? '→' : '←';
+        displayText = `${axisLabel} ${directionSymbol}`;
       } else if (typeof binding === 'string') {
         // Handle string format from ButtonMapper
         displayText = ButtonMapper.getButtonLabel(binding, 'xbox');
@@ -482,7 +484,9 @@ function startGamepadRemappingListener() {
         const value = gamepad.axes[j];
         if (Math.abs(value) > 0.5 && Math.abs(lastAxisValue) <= 0.5) {
           lastAxisValue = value;
-          completeGamepadRemapping(`axis:${j}`);
+          // Detect direction based on axis value
+          const direction = value > 0 ? '+' : '-';
+          completeGamepadRemapping(`axis:${j}:${direction}`);
           return;
         }
         if (Math.abs(value) <= 0.5) {
@@ -506,8 +510,10 @@ function completeGamepadRemapping(binding) {
   let formattedBinding;
   if (typeof binding === 'string') {
     if (binding.startsWith('axis:')) {
-      const axisIndex = parseInt(binding.substring(5));
-      formattedBinding = { kind: 'axis', index: axisIndex, direction: '+' };
+      const parts = binding.substring(5).split(':');
+      const axisIndex = parseInt(parts[0]);
+      const direction = parts[1] || '+'; // Default to '+' if not specified
+      formattedBinding = { kind: 'axis', index: axisIndex, direction: direction };
     } else {
       const buttonIndex = parseInt(binding);
       formattedBinding = { kind: 'button', index: buttonIndex };

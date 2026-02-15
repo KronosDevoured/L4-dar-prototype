@@ -16,7 +16,10 @@ let gpRemapping = false;
 let gpRemapReady = false;
 let gpPrevActionPressed = {};
 
-const GP_DEADZONE = 0.15;
+// Get deadzone from settings (default 0.15)
+function getDeadzone() {
+  return getSetting('gpDeadzone') ?? 0.15;
+}
 
 // ============================================================================
 // DEFAULT BINDINGS & PRESETS
@@ -143,13 +146,27 @@ function isPressedForBinding(binding, pad) {
 
 function getAnalogValueForBinding(binding, pad) {
   if (!binding || !pad) return 0;
+  const deadzone = getDeadzone();
+  
   if (binding.kind === 'button') {
     // For buttons (including triggers), return the analog value (0.0 to 1.0)
     return pad.buttons[binding.index]?.value || 0;
   } else if (binding.kind === 'axis') {
-    // For axes, return the absolute value of the axis position
+    // For axes, return scaled value based on direction
     const val = pad.axes[binding.index] || 0;
-    return Math.abs(val);
+    
+    // Apply deadzone first
+    if (Math.abs(val) < deadzone) return 0;
+    
+    // Return scaled value (0.0 to 1.0) based on direction
+    if (binding.direction === '+' && val > 0) {
+      // Positive direction: scale from deadzone to 1.0
+      return (val - deadzone) / (1.0 - deadzone);
+    } else if (binding.direction === '-' && val < 0) {
+      // Negative direction: scale from deadzone to 1.0
+      return (Math.abs(val) - deadzone) / (1.0 - deadzone);
+    }
+    return 0;
   }
   return 0;
 }
@@ -223,8 +240,9 @@ export function updateGamepad(chromeShown, callbacks) {
   const rightStickAssignment = getSetting('rightStickAssignment');
   
   // Check if right stick is active (same deadzone as left stick)
+  const deadzone = getDeadzone();
   const rightStickMag = Math.sqrt(rx * rx + ry * ry);
-  const rightStickActive = isDualStickMode && rightStickAssignment !== 'none' && rightStickMag > GP_DEADZONE;
+  const rightStickActive = isDualStickMode && rightStickAssignment !== 'none' && rightStickMag > deadzone;
 
   // Send right stick position ONLY when active, otherwise send zeros
   // This ensures physics doesn't try to use right stick when it's below deadzone
@@ -256,15 +274,16 @@ export function updateGamepad(chromeShown, callbacks) {
       rollRightIntensity = 1.0;
     }
   } else {
-    // Right stick not active - check button presses and get analog values
-    rollLeft = isPressedForBinding(gpBindings.rollLeft, pad);
-    rollRight = isPressedForBinding(gpBindings.rollRight, pad);
-    rollFree = isPressedForBinding(gpBindings.rollFree, pad);
+    // Right stick not active - check button/axis presses and get analog values
+    // For axis bindings, getAnalogValueForBinding returns 0 if not pressed in the bound direction
+    rollLeftIntensity = getAnalogValueForBinding(gpBindings.rollLeft, pad);
+    rollRightIntensity = getAnalogValueForBinding(gpBindings.rollRight, pad);
+    rollFreeIntensity = getAnalogValueForBinding(gpBindings.rollFree, pad);
     
-    // Get analog intensity values for triggers/buttons
-    rollLeftIntensity = rollLeft ? getAnalogValueForBinding(gpBindings.rollLeft, pad) : 0;
-    rollRightIntensity = rollRight ? getAnalogValueForBinding(gpBindings.rollRight, pad) : 0;
-    rollFreeIntensity = rollFree ? getAnalogValueForBinding(gpBindings.rollFree, pad) : 0;
+    // Determine pressed state based on intensity (handles both buttons and axes)
+    rollLeft = rollLeftIntensity > 0;
+    rollRight = rollRightIntensity > 0;
+    rollFree = rollFreeIntensity > 0;
   }
 
   callbacks?.onGamepadAirRoll?.({
@@ -525,6 +544,10 @@ export function getGpEnabled() {
 export function getGpBindings() {
   ensureBindings();
   return { ...gpBindings };
+}
+
+export function getGamepadDeadzone() {
+  return getDeadzone();
 }
 
 export function setGpBinding(action, binding) {

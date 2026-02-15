@@ -572,6 +572,11 @@
             <button id="dualStickToggle" class="btn" type="button">Dual Stick Mode</button>
           </div>
           <div class="row sl">
+            <label for="gpDeadzone">Deadzone</label>
+            <input id="gpDeadzone" type="range" min="0" max="0.5" step="0.01" value="0.15" />
+            <span class="tag" id="gpDeadzoneTag">0.15</span>
+          </div>
+          <div class="row sl">
             <label for="gpPreset">Preset</label>
             <select id="gpPreset">
               <option value="ps5" selected>PS5 / DualSense</option>

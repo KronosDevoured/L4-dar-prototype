@@ -54,11 +54,15 @@ let _settings = {
   gpEnabled: true,
   gpBindings: null,
   gpPreset: 'ps5',
+  gpDeadzone: 0.15,
   dualStickMode: false,
   rightStickAssignment: 'none', // 'none', 'rollFree', 'rollLeft', 'rollRight'
 
   // Keyboard
   kbBindings: null,
+
+  // Touch
+  touchDeadzone: 0.09,
 
   // Car
   selectedCarBody: 'octane',

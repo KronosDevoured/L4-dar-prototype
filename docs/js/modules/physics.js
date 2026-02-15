@@ -427,19 +427,22 @@ export function updatePhysics(dt, settings, chromeShown) {
   let rightEff = 0;
   let rightUx = 0, rightUy = 0;
 
-  if (rightStickMag > Input.STICK_DEADZONE) {
+  // Get current deadzone from settings
+  const stickDeadzone = Input.getTouchDeadzone ? Input.getTouchDeadzone() : 0.09;
+
+  if (rightStickMag > stickDeadzone) {
     const clampedMag = Math.min(rightStickMag, 1.0);
-    const m2 = (clampedMag - Input.STICK_DEADZONE) / (1 - Input.STICK_DEADZONE);
+    const m2 = (clampedMag - stickDeadzone) / (1 - stickDeadzone);
     const shaped = Math.pow(Math.max(0, m2), inputPow || 1.0);
     rightEff = shaped * (stickRange || 1.0);
     rightUx = -rightStickX; // right = +ux
     rightUy = -rightStickY; // up = +uy (invert Y like left stick)
   }
 
-  if (mag > Input.STICK_DEADZONE) {
+  if (mag > stickDeadzone) {
     // Clamp mag to max 1.0, then apply shaping
     const clampedMag = Math.min(mag, 1.0);
-    const m2 = (clampedMag - Input.STICK_DEADZONE) / (1 - Input.STICK_DEADZONE);
+    const m2 = (clampedMag - stickDeadzone) / (1 - stickDeadzone);
     const shaped = Math.pow(Math.max(0, m2), inputPow || 1.0);
 
     // Apply stick range multiplier (1.0 = normal, 0.5 = half range, etc.)
@@ -533,7 +536,7 @@ export function updatePhysics(dt, settings, chromeShown) {
   let wx_des, wy_des, wz_des;
 
   // Check if right stick should be used (dual stick mode)
-  const useRightStick = rightStickMag > Input.STICK_DEADZONE;
+  const useRightStick = rightStickMag > stickDeadzone;
   
   // Determine which stick inputs to use for control
   const controlX = useRightStick ? rightUx : ux;

@@ -73,6 +73,23 @@ export class UIManager {
           content.style.maxHeight = '0';
         }
       });
+
+      // Add listeners to nested <details> elements to recalculate card height
+      const detailsElements = card.querySelectorAll('details');
+      detailsElements.forEach(details => {
+        details.addEventListener('toggle', () => {
+          const content = card.querySelector('.card-content');
+          const isCollapsed = card.classList.contains('collapsed');
+          
+          // Only recalculate if card is expanded
+          if (!isCollapsed && content) {
+            // Use setTimeout to allow the details animation to complete
+            setTimeout(() => {
+              content.style.maxHeight = content.scrollHeight + 'px';
+            }, 10);
+          }
+        });
+      });
     });
   }
 
@@ -132,6 +149,7 @@ export class UIManager {
     const stickVal = document.getElementById('stickVal');
     const zoomVal = document.getElementById('zoomVal');
     const arrowVal = document.getElementById('arrowVal');
+    const gpDeadzoneTag = document.getElementById('gpDeadzoneTag');
 
     accelPitchTag.textContent = settings.maxAccelPitch.toFixed(2);
     accelYawTag.textContent = settings.maxAccelYaw.toFixed(2);
@@ -148,6 +166,11 @@ export class UIManager {
     stickVal.textContent = String(Math.round(getters.getJoyBaseR()));
     zoomVal.textContent = `${(settings.zoom || 1).toFixed(2)}×`;
     arrowVal.textContent = `${(settings.arrowScale || 1).toFixed(2)}×`;
+    
+    // Sync gamepad deadzone tag
+    if (gpDeadzoneTag) {
+      gpDeadzoneTag.textContent = (settings.gpDeadzone ?? 0.15).toFixed(2);
+    }
   }
 
   /**
@@ -267,6 +290,8 @@ export class UIManager {
     const zoomSlider = document.getElementById('zoomSlider');
     const arrowSlider = document.getElementById('arrowSlider');
     const presetSel = document.getElementById('presetSel');
+    const gpDeadzone = document.getElementById('gpDeadzone');
+    const gpDeadzoneTag = document.getElementById('gpDeadzoneTag');
 
     accelPitch.addEventListener('input', () => { settings.maxAccelPitch = parseFloat(accelPitch.value) || 400; syncTags(); saveSettings(); });
     accelYaw.addEventListener('input', () => { settings.maxAccelYaw = parseFloat(accelYaw.value) || 400; syncTags(); saveSettings(); });
@@ -280,6 +305,17 @@ export class UIManager {
     wmaxPitchRange.addEventListener('input', () => { settings.wMaxPitch = parseFloat(wmaxPitchRange.value) || 8.5; syncTags(); saveSettings(); });
     wmaxYawRange.addEventListener('input', () => { settings.wMaxYaw = parseFloat(wmaxYawRange.value) || 9.0; syncTags(); saveSettings(); });
     wmaxRollRange.addEventListener('input', () => { settings.wMaxRoll = parseFloat(wmaxRollRange.value) || 6.0; syncTags(); saveSettings(); });
+    
+    // Gamepad deadzone slider
+    if (gpDeadzone && gpDeadzoneTag) {
+      gpDeadzone.addEventListener('input', () => {
+        const val = parseFloat(gpDeadzone.value) || 0.15;
+        settings.gpDeadzone = val;
+        gpDeadzoneTag.textContent = val.toFixed(2);
+        saveSettings();
+      });
+    }
+    
     sizeSlider.addEventListener('input', () => {
       const size = parseInt(sizeSlider.value, 10) || 100;
       settings.stickSize = size;

@@ -69,6 +69,14 @@ let minimalUiEnabled = false; // Track if minimal UI is active
 const STICK_TAU_MS = 8;
 const RELOCATE_HOLD_MS = 250;
 export const STICK_MIN = 0.02;
+import { getSetting } from '../settings.js';
+
+// Get deadzone from settings (default 0.09)
+export function getStickDeadzone() {
+  return getSetting('touchDeadzone') ?? 0.09;
+}
+
+// Legacy export for backwards compatibility
 export const STICK_DEADZONE = 0.09;
 
 // ============================================================================

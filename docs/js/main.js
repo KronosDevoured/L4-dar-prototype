@@ -141,7 +141,8 @@ function initSettingsSliders() {
     setJoyKnobR: (v) => Input.setJoyKnobR(v),
     getJoyBaseR: () => Input.getJoyBaseR(),
     clampJoyCenter: () => Input.clampJoyCenter(),
-    positionHints: () => Input.positionHints()
+    positionHints: () => Input.positionHints(),
+    getSetting: (key) => Settings.getSetting(key)
   });
 }
 
@@ -454,6 +455,12 @@ export function init() {
   }
   zoomSlider.value = settings.zoom;
   arrowSlider.value = settings.arrowScale;
+
+  // Sync gamepad deadzone slider
+  const gpDeadzone = document.getElementById('gpDeadzone');
+  if (gpDeadzone) {
+    gpDeadzone.value = savedSettings.gpDeadzone ?? 0.15;
+  }
 
   // Initialize UI
   setupEditableTags();
@@ -1049,6 +1056,9 @@ export function init() {
   if (settings.stickSize) {
     Input.setJoyBaseR(settings.stickSize);
   }
+
+  // Sync tags again after Input is initialized and stick size is applied
+  syncTags();
 
   // Apply minimal UI state after Input module is initialized
   Input.setMinimalUiEnabled(settings.minimalUi);

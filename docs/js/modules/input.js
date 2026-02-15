@@ -777,8 +777,14 @@ export function getChromeShown() {
   return chromeShown;
 }
 
-// Constants
-export const STICK_DEADZONE = TouchInput.STICK_DEADZONE;
+// Constants - use functions to get current settings
+export const STICK_DEADZONE = TouchInput.STICK_DEADZONE; // Legacy constant
+export function getGamepadDeadzone() {
+  return GamepadInput.getDeadzone ? GamepadInput.getDeadzone() : 0.15;
+}
+export function getTouchDeadzone() {
+  return TouchInput.getStickDeadzone ? TouchInput.getStickDeadzone() : 0.09;
+}
 
 // Minimal UI state management
 export function setMinimalUiEnabled(enabled) {
