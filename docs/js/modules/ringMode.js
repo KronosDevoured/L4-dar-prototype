@@ -985,14 +985,14 @@ function getPatternPosition(progress) {
       y = Math.sin(t * Math.PI * 2 * patternFrequency) * (patternAmplitude * 0.5);
       break;
     }
- {
+
+    case 'figure8': {
       // Figure-8 pattern
       const fig8t = t * Math.PI * 2 + patternPhase;
       x = Math.sin(fig8t) * patternAmplitude;
       y = Math.sin(fig8t * 2) * patternAmplitude * 0.7;
       break;
-    }th.sin(fig8t * 2) * patternAmplitude * 0.7;
-      break;
+    }
 
     case 'vertical_line':
       // Straight vertical line
