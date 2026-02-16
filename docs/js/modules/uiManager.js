@@ -293,25 +293,25 @@ export class UIManager {
     const gpDeadzone = document.getElementById('gpDeadzone');
     const gpDeadzoneTag = document.getElementById('gpDeadzoneTag');
 
-    accelPitch.addEventListener('input', () => { settings.maxAccelPitch = parseFloat(accelPitch.value) || 400; syncTags(); saveSettings(); });
-    accelYaw.addEventListener('input', () => { settings.maxAccelYaw = parseFloat(accelYaw.value) || 400; syncTags(); saveSettings(); });
-    accelRoll.addEventListener('input', () => { settings.maxAccelRoll = parseFloat(accelRoll.value) || 400; syncTags(); saveSettings(); });
-    curveRange.addEventListener('input', () => { settings.inputPow = parseFloat(curveRange.value) || 1.0; syncTags(); saveSettings(); });
-    stickRangeSlider.addEventListener('input', () => { settings.stickRange = parseFloat(stickRangeSlider.value) || 1.0; syncTags(); saveSettings(); });
-    dampRange.addEventListener('input', () => { settings.damp = parseFloat(dampRange.value) || 2.96; syncTags(); saveSettings(); });
-    dampDARRange.addEventListener('input', () => { settings.dampDAR = parseFloat(dampDARRange.value) || 4.35; syncTags(); saveSettings(); });
-    brakeRange.addEventListener('input', () => { settings.brakeOnRelease = parseFloat(brakeRange.value) || 0.0; syncTags(); saveSettings(); });
-    wmaxRange.addEventListener('input', () => { settings.wMax = parseFloat(wmaxRange.value) || 6.0; syncTags(); saveSettings(); });
-    wmaxPitchRange.addEventListener('input', () => { settings.wMaxPitch = parseFloat(wmaxPitchRange.value) || 8.5; syncTags(); saveSettings(); });
-    wmaxYawRange.addEventListener('input', () => { settings.wMaxYaw = parseFloat(wmaxYawRange.value) || 9.0; syncTags(); saveSettings(); });
-    wmaxRollRange.addEventListener('input', () => { settings.wMaxRoll = parseFloat(wmaxRollRange.value) || 6.0; syncTags(); saveSettings(); });
+    accelPitch.addEventListener('input', () => { const v = parseFloat(accelPitch.value); settings.maxAccelPitch = Number.isFinite(v) ? v : 400; syncTags(); saveSettings(); });
+    accelYaw.addEventListener('input', () => { const v = parseFloat(accelYaw.value); settings.maxAccelYaw = Number.isFinite(v) ? v : 400; syncTags(); saveSettings(); });
+    accelRoll.addEventListener('input', () => { const v = parseFloat(accelRoll.value); settings.maxAccelRoll = Number.isFinite(v) ? v : 400; syncTags(); saveSettings(); });
+    curveRange.addEventListener('input', () => { const v = parseFloat(curveRange.value); settings.inputPow = Number.isFinite(v) ? v : 1.0; syncTags(); saveSettings(); });
+    stickRangeSlider.addEventListener('input', () => { const v = parseFloat(stickRangeSlider.value); settings.stickRange = Number.isFinite(v) ? v : 1.0; syncTags(); saveSettings(); });
+    dampRange.addEventListener('input', () => { const v = parseFloat(dampRange.value); settings.damp = Number.isFinite(v) ? v : 2.96; syncTags(); saveSettings(); });
+    dampDARRange.addEventListener('input', () => { const v = parseFloat(dampDARRange.value); settings.dampDAR = Number.isFinite(v) ? v : 4.35; syncTags(); saveSettings(); });
+    brakeRange.addEventListener('input', () => { const v = parseFloat(brakeRange.value); settings.brakeOnRelease = Number.isFinite(v) ? v : 0.0; syncTags(); saveSettings(); });
+    wmaxRange.addEventListener('input', () => { const v = parseFloat(wmaxRange.value); settings.wMax = Number.isFinite(v) ? v : 6.0; syncTags(); saveSettings(); });
+    wmaxPitchRange.addEventListener('input', () => { const v = parseFloat(wmaxPitchRange.value); settings.wMaxPitch = Number.isFinite(v) ? v : 8.5; syncTags(); saveSettings(); });
+    wmaxYawRange.addEventListener('input', () => { const v = parseFloat(wmaxYawRange.value); settings.wMaxYaw = Number.isFinite(v) ? v : 9.0; syncTags(); saveSettings(); });
+    wmaxRollRange.addEventListener('input', () => { const v = parseFloat(wmaxRollRange.value); settings.wMaxRoll = Number.isFinite(v) ? v : 6.0; syncTags(); saveSettings(); });
     
     // Gamepad deadzone slider
     if (gpDeadzone && gpDeadzoneTag) {
       gpDeadzone.addEventListener('input', () => {
-        const val = parseFloat(gpDeadzone.value) || 0.15;
-        settings.gpDeadzone = val;
-        gpDeadzoneTag.textContent = val.toFixed(2);
+        const v = parseFloat(gpDeadzone.value);
+        settings.gpDeadzone = Number.isFinite(v) ? v : 0.15;
+        gpDeadzoneTag.textContent = settings.gpDeadzone.toFixed(2);
         saveSettings();
       });
     }
