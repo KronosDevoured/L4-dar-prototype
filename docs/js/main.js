@@ -246,6 +246,7 @@ function renderHUD(){
     isMobile: Input.getIsMobile(),
     currentDifficulty: RingMode.getCurrentDifficulty(),
     minimalUi: settings.minimalUi,
+    inputAssist: settings.inputAssist,
     // Camera for 3D projection
     camera: sceneManager.getCamera()
   });
@@ -390,6 +391,9 @@ export function init() {
   settings.gameMusicEnabled = savedSettings.gameMusicEnabled ?? true;
   settings.gameMusicVolume = savedSettings.gameMusicVolume ?? 0.3;
   settings.gameSfxVolume = savedSettings.gameSfxVolume ?? 1.0;
+
+  // Force autoSteer to false (UI button removed, should not be active)
+  settings.autoSteer = false;
 
   // Apply minimal UI class immediately on load
   document.body.classList.toggle('minimal-ui', settings.minimalUi);
@@ -677,6 +681,42 @@ export function init() {
       saveSettings();
     });
   }
+
+  // Input Assist toggle
+  const inputAssistBtn = document.getElementById('inputAssistToggle');
+  const inputAssistStatusTag = document.getElementById('inputAssistStatus');
+  
+  if (inputAssistBtn && inputAssistStatusTag) {
+    // Set initial state
+    inputAssistBtn.classList.toggle('active', settings.inputAssist || false);
+    inputAssistStatusTag.textContent = settings.inputAssist ? 'On' : 'Off';
+
+    inputAssistBtn.addEventListener('click', () => {
+      settings.inputAssist = !settings.inputAssist;
+      inputAssistBtn.classList.toggle('active', settings.inputAssist);
+      inputAssistStatusTag.textContent = settings.inputAssist ? 'On' : 'Off';
+      saveSettings();
+    });
+  }
+
+  // Auto Steer toggle (button removed from UI, logic kept for potential future use)
+  /*
+  const autoSteerBtn = document.getElementById('autoSteerToggle');
+  const autoSteerStatusTag = document.getElementById('autoSteerStatus');
+  
+  if (autoSteerBtn && autoSteerStatusTag) {
+    // Set initial state
+    autoSteerBtn.classList.toggle('active', settings.autoSteer || false);
+    autoSteerStatusTag.textContent = settings.autoSteer ? 'On' : 'Off';
+
+    autoSteerBtn.addEventListener('click', () => {
+      settings.autoSteer = !settings.autoSteer;
+      autoSteerBtn.classList.toggle('active', settings.autoSteer);
+      autoSteerStatusTag.textContent = settings.autoSteer ? 'On' : 'Off';
+      saveSettings();
+    });
+  }
+  */
 
   // NOTE: Ring Mode settings consolidated into Ring Mode menu only
   // Main menu Ring Mode card has been removed - all settings now in ringModePanel

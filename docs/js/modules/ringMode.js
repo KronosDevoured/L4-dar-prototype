@@ -48,6 +48,7 @@ let boostFlames = [];
 // Boundary visualization
 let boundaryGrid = null; // Visual indicator showing the kill barrier
 let landingIndicator = null; // 3D dashed circle showing where target ring will land on grid
+let targetPointSphere = null; // 3D sphere showing the target point (top of ring) for input assist
 
 // Landing indicator cache (to avoid rebuilding every frame)
 let cachedTargetRingId = null; // Track which ring we built the indicator for
@@ -355,6 +356,14 @@ function updateLandingIndicator() {
       cachedTargetRingId = null;
       cachedPlayerInsideState = null;
     }
+
+    // Also remove target point sphere if it exists
+    if (targetPointSphere) {
+      scene.remove(targetPointSphere);
+      if (targetPointSphere.geometry) targetPointSphere.geometry.dispose();
+      if (targetPointSphere.material) targetPointSphere.material.dispose();
+      targetPointSphere = null;
+    }
     return;
   }
 
@@ -377,6 +386,11 @@ function updateLandingIndicator() {
   if (cachedTargetRingId === ringId && cachedPlayerInsideState === wouldPass && landingIndicator) {
     // Ring and state unchanged - just update position (ring might be moving toward player)
     landingIndicator.position.set(ringX, ringY, 0);
+    
+    // Update target point sphere position if input assist is enabled
+    if (getSetting('inputAssist') && targetPointSphere) {
+      targetPointSphere.position.set(ringX, ringY + ringRadius, 0);
+    }
     return;
   }
 
@@ -503,6 +517,45 @@ function updateLandingIndicator() {
 
   landingIndicator.position.set(ringX, ringY, 0); // Position on grid at z=0
   scene.add(landingIndicator);
+
+  // Update target point sphere if input assist is enabled
+  if (getSetting('inputAssist')) {
+    updateTargetPointSphere(ringX, ringY, ringRadius, ringColor);
+  } else if (targetPointSphere) {
+    // Input assist disabled - remove sphere if it exists
+    scene.remove(targetPointSphere);
+    if (targetPointSphere.geometry) targetPointSphere.geometry.dispose();
+    if (targetPointSphere.material) targetPointSphere.material.dispose();
+    targetPointSphere = null;
+  }
+}
+
+/**
+ * Create or update the target point sphere (for input assist visualization)
+ * Shows a 3D sphere at the top of the ring on the grid
+ */
+function updateTargetPointSphere(ringX, ringY, ringRadius, ringColor) {
+  if (!scene) return;
+
+  // Remove old sphere if it exists
+  if (targetPointSphere) {
+    scene.remove(targetPointSphere);
+    if (targetPointSphere.geometry) targetPointSphere.geometry.dispose();
+    if (targetPointSphere.material) targetPointSphere.material.dispose();
+    targetPointSphere = null;
+  }
+
+  // Create new sphere at target point (top of ring)
+  const sphereGeometry = new THREE.SphereGeometry(25, 16, 16);
+  const sphereMaterial = new THREE.MeshBasicMaterial({
+    color: ringColor,
+    transparent: true,
+    opacity: 0
+  });
+
+  targetPointSphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+  targetPointSphere.position.set(ringX, ringY + ringRadius, 0); // Top of ring on grid at z=0
+  scene.add(targetPointSphere);
 }
 
 // ============================================================================
@@ -844,6 +897,14 @@ function disposeRing(ring) {
 function clearAllRings() {
   rings.forEach(r => disposeRing(r));
   rings = [];
+  
+  // Also clear target point sphere when all rings are removed
+  if (targetPointSphere) {
+    scene.remove(targetPointSphere);
+    if (targetPointSphere.geometry) targetPointSphere.geometry.dispose();
+    if (targetPointSphere.material) targetPointSphere.material.dispose();
+    targetPointSphere = null;
+  }
 }
 
 // ============================================================================
@@ -2227,5 +2288,13 @@ export function cleanup() {
     }
     
     landingIndicator = null;
+  }
+
+  // Clear target point sphere with proper disposal
+  if (targetPointSphere) {
+    scene.remove(targetPointSphere);
+    if (targetPointSphere.geometry) targetPointSphere.geometry.dispose();
+    if (targetPointSphere.material) targetPointSphere.material.dispose();
+    targetPointSphere = null;
   }
 }

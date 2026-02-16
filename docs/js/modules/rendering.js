@@ -11,6 +11,19 @@
  */
 
 import * as THREE from 'three';
+import * as Car from './car.js';
+
+// Auto steer angle (cached during input assist indicator calculation)
+let autoSteerAngle = null;
+let autoSteerValid = false;
+
+/**
+ * Get the cached auto steer angle and validity
+ * @returns {object} { angle: radians, valid: boolean }
+ */
+export function getAutoSteerAngle() {
+  return { angle: autoSteerAngle, valid: autoSteerValid };
+}
 
 // HUD canvas context
 let hud, hctx;
@@ -291,23 +304,18 @@ export function drawRingModeHUD(state) {
       const distanceBased = wasInitiallyDistant ? distance2D > ringRadius : distance2D > 200;
       const showIndicator = isOffscreen || distanceBased;
 
-      // Calculate arrow position (will be used for dashed line start point)
-      let arrowX, arrowY;
+      // Calculate direction angle (in 2D, looking down from above)
+      // Negate dy because screen Y is inverted (increases downward, grid Y increases upward)
+      const angle = Math.atan2(-dy, dx);
 
-      if (showIndicator) {
-        // Calculate direction angle (in 2D, looking down from above)
-        // Negate dy because screen Y is inverted (increases downward, grid Y increases upward)
-        const angle = Math.atan2(-dy, dx);
+      // Convert player grid position to screen position (centered on screen)
+      // The car is always at screen center, so the compass is also at screen center
+      const compassCenterX = innerWidth / 2;
+      const compassCenterY = innerHeight / 2;
+      const compassRadius = 170;
 
-        // Convert player grid position to screen position (centered on screen)
-        // The car is always at screen center, so the compass is also at screen center
-        const compassCenterX = innerWidth / 2;
-        const compassCenterY = innerHeight / 2;
-
-        // Draw compass circle - large enough to not overlap the car
-        const compassRadius = 170;
-        const innerCutoutRadius = 130; // Larger cutout so car is fully visible
-
+      // Draw compass circle when peripheral mode enabled OR when showing direction indicator
+      if (state.inputAssist || showIndicator) {
         ctx.save();
 
         // Draw thin circle outline only (removed semi-transparent black fill)
@@ -318,6 +326,132 @@ export function drawRingModeHUD(state) {
         ctx.stroke();
 
         ctx.restore();
+      }
+
+      // Draw peripheral mode indicator if enabled (always show when peripheral mode on)
+      if (state.inputAssist && Car.car) {
+        // Calculate analog stick input needed to point car's nose toward the highest point on ring's circumference
+        // Show which direction to push the stick (as a compass position)
+        
+        // Get car's forward direction (nose direction) in world space
+        const carForward = new THREE.Vector3(0, 0, 1);
+        carForward.applyQuaternion(Car.car.quaternion);
+        
+        // Get car's up direction (roof direction) in world space
+        const carUp = new THREE.Vector3(0, 1, 0);
+        carUp.applyQuaternion(Car.car.quaternion);
+        
+        // Get car's right direction in world space
+        const carRight = new THREE.Vector3().crossVectors(carForward, carUp);
+        
+        // Calculate target point: highest point on ring's circumference on the GRID (Z=0)
+        const ringRadius = targetRing.size / 2;
+        const targetPoint = new THREE.Vector3(
+          targetRing.mesh.position.x,
+          targetRing.mesh.position.y + ringRadius,
+          0  // Always on grid plane (where landing indicator is), not flying ring's Z
+        );
+        
+        // Calculate 3D vector from car to target point for cone check
+        const carPos3D = Car.car.position;
+        const toTargetWorld3D = new THREE.Vector3(
+          targetPoint.x - carPos3D.x,
+          targetPoint.y - carPos3D.y,
+          targetPoint.z - carPos3D.z
+        );
+        
+        // Normalize with epsilon check to avoid NaN
+        const len3D = toTargetWorld3D.length();
+        const epsilon = 1e-6;
+        if (len3D < epsilon) {
+          ctx.restore();
+          return; // Skip indicator if target is too close to car
+        }
+        toTargetWorld3D.divideScalar(len3D);
+        
+        // Calculate world-space vector from car to target point (2D for stick input)
+        const toTargetWorld = new THREE.Vector3(
+          targetPoint.x - ringModePosition.x,
+          targetPoint.y - ringModePosition.y,
+          0
+        );
+        
+        // Normalize with epsilon check to avoid NaN
+        const len2D = toTargetWorld.length();
+        if (len2D < epsilon) {
+          ctx.restore();
+          return; // Skip indicator if target is at same 2D position as car
+        }
+        toTargetWorld.divideScalar(len2D);
+        
+        // Project target direction onto the plane perpendicular to car's forward vector
+        // This gives us the component that's "around" the nose
+        const forwardComponent = toTargetWorld.dot(carForward);
+        const perpendicular = toTargetWorld.clone().sub(carForward.clone().multiplyScalar(forwardComponent));
+        
+        // Normalize with epsilon check to avoid NaN
+        const lenPerp = perpendicular.length();
+        if (lenPerp < epsilon) {
+          ctx.restore();
+          return; // Skip indicator if perpendicular is too small
+        }
+        perpendicular.divideScalar(lenPerp);
+        
+        // Measure the angle in the perpendicular plane using up and right vectors
+        const upComponent = perpendicular.dot(carUp);
+        const rightComponent = perpendicular.dot(carRight);
+        
+        // Calculate angle between car's forward direction and target using 3D cone check
+        // This prevents erratic spinning when car is already pointing at target
+        const alignmentAngle = Math.acos(Math.max(-1, Math.min(1, carForward.dot(toTargetWorld3D)))); // Full 3D cone
+        const alignmentAngleDeg = alignmentAngle * 180 / Math.PI;
+        
+        // Fade threshold: 30 degrees. Indicator fades from full opacity at 30° to fully transparent at 0°
+        const fadeThreshold = 30;
+        let indicatorAlpha = 1.0;
+        if (alignmentAngleDeg < fadeThreshold) {
+          indicatorAlpha = alignmentAngleDeg / fadeThreshold; // Linear fade from 1 to 0
+        }
+        
+        // Calculate the angle for stick input needed to point nose at target
+        // atan2(right, -up) gives correct directions:
+        //   0° = push stick up (pitch forward)
+        //   90° = push stick right (yaw right)
+        //   180° = push stick down (pitch backward)
+        //   -90° = push stick left (yaw left)
+        const stickAngle = Math.atan2(rightComponent, -upComponent);
+        
+        // Cache the auto steer angle for use by input system
+        autoSteerAngle = stickAngle;
+        autoSteerValid = true;
+        
+        // Convert to screen space for compass display
+        // Rotate by -90° so that 0° (push up) appears at top of compass
+        const screenAngle = stickAngle - Math.PI / 2;
+        
+        // Draw indicator marker on compass circle
+        const indicatorX = compassCenterX + Math.cos(screenAngle) * compassRadius;
+        const indicatorY = compassCenterY + Math.sin(screenAngle) * compassRadius;
+        
+        ctx.save();
+        ctx.translate(indicatorX, indicatorY);
+        
+        // Draw small filled circle as indicator with alpha based on alignment
+        ctx.fillStyle = `rgba(0, 255, 0, ${indicatorAlpha})`; // Green with variable opacity
+        ctx.strokeStyle = `rgba(255, 255, 255, ${indicatorAlpha})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, 8, 0, Math.PI * 2); // 8px radius circle
+        ctx.fill();
+        ctx.stroke();
+        
+        ctx.restore();
+      }
+
+      // Calculate arrow position (will be used for dashed line start point)
+      let arrowX, arrowY;
+
+      if (showIndicator) {
 
         // Calculate arrow position on circle perimeter
         arrowX = compassCenterX + Math.cos(angle) * compassRadius;
@@ -506,6 +640,7 @@ export function renderHUD(state) {
       rings: state.rings,
       isMobile: state.isMobile,
       currentDifficulty: state.currentDifficulty,
+      inputAssist: state.inputAssist,
       camera: state.camera
     });
   }

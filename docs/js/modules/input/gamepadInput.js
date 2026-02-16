@@ -204,9 +204,21 @@ export function updateGamepad(chromeShown, callbacks) {
   const rx = pad.axes[2] || 0;
   const ry = pad.axes[3] || 0;
 
-  // Left stick for movement - always send stick position (even if in deadzone)
-  // The physics module will handle deadzone processing
-  callbacks?.onGamepadStick?.({ x: lx, y: ly });
+  // Get deadzone once per frame
+  const deadzone = getDeadzone();
+
+  // Left stick for movement - apply deadzone before sending
+  const leftStickMag = Math.sqrt(lx * lx + ly * ly);
+  let stickX = 0, stickY = 0;
+  if (leftStickMag > deadzone) {
+    // Apply smoothing by using normalized vector from deadzone outward
+    // Clamp to prevent diagonal inputs from exceeding 1.0
+    const normalized = Math.min(1, leftStickMag > 0 ? (leftStickMag - deadzone) / (1 - deadzone) : 0);
+    const scale = normalized / leftStickMag;
+    stickX = lx * scale;
+    stickY = ly * scale;
+  }
+  callbacks?.onGamepadStick?.({ x: stickX, y: stickY });
 
   // List of valid actions that are in the Controls menu
   const validActions = ['pitchForward', 'pitchBackward', 'turnLeft', 'turnRight', 
@@ -240,14 +252,16 @@ export function updateGamepad(chromeShown, callbacks) {
   const rightStickAssignment = getSetting('rightStickAssignment');
   
   // Check if right stick is active (same deadzone as left stick)
-  const deadzone = getDeadzone();
   const rightStickMag = Math.sqrt(rx * rx + ry * ry);
   const rightStickActive = isDualStickMode && rightStickAssignment !== 'none' && rightStickMag > deadzone;
 
-  // Send right stick position ONLY when active, otherwise send zeros
-  // This ensures physics doesn't try to use right stick when it's below deadzone
+  // Send right stick position with deadzone applied, or zeros if below deadzone
   if (rightStickActive) {
-    callbacks?.onRightStick?.({ x: rx, y: ry });
+    // Apply same smoothing as left stick
+    // Clamp to prevent diagonal inputs from exceeding 1.0
+    const normalized = Math.min(1, rightStickMag > 0 ? (rightStickMag - deadzone) / (1 - deadzone) : 0);
+    const scale = normalized / rightStickMag;
+    callbacks?.onRightStick?.({ x: rx * scale, y: ry * scale });
   } else {
     callbacks?.onRightStick?.({ x: 0, y: 0 });
   }

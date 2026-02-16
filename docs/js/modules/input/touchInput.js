@@ -521,6 +521,10 @@ export function setJoyVec(x, y) {
   joyVec.set(x, y);
 }
 
+export function setJoyActive(active) {
+  joyActive = active;
+}
+
 // ============================================================================
 // RESIZE HANDLER
 // ============================================================================
