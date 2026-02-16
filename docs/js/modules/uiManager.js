@@ -150,6 +150,10 @@ export class UIManager {
     const zoomVal = document.getElementById('zoomVal');
     const arrowVal = document.getElementById('arrowVal');
     const gpDeadzoneTag = document.getElementById('gpDeadzoneTag');
+    const gpLeftStickDeadzoneTag = document.getElementById('gpLeftStickDeadzoneTag');
+    const gpRightStickDeadzoneTag = document.getElementById('gpRightStickDeadzoneTag');
+    const gpLeftStickSensitivityTag = document.getElementById('gpLeftStickSensitivityTag');
+    const gpRightStickSensitivityTag = document.getElementById('gpRightStickSensitivityTag');
 
     accelPitchTag.textContent = settings.maxAccelPitch.toFixed(2);
     accelYawTag.textContent = settings.maxAccelYaw.toFixed(2);
@@ -170,6 +174,19 @@ export class UIManager {
     // Sync gamepad deadzone tag
     if (gpDeadzoneTag) {
       gpDeadzoneTag.textContent = (settings.gpDeadzone ?? 0.15).toFixed(2);
+    }
+    // Sync per-stick deadzones and sensitivities
+    if (gpLeftStickDeadzoneTag) {
+      gpLeftStickDeadzoneTag.textContent = (settings.gpLeftStickDeadzone ?? 0.15).toFixed(2);
+    }
+    if (gpRightStickDeadzoneTag) {
+      gpRightStickDeadzoneTag.textContent = (settings.gpRightStickDeadzone ?? 0.15).toFixed(2);
+    }
+    if (gpLeftStickSensitivityTag) {
+      gpLeftStickSensitivityTag.textContent = (settings.gpLeftStickSensitivity ?? 1.0).toFixed(2) + 'x';
+    }
+    if (gpRightStickSensitivityTag) {
+      gpRightStickSensitivityTag.textContent = (settings.gpRightStickSensitivity ?? 1.0).toFixed(2) + 'x';
     }
   }
 
@@ -292,6 +309,14 @@ export class UIManager {
     const presetSel = document.getElementById('presetSel');
     const gpDeadzone = document.getElementById('gpDeadzone');
     const gpDeadzoneTag = document.getElementById('gpDeadzoneTag');
+    const gpLeftStickDeadzone = document.getElementById('gpLeftStickDeadzone');
+    const gpLeftStickDeadzoneTag = document.getElementById('gpLeftStickDeadzoneTag');
+    const gpRightStickDeadzone = document.getElementById('gpRightStickDeadzone');
+    const gpRightStickDeadzoneTag = document.getElementById('gpRightStickDeadzoneTag');
+    const gpLeftStickSensitivity = document.getElementById('gpLeftStickSensitivity');
+    const gpLeftStickSensitivityTag = document.getElementById('gpLeftStickSensitivityTag');
+    const gpRightStickSensitivity = document.getElementById('gpRightStickSensitivity');
+    const gpRightStickSensitivityTag = document.getElementById('gpRightStickSensitivityTag');
 
     accelPitch.addEventListener('input', () => { const v = parseFloat(accelPitch.value); settings.maxAccelPitch = Number.isFinite(v) ? v : 400; syncTags(); saveSettings(); });
     accelYaw.addEventListener('input', () => { const v = parseFloat(accelYaw.value); settings.maxAccelYaw = Number.isFinite(v) ? v : 400; syncTags(); saveSettings(); });
@@ -315,6 +340,89 @@ export class UIManager {
         saveSettings();
       });
     }
+    
+    // Gamepad left stick deadzone slider
+    if (gpLeftStickDeadzone && gpLeftStickDeadzoneTag) {
+      gpLeftStickDeadzone.addEventListener('input', () => {
+        const v = parseFloat(gpLeftStickDeadzone.value);
+        settings.gpLeftStickDeadzone = Number.isFinite(v) ? v : 0.15;
+        gpLeftStickDeadzoneTag.textContent = settings.gpLeftStickDeadzone.toFixed(2);
+        saveSettings();
+      });
+    }
+    
+    // Gamepad right stick deadzone slider
+    if (gpRightStickDeadzone && gpRightStickDeadzoneTag) {
+      gpRightStickDeadzone.addEventListener('input', () => {
+        const v = parseFloat(gpRightStickDeadzone.value);
+        settings.gpRightStickDeadzone = Number.isFinite(v) ? v : 0.15;
+        gpRightStickDeadzoneTag.textContent = settings.gpRightStickDeadzone.toFixed(2);
+        saveSettings();
+      });
+    }
+    
+    // Gamepad left stick sensitivity slider
+    if (gpLeftStickSensitivity && gpLeftStickSensitivityTag) {
+      gpLeftStickSensitivity.addEventListener('input', () => {
+        const v = parseFloat(gpLeftStickSensitivity.value);
+        settings.gpLeftStickSensitivity = Number.isFinite(v) ? v : 1.0;
+        gpLeftStickSensitivityTag.textContent = settings.gpLeftStickSensitivity.toFixed(2) + 'x';
+        saveSettings();
+      });
+    }
+    
+    // Gamepad right stick sensitivity slider
+    if (gpRightStickSensitivity && gpRightStickSensitivityTag) {
+      gpRightStickSensitivity.addEventListener('input', () => {
+        const v = parseFloat(gpRightStickSensitivity.value);
+        settings.gpRightStickSensitivity = Number.isFinite(v) ? v : 1.0;
+        gpRightStickSensitivityTag.textContent = settings.gpRightStickSensitivity.toFixed(2) + 'x';
+        saveSettings();
+      });
+    }
+
+    // === TAG EDITING HANDLERS ===
+    const createTagEditor = (tagEl, sliderEl, settingKey, isDeadzone = true) => {
+      if (!tagEl) return;
+      
+      const applyValue = (rawText) => {
+        let numStr = rawText.trim().toLowerCase().replace('x', '');
+        const parsed = parseFloat(numStr);
+        
+        if (!Number.isFinite(parsed)) return; // Invalid input, do nothing
+        
+        // Get range from slider
+        const min = parseFloat(sliderEl.min);
+        const max = parseFloat(sliderEl.max);
+        
+        // Clamp to valid range
+        const clamped = Math.max(min, Math.min(max, parsed));
+        
+        // Update settings and UI
+        settings[settingKey] = clamped;
+        sliderEl.value = clamped;
+        tagEl.textContent = isDeadzone ? clamped.toFixed(2) : clamped.toFixed(2) + 'x';
+        saveSettings();
+      };
+      
+      tagEl.addEventListener('blur', () => {
+        applyValue(tagEl.textContent);
+      });
+      
+      tagEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          applyValue(tagEl.textContent);
+          tagEl.blur();
+        }
+      });
+    };
+
+    // Wire up all four tags
+    createTagEditor(gpLeftStickDeadzoneTag, gpLeftStickDeadzone, 'gpLeftStickDeadzone', true);
+    createTagEditor(gpRightStickDeadzoneTag, gpRightStickDeadzone, 'gpRightStickDeadzone', true);
+    createTagEditor(gpLeftStickSensitivityTag, gpLeftStickSensitivity, 'gpLeftStickSensitivity', false);
+    createTagEditor(gpRightStickSensitivityTag, gpRightStickSensitivity, 'gpRightStickSensitivity', false);
     
     sizeSlider.addEventListener('input', () => {
       const size = parseInt(sizeSlider.value, 10) || 100;

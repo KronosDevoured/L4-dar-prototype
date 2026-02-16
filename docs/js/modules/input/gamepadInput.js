@@ -16,9 +16,27 @@ let gpRemapping = false;
 let gpRemapReady = false;
 let gpPrevActionPressed = {};
 
-// Get deadzone from settings (default 0.15)
-function getDeadzone() {
-  return getSetting('gpDeadzone') ?? 0.15;
+// DEBUG: Track last deadzone values for display
+let lastLeftDeadzone = 0.15;
+let lastRightDeadzone = 0.15;
+window.DEBUG_GAMEPAD_DEADZONE = () => ({ left: lastLeftDeadzone, right: lastRightDeadzone });
+
+// Get deadzone from settings - per stick
+function getLeftStickDeadzone() {
+  return getSetting('gpLeftStickDeadzone') ?? 0.15;
+}
+
+function getRightStickDeadzone() {
+  return getSetting('gpRightStickDeadzone') ?? 0.15;
+}
+
+// Get sensitivity from settings - per stick
+function getLeftStickSensitivity() {
+  return getSetting('gpLeftStickSensitivity') ?? 1.0;
+}
+
+function getRightStickSensitivity() {
+  return getSetting('gpRightStickSensitivity') ?? 1.0;
 }
 
 // ============================================================================
@@ -146,12 +164,15 @@ function isPressedForBinding(binding, pad) {
 
 function getAnalogValueForBinding(binding, pad) {
   if (!binding || !pad) return 0;
-  const deadzone = getDeadzone();
   
   if (binding.kind === 'button') {
     // For buttons (including triggers), return the analog value (0.0 to 1.0)
     return pad.buttons[binding.index]?.value || 0;
   } else if (binding.kind === 'axis') {
+    // Determine which stick based on axis index and use appropriate deadzone
+    // Axes: 0,1 = left stick, 2,3 = right stick
+    const deadzone = (binding.index <= 1) ? getLeftStickDeadzone() : getRightStickDeadzone();
+    
     // For axes, return scaled value based on direction
     const val = pad.axes[binding.index] || 0;
     
@@ -204,17 +225,23 @@ export function updateGamepad(chromeShown, callbacks) {
   const rx = pad.axes[2] || 0;
   const ry = pad.axes[3] || 0;
 
-  // Get deadzone once per frame
-  const deadzone = getDeadzone();
+  // Get deadzones and sensitivities per stick
+  const leftDeadzone = getLeftStickDeadzone();
+  const rightDeadzone = getRightStickDeadzone();
+  const leftSensitivity = getLeftStickSensitivity();
+  const rightSensitivity = getRightStickSensitivity();
+  
+  // DEBUG: Store for inspection
+  lastLeftDeadzone = leftDeadzone;
+  lastRightDeadzone = rightDeadzone;
 
-  // Left stick for movement - apply deadzone before sending
+  // Left stick for movement - apply deadzone and sensitivity before sending
   const leftStickMag = Math.sqrt(lx * lx + ly * ly);
   let stickX = 0, stickY = 0;
-  if (leftStickMag > deadzone) {
-    // Apply smoothing by using normalized vector from deadzone outward
-    // Clamp to prevent diagonal inputs from exceeding 1.0
-    const normalized = Math.min(1, leftStickMag > 0 ? (leftStickMag - deadzone) / (1 - deadzone) : 0);
-    const scale = normalized / leftStickMag;
+  if (leftStickMag > leftDeadzone) {
+    // Pass through raw magnitude above deadzone, apply sensitivity
+    const withSensitivity = Math.min(1, leftStickMag * leftSensitivity);
+    const scale = withSensitivity / leftStickMag;
     stickX = lx * scale;
     stickY = ly * scale;
   }
@@ -251,16 +278,15 @@ export function updateGamepad(chromeShown, callbacks) {
   const isDualStickMode = getSetting('dualStickMode');
   const rightStickAssignment = getSetting('rightStickAssignment');
   
-  // Check if right stick is active (same deadzone as left stick)
+  // Check if right stick is active (using right stick deadzone)
   const rightStickMag = Math.sqrt(rx * rx + ry * ry);
-  const rightStickActive = isDualStickMode && rightStickAssignment !== 'none' && rightStickMag > deadzone;
+  const rightStickActive = isDualStickMode && rightStickAssignment !== 'none' && rightStickMag > rightDeadzone;
 
-  // Send right stick position with deadzone applied, or zeros if below deadzone
+  // Send right stick position with deadzone and sensitivity applied, or zeros if below deadzone
   if (rightStickActive) {
-    // Apply same smoothing as left stick
-    // Clamp to prevent diagonal inputs from exceeding 1.0
-    const normalized = Math.min(1, rightStickMag > 0 ? (rightStickMag - deadzone) / (1 - deadzone) : 0);
-    const scale = normalized / rightStickMag;
+    // Pass through raw magnitude above deadzone, apply sensitivity
+    const withSensitivity = Math.min(1, rightStickMag * rightSensitivity);
+    const scale = withSensitivity / rightStickMag;
     callbacks?.onRightStick?.({ x: rx * scale, y: ry * scale });
   } else {
     callbacks?.onRightStick?.({ x: 0, y: 0 });
@@ -561,7 +587,8 @@ export function getGpBindings() {
 }
 
 export function getGamepadDeadzone() {
-  return getDeadzone();
+  // Return average of left and right stick deadzones
+  return (getLeftStickDeadzone() + getRightStickDeadzone()) / 2;
 }
 
 export function setGpBinding(action, binding) {

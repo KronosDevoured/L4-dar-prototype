@@ -153,10 +153,11 @@
   .tag{
     background:#181a20;border:1px solid #3a3d45;padding:.25rem .5rem;
     border-radius:999px;font-size:.82rem;white-space:nowrap;
-    cursor:default;user-select:none;
+    cursor:text;user-select:none;
   }
+  .tag[contenteditable]{cursor:text}
   .tag:hover{border-color:#4c8dff}
-  .tag:focus{outline:2px solid #4c8dff;background:#1f2229}
+  .tag:focus{outline:2px solid #4c8dff;background:#1f2229;border-color:#4c8dff}
 
   .sl{
     display:flex; align-items:center; gap:.6rem; flex-wrap:nowrap;
@@ -413,6 +414,9 @@
   <!-- CANVASES -->
   <canvas id="gl"></canvas>
   <canvas id="hud"></canvas>
+  
+  <!-- DEBUG STICK DISPLAY -->
+  <div id="debugStickDisplay" style="position: fixed; top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: #0f0; font-family: monospace; padding: 8px 12px; border-radius: 4px; font-size: 12px; z-index: 9999;"></div>
 
   <!-- HAMBURGER -->
   <button id="menuBtn" type="button" title="Open Menu" aria-label="Open settings menu"><span class="bar"></span><span class="bar"></span><span class="bar"></span></button>
@@ -580,9 +584,24 @@
             <button id="dualStickToggle" class="btn" type="button">Dual Stick Mode</button>
           </div>
           <div class="row sl">
-            <label for="gpDeadzone">Deadzone</label>
-            <input id="gpDeadzone" type="range" min="0" max="0.5" step="0.01" value="0.15" />
-            <span class="tag" id="gpDeadzoneTag">0.15</span>
+            <label for="gpLeftStickDeadzone">Left Stick Deadzone</label>
+            <input id="gpLeftStickDeadzone" type="range" min="0" max="0.5" step="0.01" value="0.15" />
+            <span class="tag" id="gpLeftStickDeadzoneTag" contenteditable="true">0.15</span>
+          </div>
+          <div class="row sl">
+            <label for="gpRightStickDeadzone">Right Stick Deadzone</label>
+            <input id="gpRightStickDeadzone" type="range" min="0" max="0.5" step="0.01" value="0.15" />
+            <span class="tag" id="gpRightStickDeadzoneTag" contenteditable="true">0.15</span>
+          </div>
+          <div class="row sl">
+            <label for="gpLeftStickSensitivity">Left Stick Sensitivity</label>
+            <input id="gpLeftStickSensitivity" type="range" min="0.01" max="10.00" step="0.01" value="1.00" />
+            <span class="tag" id="gpLeftStickSensitivityTag" contenteditable="true">1.00x</span>
+          </div>
+          <div class="row sl">
+            <label for="gpRightStickSensitivity">Right Stick Sensitivity</label>
+            <input id="gpRightStickSensitivity" type="range" min="0.01" max="10.00" step="0.01" value="1.00" />
+            <span class="tag" id="gpRightStickSensitivityTag" contenteditable="true">1.00x</span>
           </div>
           <div class="row sl">
             <label for="gpPreset">Preset</label>
