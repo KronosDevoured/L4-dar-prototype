@@ -133,9 +133,6 @@ export function getCurrentDifficulty() { return currentDifficulty; }
 export function getRings() { return rings; }
 export function getCameraTarget() { return { x: cameraTargetX, y: cameraTargetY }; }
 export function getBoostFlames() { return boostFlames; }
-export function getLandingIndicatorPosition() { 
-  return landingIndicator ? landingIndicator.position : null; 
-}
 
 // ============================================================================
 // HIGH SCORE HELPERS
@@ -575,7 +572,9 @@ export function resetRingMode() {
   }
 
   // Reset external physics state
-  gameState.resetAngularVelocity();
+  if (gameState) {
+    gameState.resetAngularVelocity();
+  }
 
   if (externalOrbitOn) {
     externalOrbitOn.value = false;
@@ -970,26 +969,29 @@ function getPatternPosition(progress) {
       y = Math.sin(t * Math.PI * 2 * patternFrequency + patternPhase) * patternAmplitude;
       break;
 
-    case 'spiral':
+    case 'spiral': {
       // Expanding or contracting spiral
       const spiralRadius = patternAmplitude * (0.3 + t * 0.7);
       const spiralAngle = t * Math.PI * 4 + patternPhase;
       x = Math.cos(spiralAngle) * spiralRadius;
       y = Math.sin(spiralAngle) * spiralRadius;
       break;
+    }
 
-    case 'helix':
+    case 'helix': {
       // Helix (circular with vertical oscillation)
       const helixAngle = t * Math.PI * 3 + patternPhase;
       x = Math.cos(helixAngle) * patternAmplitude;
       y = Math.sin(t * Math.PI * 2 * patternFrequency) * (patternAmplitude * 0.5);
       break;
-
-    case 'figure8':
+    }
+ {
       // Figure-8 pattern
       const fig8t = t * Math.PI * 2 + patternPhase;
       x = Math.sin(fig8t) * patternAmplitude;
       y = Math.sin(fig8t * 2) * patternAmplitude * 0.7;
+      break;
+    }th.sin(fig8t * 2) * patternAmplitude * 0.7;
       break;
 
     case 'vertical_line':
@@ -1010,7 +1012,7 @@ function getPatternPosition(progress) {
       y = Math.cos(t * Math.PI * 2 * patternFrequency * 1.3) * (patternAmplitude * 0.6);
       break;
 
-    case 'square':
+    case 'square': {
       // Square path
       const squareSide = Math.min(Math.floor(t * 4), 3); // 4 sides, clamp to 0-3
       const sideProgress = (t * 4) % 1; // Progress along current side
@@ -1033,8 +1035,9 @@ function getPatternPosition(progress) {
         y = squareSize - sideProgress * squareSize * 2;
       }
       break;
+    }
 
-    case 'triangle':
+    case 'triangle': {
       // Triangle path
       const triSide = Math.min(Math.floor(t * 3), 2); // 3 sides, clamp to 0-2
       const triProgress = (t * 3) % 1;
@@ -1053,8 +1056,9 @@ function getPatternPosition(progress) {
         y = triSize * 1.155 - triProgress * triSize * 1.732;
       }
       break;
+    }
 
-    case 'star':
+    case 'star': {
       // 5-pointed star
       const starPoints = 10; // 5 outer + 5 inner points
       const starIndex = Math.floor(t * starPoints) % starPoints;
@@ -1064,8 +1068,9 @@ function getPatternPosition(progress) {
       x = Math.cos(pointAngle) * starRadius;
       y = Math.sin(pointAngle) * starRadius;
       break;
+    }
 
-    case 'pentagon':
+    case 'pentagon': {
       // Pentagon path
       const pentSide = Math.min(Math.floor(t * 5), 4); // 5 sides, clamp to 0-4
       const pentProgress = (t * 5) % 1;
@@ -1079,6 +1084,7 @@ function getPatternPosition(progress) {
       x = x1 + (x2 - x1) * pentProgress;
       y = y1 + (y2 - y1) * pentProgress;
       break;
+    }
 
     case 'random':
     default:
@@ -2036,7 +2042,7 @@ export function updateRingModeRendering(dt) {
         const ringOuterRadius = ring.size / 2 + CONST.RING_TUBE_RADIUS;
         
         // Only set if this is the CLOSEST upcoming ring to the player
-        const upcomingRings = rings.filter(r => !r.passed && !r.missed && r.mesh.position.z < 0);
+        const upcomingRings = rings.filter(r => r.mesh && r.mesh.position && !r.passed && !r.missed && r.mesh.position.z < 0);
         if (upcomingRings.length > 0) {
           upcomingRings.sort((a, b) => Math.abs(a.mesh.position.z) - Math.abs(b.mesh.position.z));
           const nextRing = upcomingRings[0];
@@ -2195,9 +2201,31 @@ export function cleanup() {
   // Reset game state reference
   gameState = null;
 
-  // Clear landing indicator
+  // Clear landing indicator with proper disposal
   if (landingIndicator) {
     scene.remove(landingIndicator);
+    
+    // Dispose of geometry and material(s)
+    if (landingIndicator.geometry) {
+      // It's a Mesh (filled state)
+      landingIndicator.geometry.dispose();
+      if (landingIndicator.material) {
+        landingIndicator.material.dispose();
+      }
+    } else if (landingIndicator.children) {
+      // It's a Group (hollow state)
+      landingIndicator.children.forEach(child => {
+        if (child.geometry) child.geometry.dispose();
+        if (child.material) {
+          if (Array.isArray(child.material)) {
+            child.material.forEach(m => m.dispose());
+          } else {
+            child.material.dispose();
+          }
+        }
+      });
+    }
+    
     landingIndicator = null;
   }
 }

@@ -201,7 +201,6 @@ export function drawRingModeHUD(state) {
     ringModePaused,
     ringModePosition,
     rings,
-    landingIndicatorPosition,
     isMobile,
     currentDifficulty,
     minimalUi,

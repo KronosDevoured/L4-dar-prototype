@@ -34,6 +34,8 @@ let sceneManager;
 let themeManager;
 let uiManager;
 let cameraController;
+let isRunning = false;
+let rafId = null;
 
 // ============================================================================
 // SETTINGS VARIABLES
@@ -241,7 +243,6 @@ function renderHUD(){
     ringModeRingCount: RingMode.getRingModeRingCount(),
     ringModePosition: RingMode.getRingModePosition(),
     rings: RingMode.getRings(),
-    landingIndicatorPosition: RingMode.getLandingIndicatorPosition(),
     isMobile: Input.getIsMobile(),
     currentDifficulty: RingMode.getCurrentDifficulty(),
     minimalUi: settings.minimalUi,
@@ -252,6 +253,11 @@ function renderHUD(){
 
 let lastT = performance.now()/1000;
 function tick(){
+  // Stop if application has been shut down
+  if (!isRunning) {
+    return;
+  }
+
   const frameStart = performance.now();
   const t = frameStart / 1000;
   const dt = Math.min(0.033, Math.max(0.001, t - lastT));
@@ -312,7 +318,9 @@ function tick(){
   //   console.warn(`Profile - Camera: ${cameraTime.toFixed(2)}ms, Input: ${inputTime.toFixed(2)}ms, Physics: ${physicsTime.toFixed(2)}ms, Rhythm: ${rhythmTime.toFixed(2)}ms, Tornado: ${tornadoTime.toFixed(2)}ms`);
   // }
 
-  requestAnimationFrame(tick);
+  if (isRunning) {
+    rafId = requestAnimationFrame(tick);
+  }
 }
 
 function resize(){
@@ -940,7 +948,7 @@ export function init() {
     execBinding: (action) => {
       // Handle gamepad button actions
       switch(action) {
-        case 'toggleDAR':
+        case 'toggleDAR': {
           // Toggle DAR with last active air roll
           const currentAirRoll = Input.getAirRoll();
           const lastActive = Input.getLastActiveAirRoll();
@@ -952,6 +960,7 @@ export function init() {
             Input.selectAirRoll(0);
           }
           break;
+        }
         case 'rollLeft':
         case 'rollRight':
         case 'rollFree':
@@ -960,7 +969,7 @@ export function init() {
         case 'boost':
           // Boost handled internally by Input module
           break;
-        case 'pause':
+        case 'pause': {
           if (RingMode.getRingModeActive()) {
             const paused = RingMode.toggleRingModePaused();
             Input.setRingModePaused(paused);
@@ -978,7 +987,8 @@ export function init() {
             }
           }
           break;
-        case 'restart':
+        }
+        case 'restart': {
           if (RingMode.getRingModeActive()) {
             // In Ring Mode: Quick respawn (costs a life, respawns at next ring)
             const lives = RingMode.getRingModeLives();
@@ -1027,6 +1037,7 @@ export function init() {
             if (Car.faceTip) Car.faceTip.visible = false;
           }
           break;
+        }
         case 'retry':
           // Retry - only works when Ring Mode is active and game is over
           if (RingMode.getRingModeActive()) {
@@ -1043,7 +1054,7 @@ export function init() {
         case 'orbitCCW':
           cameraController.toggleOrbitCCW();
           break;
-        case 'toggleTheme':
+        case 'toggleTheme': {
           settings.isDarkMode = !settings.isDarkMode;
           themeManager.applyTheme(settings.isDarkMode);
           // Update theme button icon
@@ -1051,6 +1062,7 @@ export function init() {
           themeBtn.textContent = settings.isDarkMode ? '🌙' : '☀️';
           saveSettings();
           break;
+        }
         case 'openMenu':
           if (!uiManager.getChromeShown()) {
             openMenu();
@@ -1176,7 +1188,8 @@ export function init() {
   addEventListener('resize', resize);
 
   // Start game loop
-  requestAnimationFrame(tick);
+  isRunning = true;
+  rafId = requestAnimationFrame(tick);
 
   // Expose axis measurement functions
   window.measureMinAxis = Physics.measureMinAxis;
@@ -1199,9 +1212,11 @@ export function init() {
  */
 function cleanup() {
   try {
-    // Stop game loop (if running)
-    if (window.requestAnimationFrame) {
-      // Note: Cannot cancel requestAnimationFrame easily, but cleanup will prevent further execution
+    // Stop game loop
+    isRunning = false;
+    if (rafId !== null) {
+      cancelAnimationFrame(rafId);
+      rafId = null;
     }
 
     // Cleanup all modules
