@@ -85,7 +85,7 @@ let _settings = {
   autoSteer: false,
 
   // Game Speed
-  gameSpeed: 1.0 // 0.5 = 50%, 1.0 = 100%
+  gameSpeed: 1.0 // 0.05 = 5%, 1.0 = 100%, 1.5 = 150%
 };
 
 // ============================================================================
@@ -212,9 +212,9 @@ export function validateSetting(key, value) {
     return typeof value === 'string' && ['easy', 'normal', 'hard', 'expert'].includes(value);
   }
 
-  // Game speed validation (0.5 to 1.0)
+  // Game speed validation (0.05 to 1.5)
   if (key === 'gameSpeed') {
-    return typeof value === 'number' && value >= 0.5 && value <= 1.0;
+    return typeof value === 'number' && value >= 0.05 && value <= 1.5;
   }
 
   // Right stick assignment validation
