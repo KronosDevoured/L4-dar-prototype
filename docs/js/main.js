@@ -272,18 +272,6 @@ function tick(){
   profileStart = performance.now();
   Input.updateInput(dt);
   const inputTime = performance.now() - profileStart;
-  
-  // DEBUG: Show stick input values
-  const joyVec = Input.getJoyVec();
-  const debugDisplay = document.getElementById('debugStickDisplay');
-  if (debugDisplay) {
-    const mag = Math.sqrt(joyVec.x * joyVec.x + joyVec.y * joyVec.y);
-    // Get JOY_BASE_R to convert pixels back to normalized space for easier reading
-    const JOY_BASE_R = Input.getJoyBaseR();
-    const normalizedMag = mag / JOY_BASE_R;
-    const deadzoneInfo = window.DEBUG_GAMEPAD_DEADZONE?.() || { left: '?', right: '?' };
-    debugDisplay.textContent = `L Deadzone: ${deadzoneInfo.left.toFixed(2)} | Joy Normalized: ${normalizedMag.toFixed(3)}`;
-  }
 
   profileStart = performance.now();
   integrate(dt);

@@ -15,7 +15,7 @@
 
 **ONLY commit when user says:** "commit to github" ✅
 
-**Default behavior:** Make ALL changes locally only. Work in local repository and only push when explicitly instructed with the exact trigger phrase.
+**Default behavior:** Make ALL changes locally only. Work in local repository and only push when explicitly instructed with the exact trigger phrase. Even if the user says "push to githuB" do not assume they want to commit - they must say "commit to github" exactly.
 
 ---
 

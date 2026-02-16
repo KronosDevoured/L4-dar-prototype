@@ -16,11 +16,6 @@ let gpRemapping = false;
 let gpRemapReady = false;
 let gpPrevActionPressed = {};
 
-// DEBUG: Track last deadzone values for display
-let lastLeftDeadzone = 0.15;
-let lastRightDeadzone = 0.15;
-window.DEBUG_GAMEPAD_DEADZONE = () => ({ left: lastLeftDeadzone, right: lastRightDeadzone });
-
 // Get deadzone from settings - per stick
 function getLeftStickDeadzone() {
   return getSetting('gpLeftStickDeadzone') ?? 0.15;
@@ -230,10 +225,6 @@ export function updateGamepad(chromeShown, callbacks) {
   const rightDeadzone = getRightStickDeadzone();
   const leftSensitivity = getLeftStickSensitivity();
   const rightSensitivity = getRightStickSensitivity();
-  
-  // DEBUG: Store for inspection
-  lastLeftDeadzone = leftDeadzone;
-  lastRightDeadzone = rightDeadzone;
 
   // Left stick for movement - apply deadzone and sensitivity before sending
   const leftStickMag = Math.sqrt(lx * lx + ly * ly);
