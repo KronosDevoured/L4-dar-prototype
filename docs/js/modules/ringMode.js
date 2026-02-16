@@ -537,7 +537,7 @@ function updateLandingIndicator() {
 function updateTargetPointSphere(ringX, ringY, ringRadius, ringColor) {
   if (!scene) return;
 
-  // Remove old sphere if it exists
+  // Remove old plane if it exists
   if (targetPointSphere) {
     scene.remove(targetPointSphere);
     if (targetPointSphere.geometry) targetPointSphere.geometry.dispose();
@@ -545,16 +545,20 @@ function updateTargetPointSphere(ringX, ringY, ringRadius, ringColor) {
     targetPointSphere = null;
   }
 
-  // Create new sphere at target point (top of ring)
-  const sphereGeometry = new THREE.SphereGeometry(25, 16, 16);
-  const sphereMaterial = new THREE.MeshBasicMaterial({
+  // Create 200x400 square plane at target point (top of ring), perpendicular to grid
+  // 200 units wide (left-right), 400 units tall (forward-back)
+  const planeGeometry = new THREE.PlaneGeometry(200, 400);
+  const planeMaterial = new THREE.MeshBasicMaterial({
     color: ringColor,
     transparent: true,
-    opacity: 0
+    opacity: 0,
+    side: THREE.DoubleSide
   });
 
-  targetPointSphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+  targetPointSphere = new THREE.Mesh(planeGeometry, planeMaterial);
   targetPointSphere.position.set(ringX, ringY + ringRadius, 0); // Top of ring on grid at z=0
+  // Rotate to be perpendicular to grid (facing up/down in world space)
+  targetPointSphere.rotation.x = Math.PI / 2;
   scene.add(targetPointSphere);
 }
 

@@ -330,7 +330,7 @@ export function drawRingModeHUD(state) {
 
       // Draw peripheral mode indicator if enabled (always show when peripheral mode on)
       if (state.inputAssist && Car.car) {
-        // Calculate analog stick input needed to point car's nose toward the highest point on ring's circumference
+        // Calculate analog stick input needed to point car's nose toward closest point on target sphere
         // Show which direction to push the stick (as a compass position)
         
         // Get car's forward direction (nose direction) in world space
@@ -344,16 +344,20 @@ export function drawRingModeHUD(state) {
         // Get car's right direction in world space
         const carRight = new THREE.Vector3().crossVectors(carForward, carUp);
         
-        // Calculate target point: highest point on ring's circumference on the GRID (Z=0)
+        // Calculate square center: top of ring on the GRID (Z=0)
         const ringRadius = targetRing.size / 2;
-        const targetPoint = new THREE.Vector3(
+        const squareCenter = new THREE.Vector3(
           targetRing.mesh.position.x,
           targetRing.mesh.position.y + ringRadius,
           0  // Always on grid plane (where landing indicator is), not flying ring's Z
         );
         
-        // Calculate 3D vector from car to target point for cone check
+        // Use square center directly as target point
         const carPos3D = Car.car.position;
+        const targetPoint = squareCenter.clone();
+        const epsilon = 1e-6;
+        
+        // Calculate 3D vector from car to target point for cone check
         const toTargetWorld3D = new THREE.Vector3(
           targetPoint.x - carPos3D.x,
           targetPoint.y - carPos3D.y,
@@ -362,7 +366,6 @@ export function drawRingModeHUD(state) {
         
         // Normalize with epsilon check to avoid NaN
         const len3D = toTargetWorld3D.length();
-        const epsilon = 1e-6;
         if (len3D < epsilon) {
           ctx.restore();
           return; // Skip indicator if target is too close to car
@@ -370,9 +373,11 @@ export function drawRingModeHUD(state) {
         toTargetWorld3D.divideScalar(len3D);
         
         // Calculate world-space vector from car to target point (2D for stick input)
+        // If target is below car, only show left/right (zero out Y component)
+        const targetIsBelowCar = targetPoint.y < carPos3D.y;
         const toTargetWorld = new THREE.Vector3(
           targetPoint.x - ringModePosition.x,
-          targetPoint.y - ringModePosition.y,
+          targetIsBelowCar ? 0 : (targetPoint.y - ringModePosition.y),
           0
         );
         
@@ -401,16 +406,62 @@ export function drawRingModeHUD(state) {
         const upComponent = perpendicular.dot(carUp);
         const rightComponent = perpendicular.dot(carRight);
         
-        // Calculate angle between car's forward direction and target using 3D cone check
-        // This prevents erratic spinning when car is already pointing at target
-        const alignmentAngle = Math.acos(Math.max(-1, Math.min(1, carForward.dot(toTargetWorld3D)))); // Full 3D cone
-        const alignmentAngleDeg = alignmentAngle * 180 / Math.PI;
+        // Calculate direction from car to square center
+        const carToSquareCenter = new THREE.Vector3(
+          squareCenter.x - carPos3D.x,
+          squareCenter.y - carPos3D.y,
+          squareCenter.z - carPos3D.z
+        );
+        const distToSquareCenter = carToSquareCenter.length();
+        if (distToSquareCenter < epsilon) {
+          ctx.restore();
+          return; // Skip if car is at square center
+        }
+        carToSquareCenter.normalize();
         
-        // Fade threshold: 30 degrees. Indicator fades from full opacity at 30° to fully transparent at 0°
-        const fadeThreshold = 30;
+        // Calculate where car's forward ray intersects the square plane
+        // Square plane is horizontal (facing up/down) at squareCenter.y after rotation.x = PI/2
+        const squareNormal = new THREE.Vector3(0, 1, 0); // Plane normal points up
+        const squareHalfWidth = 100; // 200 units wide (left-right)
+        const squareHalfHeight = 200; // 400 units tall (forward-back)
+        
+        // Ray-plane intersection: t = (planeY - rayOriginY) / rayDirectionY
+        const denominator = carForward.dot(squareNormal);
         let indicatorAlpha = 1.0;
-        if (alignmentAngleDeg < fadeThreshold) {
-          indicatorAlpha = alignmentAngleDeg / fadeThreshold; // Linear fade from 1 to 0
+        
+        if (Math.abs(denominator) > epsilon) {
+          const t = (squareCenter.y - carPos3D.y) / denominator;
+          
+          // Only check intersection if ray points toward plane (t > 0)
+          if (t > 0) {
+            const intersection = new THREE.Vector3(
+              carPos3D.x + t * carForward.x,
+              carPos3D.y + t * carForward.y,
+              carPos3D.z + t * carForward.z
+            );
+            
+            // Check if intersection is within square bounds
+            const localX = intersection.x - squareCenter.x;
+            const localZ = intersection.z - squareCenter.z;
+            
+            if (Math.abs(localX) <= squareHalfWidth && Math.abs(localZ) <= squareHalfHeight) {
+              // Inside square - calculate distance from center LEFT-RIGHT ONLY
+              const distFromCenterX = Math.abs(localX);
+              const maxDistX = squareHalfWidth; // 100 units to edge
+              
+              // Stepped opacity based on 1/3 zones (left-right only)
+              if (distFromCenterX < maxDistX / 3) {
+                // Inner 1/3 zone (0-33.33 units from center along X)
+                indicatorAlpha = 0.0;
+              } else if (distFromCenterX < 2 * maxDistX / 3) {
+                // Middle 1/3 zone (33.33-66.67 units from center along X)
+                indicatorAlpha = 0.33;
+              } else {
+                // Outer 1/3 zone (66.67-100 units from center along X)
+                indicatorAlpha = 0.66;
+              }
+            }
+          }
         }
         
         // Calculate the angle for stick input needed to point nose at target
@@ -537,6 +588,124 @@ export function drawRingModeHUD(state) {
         ctx.fill();
         ctx.restore();
       }
+    } else if (state.inputAssist && Car.car) {
+      // No target ring - show input assist pointing toward world up
+      const compassCenterX = innerWidth / 2;
+      const compassCenterY = innerHeight / 2;
+      const compassRadius = 170;
+      
+      // Draw compass circle
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(compassCenterX, compassCenterY, compassRadius, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+      
+      // Calculate stick input needed to point car toward world up (0, 1, 0)
+      const carForward = new THREE.Vector3(0, 0, 1);
+      carForward.applyQuaternion(Car.car.quaternion);
+      
+      const carUp = new THREE.Vector3(0, 1, 0);
+      carUp.applyQuaternion(Car.car.quaternion);
+      
+      const carRight = new THREE.Vector3().crossVectors(carForward, carUp);
+      
+      // Target is world up direction
+      const worldUp = new THREE.Vector3(0, 1, 0);
+      
+      // Project world up onto plane perpendicular to car's forward
+      const forwardComponent = worldUp.dot(carForward);
+      const perpendicular = worldUp.clone().sub(carForward.clone().multiplyScalar(forwardComponent));
+      
+      const epsilon = 1e-6;
+      const lenPerp = perpendicular.length();
+      if (lenPerp > epsilon) {
+        perpendicular.divideScalar(lenPerp);
+        
+        // Measure angle in perpendicular plane
+        const upComponent = perpendicular.dot(carUp);
+        const rightComponent = perpendicular.dot(carRight);
+        
+        const stickAngle = Math.atan2(rightComponent, -upComponent);
+        const screenAngle = stickAngle - Math.PI / 2;
+        
+        // Draw indicator (always full opacity when no target ring)
+        const indicatorX = compassCenterX + Math.cos(screenAngle) * compassRadius;
+        const indicatorY = compassCenterY + Math.sin(screenAngle) * compassRadius;
+        
+        ctx.save();
+        ctx.translate(indicatorX, indicatorY);
+        ctx.fillStyle = 'rgba(0, 255, 0, 1.0)'; // Green, fully visible
+        ctx.strokeStyle = 'rgba(255, 255, 255, 1.0)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, 8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+  }
+  
+  // Show input assist pointing to world up when no rings exist
+  if (ringModeStarted && !ringModePaused && ringModeLives > 0 && rings.length === 0 && state.inputAssist && Car.car) {
+    const compassCenterX = innerWidth / 2;
+    const compassCenterY = innerHeight / 2;
+    const compassRadius = 170;
+    
+    // Draw compass circle
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(compassCenterX, compassCenterY, compassRadius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+    
+    // Calculate stick input needed to point car toward world up (0, 1, 0)
+    const carForward = new THREE.Vector3(0, 0, 1);
+    carForward.applyQuaternion(Car.car.quaternion);
+    
+    const carUp = new THREE.Vector3(0, 1, 0);
+    carUp.applyQuaternion(Car.car.quaternion);
+    
+    const carRight = new THREE.Vector3().crossVectors(carForward, carUp);
+    
+    // Target is world up direction
+    const worldUp = new THREE.Vector3(0, 1, 0);
+    
+    // Project world up onto plane perpendicular to car's forward
+    const forwardComponent = worldUp.dot(carForward);
+    const perpendicular = worldUp.clone().sub(carForward.clone().multiplyScalar(forwardComponent));
+    
+    const epsilon = 1e-6;
+    const lenPerp = perpendicular.length();
+    if (lenPerp > epsilon) {
+      perpendicular.divideScalar(lenPerp);
+      
+      // Measure angle in perpendicular plane
+      const upComponent = perpendicular.dot(carUp);
+      const rightComponent = perpendicular.dot(carRight);
+      
+      const stickAngle = Math.atan2(rightComponent, -upComponent);
+      const screenAngle = stickAngle - Math.PI / 2;
+      
+      // Draw indicator (always full opacity when no target ring)
+      const indicatorX = compassCenterX + Math.cos(screenAngle) * compassRadius;
+      const indicatorY = compassCenterY + Math.sin(screenAngle) * compassRadius;
+      
+      ctx.save();
+      ctx.translate(indicatorX, indicatorY);
+      ctx.fillStyle = 'rgba(0, 255, 0, 1.0)'; // Green, fully visible
+      ctx.strokeStyle = 'rgba(255, 255, 255, 1.0)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
     }
   }
 

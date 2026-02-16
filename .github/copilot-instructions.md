@@ -1,5 +1,24 @@
 # L4 DAR Prototype - AI Coding Agent Instructions
 
+## 🚨 CRITICAL RULES - READ FIRST 🚨
+
+### Git Commit Rule
+⚠️ **ABSOLUTELY CRITICAL**: Do NOT commit or push to GitHub unless the user says the EXACT phrase **"commit to github"**
+
+**NEVER commit for these phrases:**
+- "push to github" ❌
+- "save changes" ❌
+- "upload changes" ❌
+- "push changes" ❌
+- "commit changes" ❌
+- Any other variation ❌
+
+**ONLY commit when user says:** "commit to github" ✅
+
+**Default behavior:** Make ALL changes locally only. Work in local repository and only push when explicitly instructed with the exact trigger phrase.
+
+---
+
 ## Project Overview
 Three.js-based web simulator for Rocket League's Directional Air Roll (DAR) physics. Features modular ES6 architecture, gamepad/keyboard/touch input, and validated physics matching real RL measurements.
 
@@ -64,9 +83,7 @@ validate-setup.bat
 Server runs at `http://localhost:8000/docs/`
 
 ### Git Workflow
-⚠️ **IMPORTANT**: Always work in the local repository. Do NOT commit or push to GitHub unless explicitly instructed.
-- **Default**: Make all changes locally only
-- **Commit trigger**: Only commit to GitHub when user says "commit to github"
+**See CRITICAL RULES at top of document** - Only commit when user says exact phrase "commit to github"
 - Local and GitHub repos are separate - stabilize locally before pushing
 
 ### Testing
