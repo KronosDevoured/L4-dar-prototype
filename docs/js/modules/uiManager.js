@@ -293,23 +293,23 @@ export class UIManager {
     const gpDeadzone = document.getElementById('gpDeadzone');
     const gpDeadzoneTag = document.getElementById('gpDeadzoneTag');
 
-    accelPitch.addEventListener('input', () => { settings.maxAccelPitch = parseFloat(accelPitch.value) ?? 400; syncTags(); saveSettings(); });
-    accelYaw.addEventListener('input', () => { settings.maxAccelYaw = parseFloat(accelYaw.value) ?? 400; syncTags(); saveSettings(); });
-    accelRoll.addEventListener('input', () => { settings.maxAccelRoll = parseFloat(accelRoll.value) ?? 400; syncTags(); saveSettings(); });
-    curveRange.addEventListener('input', () => { settings.inputPow = parseFloat(curveRange.value) ?? 1.0; syncTags(); saveSettings(); });
-    stickRangeSlider.addEventListener('input', () => { settings.stickRange = parseFloat(stickRangeSlider.value) ?? 1.0; syncTags(); saveSettings(); });
-    dampRange.addEventListener('input', () => { settings.damp = parseFloat(dampRange.value) ?? 2.96; syncTags(); saveSettings(); });
-    dampDARRange.addEventListener('input', () => { settings.dampDAR = parseFloat(dampDARRange.value) ?? 4.35; syncTags(); saveSettings(); });
-    brakeRange.addEventListener('input', () => { settings.brakeOnRelease = parseFloat(brakeRange.value) ?? 0.0; syncTags(); saveSettings(); });
-    wmaxRange.addEventListener('input', () => { settings.wMax = parseFloat(wmaxRange.value) ?? 6.0; syncTags(); saveSettings(); });
-    wmaxPitchRange.addEventListener('input', () => { settings.wMaxPitch = parseFloat(wmaxPitchRange.value) ?? 8.5; syncTags(); saveSettings(); });
-    wmaxYawRange.addEventListener('input', () => { settings.wMaxYaw = parseFloat(wmaxYawRange.value) ?? 9.0; syncTags(); saveSettings(); });
-    wmaxRollRange.addEventListener('input', () => { settings.wMaxRoll = parseFloat(wmaxRollRange.value) ?? 6.0; syncTags(); saveSettings(); });
+    accelPitch.addEventListener('input', () => { settings.maxAccelPitch = parseFloat(accelPitch.value) || 400; syncTags(); saveSettings(); });
+    accelYaw.addEventListener('input', () => { settings.maxAccelYaw = parseFloat(accelYaw.value) || 400; syncTags(); saveSettings(); });
+    accelRoll.addEventListener('input', () => { settings.maxAccelRoll = parseFloat(accelRoll.value) || 400; syncTags(); saveSettings(); });
+    curveRange.addEventListener('input', () => { settings.inputPow = parseFloat(curveRange.value) || 1.0; syncTags(); saveSettings(); });
+    stickRangeSlider.addEventListener('input', () => { settings.stickRange = parseFloat(stickRangeSlider.value) || 1.0; syncTags(); saveSettings(); });
+    dampRange.addEventListener('input', () => { settings.damp = parseFloat(dampRange.value) || 2.96; syncTags(); saveSettings(); });
+    dampDARRange.addEventListener('input', () => { settings.dampDAR = parseFloat(dampDARRange.value) || 4.35; syncTags(); saveSettings(); });
+    brakeRange.addEventListener('input', () => { settings.brakeOnRelease = parseFloat(brakeRange.value) || 0.0; syncTags(); saveSettings(); });
+    wmaxRange.addEventListener('input', () => { settings.wMax = parseFloat(wmaxRange.value) || 6.0; syncTags(); saveSettings(); });
+    wmaxPitchRange.addEventListener('input', () => { settings.wMaxPitch = parseFloat(wmaxPitchRange.value) || 8.5; syncTags(); saveSettings(); });
+    wmaxYawRange.addEventListener('input', () => { settings.wMaxYaw = parseFloat(wmaxYawRange.value) || 9.0; syncTags(); saveSettings(); });
+    wmaxRollRange.addEventListener('input', () => { settings.wMaxRoll = parseFloat(wmaxRollRange.value) || 6.0; syncTags(); saveSettings(); });
     
     // Gamepad deadzone slider
     if (gpDeadzone && gpDeadzoneTag) {
       gpDeadzone.addEventListener('input', () => {
-        const val = parseFloat(gpDeadzone.value) ?? 0.15;
+        const val = parseFloat(gpDeadzone.value) || 0.15;
         settings.gpDeadzone = val;
         gpDeadzoneTag.textContent = val.toFixed(2);
         saveSettings();
