@@ -33,6 +33,9 @@ const INPUT_HISTORY_SIZE = CONST.INPUT_HISTORY_SIZE;
 // Previous angular acceleration (for derivative term)
 let prevAlpha = new THREE.Vector3(0, 0, 0);
 
+// Last angular velocity for interpolation between frames
+let lastAngularVelocity = new THREE.Vector3(0, 0, 0);
+
 // Axis lock states
 let pitchLocked = false;
 let yawLocked = false;
@@ -210,6 +213,7 @@ export function resetPhysics() {
   w.set(0, 0, 0);
   inputHistory = { x: [], y: [] };
   prevAlpha.set(0, 0, 0);
+  lastAngularVelocity.set(0, 0, 0);
 }
 
 // ============================================================================
@@ -366,7 +370,7 @@ export function updatePhysics(dt, settings, chromeShown) {
   try {
     frameCounter++;
 
-    // Apply game speed multiplier to dt
+    // Apply game speed multiplier to dt - this slows down time
     const gameSpeed = Settings.getSetting('gameSpeed') || 1.0;
     const adjustedDt = dt * gameSpeed;
 
@@ -922,9 +926,9 @@ export function updatePhysics(dt, settings, chromeShown) {
   // else: All inputs released - no PD control, only damping will apply later
 
   // --- 6. Integrate angular velocity ---
-  w.x += ax * dt;
-  w.y += ay * dt;
-  w.z += az * dt;
+  w.x += ax * adjustedDt;
+  w.y += ay * adjustedDt;
+  w.z += az * adjustedDt;
 
   // Apply axis locks - set velocity to 0 for locked axes
   if (pitchLocked) w.x = 0;
@@ -939,7 +943,7 @@ export function updatePhysics(dt, settings, chromeShown) {
     // All inputs released - apply normal damping
     const baseDamp = isDARActive ? dampDAR : damp;
     const dampEff = (baseDamp || 0) + ((!isDARActive) ? (brakeOnRelease || 0) : 0);
-    const scale = Math.exp(-dampEff * dt);
+    const scale = Math.exp(-dampEff * adjustedDt);
     w.multiplyScalar(scale);
   }
   // DAR with active input: No damping - velocity is set directly for zero inertia
@@ -975,6 +979,9 @@ export function updatePhysics(dt, settings, chromeShown) {
       window.lastLoggedFinalW = {wx: w.x, wy: w.y};
     }
   }
+
+  // Store angular velocity for interpolation between frames
+  lastAngularVelocity.copy(w);
 
   // --- 9. Quaternion integration ---
   const wx = w.x, wy = w.y, wz = w.z, halfdt = 0.5 * adjustedDt;
@@ -1121,6 +1128,7 @@ export function cleanup() {
   // Reset all physics state
   w.set(0, 0, 0);
   prevAlpha.set(0, 0, 0);
+  lastAngularVelocity.set(0, 0, 0);
   pitchLocked = false;
   yawLocked = false;
   rollLocked = false;
