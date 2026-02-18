@@ -82,7 +82,6 @@ let _settings = {
   ringCameraSpeed: 0.1,
   inverseGravity: false,
   inputAssist: false,
-  autoSteer: false,
 
   // Game Speed
   gameSpeed: 1.0 // 0.05 = 5%, 1.0 = 100%, 1.5 = 150%
@@ -196,7 +195,7 @@ export function validateSetting(key, value) {
   // Boolean settings validation
   const booleanSettings = [
     'showArrow', 'showCircle', 'minimalUi', 'isDarkMode', 'airRollIsToggle',
-    'gpEnabled', 'gameSoundsEnabled', 'gameMusicEnabled', 'dualStickMode', 'inverseGravity', 'inputAssist', 'autoSteer'
+    'gpEnabled', 'gameSoundsEnabled', 'gameMusicEnabled', 'dualStickMode', 'inverseGravity', 'inputAssist'
   ];
 
   if (booleanSettings.includes(key)) {

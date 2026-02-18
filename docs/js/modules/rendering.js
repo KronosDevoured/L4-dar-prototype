@@ -12,18 +12,7 @@
 
 import * as THREE from 'three';
 import * as Car from './car.js';
-
-// Auto steer angle (cached during input assist indicator calculation)
-let autoSteerAngle = null;
-let autoSteerValid = false;
-
-/**
- * Get the cached auto steer angle and validity
- * @returns {object} { angle: radians, valid: boolean }
- */
-export function getAutoSteerAngle() {
-  return { angle: autoSteerAngle, valid: autoSteerValid };
-}
+import * as RingMode from './ringMode.js';
 
 // HUD canvas context
 let hud, hctx;
@@ -330,16 +319,7 @@ export function drawRingModeHUD(state) {
 
       // Draw peripheral mode indicator if enabled (always show when peripheral mode on)
       if (state.inputAssist && Car.car) {
-        // Imagine a plank attached to the nose that can pivot on a plane perpendicular to forward
-        // The plank points toward the target - we show which direction it's pointing
-        
-        // Calculate square center: top of ring on the GRID (Z=0)
-        const ringRadius = targetRing.size / 2;
-        const squareCenter = new THREE.Vector3(
-          targetRing.mesh.position.x,
-          targetRing.mesh.position.y + ringRadius,
-          0  // Always on grid plane (where landing indicator is), not flying ring's Z
-        );
+        // Phase-based input assist: helps user approach, enter, and stabilize at rings
         
         const carPos3D = Car.car.position;
         const epsilon = 1e-6;
@@ -353,110 +333,120 @@ export function drawRingModeHUD(state) {
         
         const carRight = new THREE.Vector3().crossVectors(carForward, carUp);
         
-        // Direction from car to target
-        const toTarget = new THREE.Vector3(
-          squareCenter.x - carPos3D.x,
-          squareCenter.y - carPos3D.y,
-          squareCenter.z - carPos3D.z
-        );
+        // Get current velocity and position from Ring Mode
+        const ringVel = RingMode.getRingModeVelocity();
+        const velocityMagnitude = ringVel.length();
         
-        const distance = toTarget.length();
-        if (distance < epsilon) {
-          return; // Skip if too close
-        }
-        toTarget.divideScalar(distance);
+        // Determine assist target based on ring state
+        let assistTarget = null;
+        let assistPhase = "none";
         
-        // Project target onto plane perpendicular to nose (the plane the plank pivots on)
-        const forwardComponent = toTarget.dot(carForward);
-        const plankDirection = toTarget.clone().sub(carForward.clone().multiplyScalar(forwardComponent));
-        
-        const plankLength = plankDirection.length();
-        if (plankLength < epsilon) {
-          return; // Target is directly along nose axis
-        }
-        plankDirection.normalize();
-        
-        // Measure where the plank points in that plane using car's up/right as axes
-        // This is from the driver's perspective inside the car
-        const upComponent = plankDirection.dot(carUp);
-        const rightComponent = plankDirection.dot(carRight);
-        
-        // Calculate plank angle: 0° = pointing where driver sees "up", 90° = pointing where driver sees "right"
-        let stickAngle = Math.atan2(rightComponent, -upComponent);
-        
-        // When target is behind nose, add 180° to correct the inverted perpendicular
-        if (forwardComponent < 0) {
-          stickAngle += Math.PI;
-        }
-        
-        // Calculate where car's forward ray intersects the square plane for opacity
-        const squareNormal = new THREE.Vector3(0, 1, 0); // Plane normal points up
-        const squareHalfWidth = 100; // 200 units wide (left-right)
-        const squareHalfHeight = 200; // 400 units tall (forward-back)
-        
-        let indicatorAlpha = 1.0;
-        const denominator = carForward.dot(squareNormal);
-        
-        if (Math.abs(denominator) > epsilon) {
-          const t = (squareCenter.y - carPos3D.y) / denominator;
+        if (targetRing) {
+          // Ring exists - calculate distance and determine phase
+          const ringRadius = targetRing.size / 2;
+          const ringCenter = new THREE.Vector3(
+            targetRing.mesh.position.x,
+            targetRing.mesh.position.y + ringRadius,
+            0
+          );
           
-          // Only check intersection if ray points toward plane (t > 0)
-          if (t > 0) {
-            const intersection = new THREE.Vector3(
-              carPos3D.x + t * carForward.x,
-              carPos3D.y + t * carForward.y,
-              carPos3D.z + t * carForward.z
-            );
+          const toRing = ringCenter.clone().sub(carPos3D);
+          const distanceToRing = toRing.length();
+          
+          // Thresholds for phase transitions
+          const APPROACH_DISTANCE = 200;  // When to switch from approaching to entering
+          const STABILIZE_DISTANCE = 80;  // When to consider "in ring"
+          const STABILIZE_VELOCITY = 50;  // Velocity threshold for stabilized state
+          
+          if (distanceToRing > APPROACH_DISTANCE) {
+            // APPROACHING: Point nose at ring
+            assistPhase = "approaching";
+            assistTarget = ringCenter.clone();
+          } else if (distanceToRing < STABILIZE_DISTANCE && velocityMagnitude < STABILIZE_VELOCITY) {
+            // STABILIZED: Point nose up to maintain position
+            assistPhase = "stabilized";
+            // Target: car position + world up direction
+            assistTarget = carPos3D.clone().add(new THREE.Vector3(0, 1, 0));
+          } else if (distanceToRing < APPROACH_DISTANCE && velocityMagnitude > STABILIZE_VELOCITY) {
+            // ENTERING: Point nose opposite to velocity to cancel momentum
+            assistPhase = "entering";
+            // Create target that's opposite to velocity direction
+            const antiVelocity = new THREE.Vector3(-ringVel.x, -ringVel.y, 0);
+            if (antiVelocity.length() > epsilon) {
+              antiVelocity.normalize();
+              // Target is far in the anti-velocity direction
+              assistTarget = carPos3D.clone().add(antiVelocity.multiplyScalar(1000));
+            } else {
+              // Fallback to ring if no velocity
+              assistTarget = ringCenter.clone();
+            }
+          } else {
+            // TRANSITION states: approach or stabilize
+            assistPhase = "approaching";
+            assistTarget = ringCenter.clone();
+          }
+        } else {
+          // NO RING: Point nose up
+          assistPhase = "despawned";
+          assistTarget = carPos3D.clone().add(new THREE.Vector3(0, 1, 0));
+        }
+        
+        // Draw indicator if assistTarget is valid
+        if (assistTarget) {
+          const toTarget = assistTarget.clone().sub(carPos3D);
+          const distance = toTarget.length();
+          if (distance >= epsilon) {
+            toTarget.divideScalar(distance);
             
-            // Check if intersection is within square bounds
-            const localX = intersection.x - squareCenter.x;
-            const localZ = intersection.z - squareCenter.z;
+            // Project target onto plane perpendicular to nose (the plane the plank pivots on)
+            const forwardComponent = toTarget.dot(carForward);
+            const plankDirection = toTarget.clone().sub(carForward.clone().multiplyScalar(forwardComponent));
             
-            if (Math.abs(localX) <= squareHalfWidth && Math.abs(localZ) <= squareHalfHeight) {
-              // Inside square - calculate distance from center LEFT-RIGHT ONLY
-              const distFromCenterX = Math.abs(localX);
-              const maxDistX = squareHalfWidth; // 100 units to edge
+            const plankLength = plankDirection.length();
+            if (plankLength >= epsilon) {
+              plankDirection.normalize();
+        
+              // Measure where the plank points in that plane using car's up/right as axes
+              // This is from the driver's perspective inside the car
+              const upComponent = plankDirection.dot(carUp);
+              const rightComponent = plankDirection.dot(carRight);
               
-              // Stepped opacity based on 1/3 zones (left-right only)
-              if (distFromCenterX < maxDistX / 3) {
-                // Inner 1/3 zone (0-33.33 units from center along X)
-                indicatorAlpha = 0.0;
-              } else if (distFromCenterX < 2 * maxDistX / 3) {
-                // Middle 1/3 zone (33.33-66.67 units from center along X)
-                indicatorAlpha = 0.33;
-              } else {
-                // Outer 1/3 zone (66.67-100 units from center along X)
-                indicatorAlpha = 0.66;
+              // Calculate plank angle: 0° = pointing where driver sees "up", 90° = pointing where driver sees "right"
+              let stickAngle = Math.atan2(rightComponent, -upComponent);
+              
+              // When target is behind nose, add 180° to correct the inverted perpendicular
+              if (forwardComponent < 0) {
+                stickAngle += Math.PI;
               }
+              
+              // Indicator opacity: full opacity in all assist phases
+              // The green dot position itself shows the direction clearly
+              let indicatorAlpha = 1.0;
+              
+              // Convert to screen space for compass display
+              // Rotate by -90° so that 0° (push up) appears at top of compass
+              const screenAngle = stickAngle - Math.PI / 2;
+              
+              // Draw indicator marker on compass circle
+              const indicatorX = compassCenterX + Math.cos(screenAngle) * compassRadius;
+              const indicatorY = compassCenterY + Math.sin(screenAngle) * compassRadius;
+              
+              ctx.save();
+              ctx.translate(indicatorX, indicatorY);
+              
+              // Draw small filled circle as indicator with alpha based on alignment
+              ctx.fillStyle = `rgba(0, 255, 0, ${indicatorAlpha})`; // Green with variable opacity
+              ctx.strokeStyle = `rgba(255, 255, 255, ${indicatorAlpha})`;
+              ctx.lineWidth = 2;
+              ctx.beginPath();
+              ctx.arc(0, 0, 8, 0, Math.PI * 2); // 8px radius circle
+              ctx.fill();
+              ctx.stroke();
+              
+              ctx.restore();
             }
           }
         }
-        
-        // Cache the auto steer angle for use by input system
-        autoSteerAngle = stickAngle;
-        autoSteerValid = true;
-        
-        // Convert to screen space for compass display
-        // Rotate by -90° so that 0° (push up) appears at top of compass
-        const screenAngle = stickAngle - Math.PI / 2;
-        
-        // Draw indicator marker on compass circle
-        const indicatorX = compassCenterX + Math.cos(screenAngle) * compassRadius;
-        const indicatorY = compassCenterY + Math.sin(screenAngle) * compassRadius;
-        
-        ctx.save();
-        ctx.translate(indicatorX, indicatorY);
-        
-        // Draw small filled circle as indicator with alpha based on alignment
-        ctx.fillStyle = `rgba(0, 255, 0, ${indicatorAlpha})`; // Green with variable opacity
-        ctx.strokeStyle = `rgba(255, 255, 255, ${indicatorAlpha})`;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(0, 0, 8, 0, Math.PI * 2); // 8px radius circle
-        ctx.fill();
-        ctx.stroke();
-        
-        ctx.restore();
       }
 
       // Calculate arrow position (will be used for dashed line start point)

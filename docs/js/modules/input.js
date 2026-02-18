@@ -261,12 +261,7 @@ let airRollBeforeRightStick = 0; // Store air roll state before right stick take
 let toggleDARActive = false;
 let toggleDARPressTime = 0; // Track when button was pressed to prevent immediate release
 
-// Auto steer state tracking
-let autoSteerActive = false; // Whether auto steer should currently control the stick
-let lastRingId = null; // Track which ring we're steering toward (to detect changes)
 let playerProvidedInputThisFrame = false; // Track if player gave input during this frame
-let autoSteerStartTime = 0; // Timestamp when auto steer started for this ring
-const AUTO_STEER_DURATION_MS = 200; // Auto steer only active for 200ms after ring spawn
 
 /* ===========================
  * CALLBACK REFERENCES
@@ -544,11 +539,7 @@ export function cleanupInput() {
   KeyboardInput.cleanupKeyboard();
   GamepadInput.cleanupGamepad();
   
-  // Reset auto steer state
-  autoSteerActive = false;
-  lastRingId = null;
   playerProvidedInputThisFrame = false;
-  autoSteerStartTime = 0;
 }
 
 /**
@@ -642,74 +633,6 @@ export function updateInput(dt) {
     });
   }
 
-  // Apply auto steer if enabled and Ring Mode is active
-  if (getSetting('autoSteer') && RingMode.getRingModeActive() && !RingMode.getRingModePaused()) {
-    // Get current target ring to detect ring changes/despawns
-    const rings = RingMode.getRings();
-    const targetRing = rings.find(r => !r.passed && !r.missed);
-    const currentRingId = targetRing ? targetRing.spawnIndex : null;
-    
-    // Detect ring change or despawn
-    if (lastRingId !== currentRingId) {
-      lastRingId = currentRingId;
-      if (currentRingId !== null) {
-        // New ring spawned - start auto steer timer
-        autoSteerActive = true;
-        autoSteerStartTime = performance.now();
-      } else {
-        // Ring despawned - disable auto steer
-        autoSteerActive = false;
-      }
-    }
-    
-    // Check if auto steer duration has expired (200ms after ring spawn)
-    if (autoSteerActive && performance.now() - autoSteerStartTime > AUTO_STEER_DURATION_MS) {
-      autoSteerActive = false;
-    }
-    
-    // Check if car is inside the target ring (disable auto steer)
-    if (autoSteerActive && targetRing) {
-      const carPos = Car.car.position;
-      const ringPos = targetRing.mesh.position;
-      const ringRadius = targetRing.size / 2;
-      
-      // Car is at origin (0,0,0), ring moves through space
-      // Check if car is within ring's cylinder (2D distance from ring center in XY plane)
-      const dx = carPos.x - ringPos.x;
-      const dy = carPos.y - ringPos.y;
-      const distFromCenter = Math.sqrt(dx * dx + dy * dy);
-      
-      if (distFromCenter < ringRadius) {
-        // Car is inside the ring - disable auto steer
-        autoSteerActive = false;
-      }
-    }
-    
-    // Check if player is providing input (disable auto steer immediately)
-    const hasManualInput = playerProvidedInputThisFrame || TouchInput.getJoyActive();
-    if (hasManualInput) {
-      autoSteerActive = false;
-    }
-    
-    // Apply auto steer only if still enabled and valid
-    if (autoSteerActive) {
-      const autoSteer = Rendering.getAutoSteerAngle();
-      if (autoSteer.valid && autoSteer.angle !== null) {
-        // Convert stick angle to vector
-        const magnitude = TouchInput.getJoyBaseR(); // Use current joy radius
-        const steerX = Math.sin(autoSteer.angle) * magnitude;
-        const steerY = -Math.cos(autoSteer.angle) * magnitude; // Negate Y because screen Y is inverted
-        
-        // Apply auto steer to joystick
-        TouchInput.setJoyVec(steerX, steerY);
-      }
-    }
-  } else {
-    // Auto steer not enabled or Ring Mode inactive - reset state
-    autoSteerActive = false;
-    lastRingId = null;
-  }
-
   // Update touch input (handles hold timers, etc.)
   TouchInput.updateTouch(dt);
 }
@@ -774,13 +697,6 @@ export function setRingModeActive(active) {
   // This function only handles input-related side effects
   ringModeActiveState = active; // Track state for boost button relocation logic
   TouchInput.setShowBoostButton(active); // Show boost button on all devices when ring mode is active
-  
-  // Reset auto steer state when Ring Mode ends
-  if (!active) {
-    autoSteerActive = false;
-    lastRingId = null;
-    autoSteerStartTime = 0;
-  }
 }
 
 export function setRingModePaused(paused) {
