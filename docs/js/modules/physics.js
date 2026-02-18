@@ -33,9 +33,6 @@ const INPUT_HISTORY_SIZE = CONST.INPUT_HISTORY_SIZE;
 // Previous angular acceleration (for derivative term)
 let prevAlpha = new THREE.Vector3(0, 0, 0);
 
-// Last angular velocity for interpolation between frames
-let lastAngularVelocity = new THREE.Vector3(0, 0, 0);
-
 // Axis lock states
 let pitchLocked = false;
 let yawLocked = false;
@@ -213,7 +210,6 @@ export function resetPhysics() {
   w.set(0, 0, 0);
   inputHistory = { x: [], y: [] };
   prevAlpha.set(0, 0, 0);
-  lastAngularVelocity.set(0, 0, 0);
 }
 
 // ============================================================================
@@ -980,9 +976,6 @@ export function updatePhysics(dt, settings, chromeShown) {
     }
   }
 
-  // Store angular velocity for interpolation between frames
-  lastAngularVelocity.copy(w);
-
   // --- 9. Quaternion integration ---
   const wx = w.x, wy = w.y, wz = w.z, halfdt = 0.5 * adjustedDt;
 
@@ -1128,7 +1121,6 @@ export function cleanup() {
   // Reset all physics state
   w.set(0, 0, 0);
   prevAlpha.set(0, 0, 0);
-  lastAngularVelocity.set(0, 0, 0);
   pitchLocked = false;
   yawLocked = false;
   rollLocked = false;

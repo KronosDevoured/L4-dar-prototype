@@ -330,19 +330,8 @@ export function drawRingModeHUD(state) {
 
       // Draw peripheral mode indicator if enabled (always show when peripheral mode on)
       if (state.inputAssist && Car.car) {
-        // Calculate analog stick input needed to point car's nose toward closest point on target sphere
-        // Show which direction to push the stick (as a compass position)
-        
-        // Get car's forward direction (nose direction) in world space
-        const carForward = new THREE.Vector3(0, 0, 1);
-        carForward.applyQuaternion(Car.car.quaternion);
-        
-        // Get car's up direction (roof direction) in world space
-        const carUp = new THREE.Vector3(0, 1, 0);
-        carUp.applyQuaternion(Car.car.quaternion);
-        
-        // Get car's right direction in world space
-        const carRight = new THREE.Vector3().crossVectors(carForward, carUp);
+        // Imagine a plank attached to the nose that can pivot on a plane perpendicular to forward
+        // The plank points toward the target - we show which direction it's pointing
         
         // Calculate square center: top of ring on the GRID (Z=0)
         const ringRadius = targetRing.size / 2;
@@ -352,82 +341,61 @@ export function drawRingModeHUD(state) {
           0  // Always on grid plane (where landing indicator is), not flying ring's Z
         );
         
-        // Use square center directly as target point
         const carPos3D = Car.car.position;
-        const targetPoint = squareCenter.clone();
         const epsilon = 1e-6;
         
-        // Calculate 3D vector from car to target point for cone check
-        const toTargetWorld3D = new THREE.Vector3(
-          targetPoint.x - carPos3D.x,
-          targetPoint.y - carPos3D.y,
-          targetPoint.z - carPos3D.z
-        );
+        // Get car's basis vectors
+        const carForward = new THREE.Vector3(0, 0, 1);
+        carForward.applyQuaternion(Car.car.quaternion);
         
-        // Normalize with epsilon check to avoid NaN
-        const len3D = toTargetWorld3D.length();
-        if (len3D < epsilon) {
-          ctx.restore();
-          return; // Skip indicator if target is too close to car
-        }
-        toTargetWorld3D.divideScalar(len3D);
+        const carUp = new THREE.Vector3(0, 1, 0);
+        carUp.applyQuaternion(Car.car.quaternion);
         
-        // Calculate world-space vector from car to target point (2D for stick input)
-        // If target is below car, only show left/right (zero out Y component)
-        const targetIsBelowCar = targetPoint.y < carPos3D.y;
-        const toTargetWorld = new THREE.Vector3(
-          targetPoint.x - ringModePosition.x,
-          targetIsBelowCar ? 0 : (targetPoint.y - ringModePosition.y),
-          0
-        );
+        const carRight = new THREE.Vector3().crossVectors(carForward, carUp);
         
-        // Normalize with epsilon check to avoid NaN
-        const len2D = toTargetWorld.length();
-        if (len2D < epsilon) {
-          ctx.restore();
-          return; // Skip indicator if target is at same 2D position as car
-        }
-        toTargetWorld.divideScalar(len2D);
-        
-        // Project target direction onto the plane perpendicular to car's forward vector
-        // This gives us the component that's "around" the nose
-        const forwardComponent = toTargetWorld.dot(carForward);
-        const perpendicular = toTargetWorld.clone().sub(carForward.clone().multiplyScalar(forwardComponent));
-        
-        // Normalize with epsilon check to avoid NaN
-        const lenPerp = perpendicular.length();
-        if (lenPerp < epsilon) {
-          ctx.restore();
-          return; // Skip indicator if perpendicular is too small
-        }
-        perpendicular.divideScalar(lenPerp);
-        
-        // Measure the angle in the perpendicular plane using up and right vectors
-        const upComponent = perpendicular.dot(carUp);
-        const rightComponent = perpendicular.dot(carRight);
-        
-        // Calculate direction from car to square center
-        const carToSquareCenter = new THREE.Vector3(
+        // Direction from car to target
+        const toTarget = new THREE.Vector3(
           squareCenter.x - carPos3D.x,
           squareCenter.y - carPos3D.y,
           squareCenter.z - carPos3D.z
         );
-        const distToSquareCenter = carToSquareCenter.length();
-        if (distToSquareCenter < epsilon) {
-          ctx.restore();
-          return; // Skip if car is at square center
-        }
-        carToSquareCenter.normalize();
         
-        // Calculate where car's forward ray intersects the square plane
-        // Square plane is horizontal (facing up/down) at squareCenter.y after rotation.x = PI/2
+        const distance = toTarget.length();
+        if (distance < epsilon) {
+          return; // Skip if too close
+        }
+        toTarget.divideScalar(distance);
+        
+        // Project target onto plane perpendicular to nose (the plane the plank pivots on)
+        const forwardComponent = toTarget.dot(carForward);
+        const plankDirection = toTarget.clone().sub(carForward.clone().multiplyScalar(forwardComponent));
+        
+        const plankLength = plankDirection.length();
+        if (plankLength < epsilon) {
+          return; // Target is directly along nose axis
+        }
+        plankDirection.normalize();
+        
+        // Measure where the plank points in that plane using car's up/right as axes
+        // This is from the driver's perspective inside the car
+        const upComponent = plankDirection.dot(carUp);
+        const rightComponent = plankDirection.dot(carRight);
+        
+        // Calculate plank angle: 0° = pointing where driver sees "up", 90° = pointing where driver sees "right"
+        let stickAngle = Math.atan2(rightComponent, -upComponent);
+        
+        // When target is behind nose, add 180° to correct the inverted perpendicular
+        if (forwardComponent < 0) {
+          stickAngle += Math.PI;
+        }
+        
+        // Calculate where car's forward ray intersects the square plane for opacity
         const squareNormal = new THREE.Vector3(0, 1, 0); // Plane normal points up
         const squareHalfWidth = 100; // 200 units wide (left-right)
         const squareHalfHeight = 200; // 400 units tall (forward-back)
         
-        // Ray-plane intersection: t = (planeY - rayOriginY) / rayDirectionY
-        const denominator = carForward.dot(squareNormal);
         let indicatorAlpha = 1.0;
+        const denominator = carForward.dot(squareNormal);
         
         if (Math.abs(denominator) > epsilon) {
           const t = (squareCenter.y - carPos3D.y) / denominator;
@@ -463,14 +431,6 @@ export function drawRingModeHUD(state) {
             }
           }
         }
-        
-        // Calculate the angle for stick input needed to point nose at target
-        // atan2(right, -up) gives correct directions:
-        //   0° = push stick up (pitch forward)
-        //   90° = push stick right (yaw right)
-        //   180° = push stick down (pitch backward)
-        //   -90° = push stick left (yaw left)
-        const stickAngle = Math.atan2(rightComponent, -upComponent);
         
         // Cache the auto steer angle for use by input system
         autoSteerAngle = stickAngle;
